@@ -2,13 +2,13 @@
   "99bef8b1-d281-45a8-8ca9-0c24b8d3251c": {
     "name": "周一",
     "players": [
+      "123",
+      "Storm",
+      "Tianye",
       "Bojun",
-      "Joker",
       "Zhifu",
       "Yes",
-      "Tianye",
-      "123",
-      "Storm"
+      "Joker"
     ],
     "viewers": [],
     "scores": {
@@ -20,7 +20,7 @@
       "Tianye": 0,
       "Bojun": 3
     },
-    "active": true,
+    "active": false,
     "timestamp": "2025-06-22 21:27:12",
     "current_round": 2,
     "records": [
@@ -58,7 +58,8 @@
         "score": 1,
         "timestamp": "2025-06-22 21:53:09"
       }
-    ]
+    ],
+    "end_time": "2025-06-22 22:30:47"
   },
   "f868ff1e-e83c-432e-b22d-13371a9067b4": {
     "name": "周一",
@@ -76,5 +77,18 @@
     "current_round": 1,
     "records": [],
     "end_time": "2025-06-22 22:18:02"
+  },
+  "698cb383-4404-40b0-8adf-100d867bacff": {
+    "name": "Test",
+    "players": [
+      "Storm"
+    ],
+    "viewers": [],
+    "records": [],
+    "scores": {
+      "Storm": 0
+    },
+    "active": true,
+    "timestamp": "2025-06-22 22:35:23"
   }
 }

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>台球计分 - 历史记录</title>
+    <title>EMS Pool Gamble - 历史记录</title>
     <style>
         body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
         .card { background: #ffffff; border-radius: 10px; padding: 1.2em; margin-top: 1.5em; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -15,6 +15,8 @@
         .links { margin-top: 1em; text-align: center; }
         .links a { color: #1890ff; text-decoration: none; margin: 0 0.5em; }
         .links a:hover { text-decoration: underline; }
+        .detail-btn { display: block; padding: 8px 16px; background: #1890ff; color: white; border-radius: 5px; text-decoration: none; margin-top: 1em; text-align: center; width: 100%; box-sizing: border-box; }
+        .detail-btn:hover { background: #40a9ff; color: white; text-decoration: none; }
         .footer { margin-top: 2em; text-align: center; font-size: 0.8em; color: #888; }
         .session-header { display: flex; justify-content: space-between; align-items: center; }
         .status-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.8em; }
@@ -28,14 +30,12 @@
         .total-score-table { width: 100%; margin-top: 15px; }
         .total-score-table th { text-align: left; }
         .total-score-table td { text-align: right; }
-        .button { display: inline-block; padding: 8px 16px; background: #1890ff; color: white; border-radius: 5px; text-decoration: none; margin-top: 1em; }
-        .button:hover { background: #40a9ff; }
         .timestamp { font-size: 0.8em; color: #999; margin-top: 5px; }
     </style>
 </head>
 <body>
     <div class="header">
-        <h2>台球计分 - 历史记录</h2>
+        <h2>EMS Pool Gamble - 历史记录</h2>
     </div>
 
     <!-- 显示消息通知 -->
@@ -91,23 +91,7 @@
             {% endfor %}
         </div>
 
-        <h5>计分详情</h5>
-        <table>
-            <tr>
-                <th>胜者</th>
-                <th>败者</th>
-                <th>分数</th>
-                <th>时间</th>
-            </tr>
-            {% for r in s.get('records', s.get('rounds', [])) %}
-            <tr>
-                <td>{{ r.winner }}</td>
-                <td>{{ r.loser }}</td>
-                <td class="{% if r.score > 0 %}positive{% elif r.score < 0 %}negative{% else %}neutral{% endif %}">{{ r.score }}</td>
-                <td class="timestamp">{{ r.timestamp if r.timestamp else '' }}</td>
-            </tr>
-            {% endfor %}
-        </table>
+        <a href="/session_detail/{{ sid }}" class="detail-btn">查看详情</a>
     </div>
     {% else %}
     <div class="card">
@@ -116,11 +100,11 @@
     {% endfor %}
 
     <div class="links">
-        <a href="/" class="button">返回首页</a>
+        <a href="/">返回首页</a>
     </div>
 
     <div class="footer">
-        <p>© 2025 台球计分工具 | <a href="https://github.com/yourusername/EMSPoolGamble" target="_blank" rel="noopener">GitHub</a></p>
+        <p>© 2025 EMS Pool Gamble | <a href="https://github.com/xiaoyuin/EMSPoolGamble" target="_blank" rel="noopener">GitHub</a></p>
     </div>
 </body>
 </html>

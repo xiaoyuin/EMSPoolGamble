@@ -357,12 +357,12 @@ def delete_session(session_id):
 
     if session_id not in sessions:
         flash('场次不存在', 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('history'))
 
     # 验证权限：只有玩家才能删除场次
     if role != 'player' or username not in sessions[session_id]['players']:
         flash('只有该场次的玩家才能删除场次', 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('session_detail', session_id=session_id))
 
     session_name = sessions[session_id]['name']
     del sessions[session_id]
@@ -375,7 +375,28 @@ def delete_session(session_id):
     save_data()
 
     flash(f'场次 "{session_name}" 已删除', 'success')
-    return redirect(url_for('index'))
+    return redirect(url_for('history'))
+
+@app.route('/session_detail/<session_id>')
+def session_detail(session_id):
+    # 显示场次详情页
+    if session_id not in sessions:
+        flash('场次不存在', 'error')
+        return redirect(url_for('index'))
+
+    session_data = sessions[session_id]
+
+    # 按分数排序玩家
+    sorted_players = sorted(
+        [(p, session_data['scores'][p]) for p in session_data['players']],
+        key=lambda x: x[1],
+        reverse=True
+    )
+
+    return render_template('session_detail.html',
+                         session_id=session_id,
+                         session_data=session_data,
+                         sorted_players=sorted_players)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
