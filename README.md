@@ -121,6 +121,13 @@ az webapp config appsettings set --resource-group myResourceGroup --name myWebAp
 
 ## 许可证
 
-MIT
+MIT License - 详见 [LICENSE](LICENSE) 文件
 
-如需进一步开发或部署指导，请告知！
+## 贡献
+
+欢迎提交 Issues 和 Pull Requests 来改进这个项目！
+
+## 联系方式
+
+- GitHub: [xiaoyuin/EMSPoolGamble](https://github.com/xiaoyuin/EMSPoolGamble)
+- 如需进一步开发或部署指导，请告知！
