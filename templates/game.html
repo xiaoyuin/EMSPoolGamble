@@ -55,6 +55,13 @@
         .recent-players-title { font-size: 0.9em; color: #666; margin-bottom: 0.5em; }
         .recent-player-btn { display: inline-block; background: #f0f0f0; color: #666; border: 1px solid #d9d9d9; border-radius: 3px; padding: 0.3em 0.6em; margin: 0.2em; font-size: 0.8em; cursor: pointer; transition: all 0.2s; }
         .recent-player-btn:hover { background: #e6f7ff; border-color: #1890ff; color: #1890ff; }
+        .record-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #f0f0f0; }
+        .record-item:last-child { border-bottom: none; }
+        .record-content { flex: 1; }
+        .delete-record-btn { background: #ff4d4f; color: white; border: none; padding: 4px 8px; border-radius: 3px; font-size: 0.8em; cursor: pointer; }
+        .delete-record-btn:hover { background: #ff7875; }
+        .delete-form { display: inline; }
+        .timestamp { font-size: 0.8em; color: #999; }
     </style>    <script>
         function selectScore(score) {
             // 移除所有按钮的选中状态
@@ -184,11 +191,18 @@
         <div class="rounds-list">
             {% if session.get('records', session.get('rounds', [])) %}
                 {% for r in session.get('records', session.get('rounds', [])) %}
-                <div class="round-item">
-                    <div>胜者: <b>{{ r.winner }}</b>，败者: <b>{{ r.loser }}</b>，分数:
-                        <span class="{% if r.score > 0 %}positive{% elif r.score < 0 %}negative{% else %}neutral{% endif %}">{{ r.score }}</span>
+                <div class="record-item">
+                    <div class="record-content">
+                        <div>胜者: <b>{{ r.winner }}</b>，败者: <b>{{ r.loser }}</b>，分数:
+                            <span class="{% if r.score > 0 %}positive{% elif r.score < 0 %}negative{% else %}neutral{% endif %}">{{ r.score }}</span>
+                        </div>
+                        <div class="timestamp">{{ r.timestamp }}</div>
                     </div>
-                    <div style="font-size: 0.8em; color: #999;">{{ r.timestamp }}</div>
+                    {% if role == 'player' %}
+                    <form action="/delete_record/{{ loop.index0 }}" method="post" class="delete-form">
+                        <button type="submit" class="delete-record-btn" onclick="return confirm('确定要删除这条记录吗？这会恢复相应的分数变化。')">删除</button>
+                    </form>
+                    {% endif %}
                 </div>
                 {% endfor %}
             {% else %}
@@ -203,7 +217,10 @@
     </div>
 
     <div class="footer">
-        <p>© 2025 EMS Pool Gamble | <a href="https://github.com/xiaoyuin/EMSPoolGamble" target="_blank" rel="noopener">GitHub</a></p>
+        <p>© 2025 EMS Pool Gamble {{ app_version }} |
+           <a href="https://github.com/xiaoyuin/EMSPoolGamble" target="_blank" rel="noopener">GitHub</a> |
+           <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a>
+        </p>
     </div>
 </body>
 </html>

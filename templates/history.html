@@ -70,7 +70,7 @@
         <div class="session-header">
             <h4>{{ s.get('name', '未命名场次') }}</h4>
             <span class="status-badge {% if s.active %}status-active{% else %}status-ended{% endif %}">
-                {{ '活跃' if s.active else '已结束' }}
+                {{ '进行中' if s.active else '已结束' }}
             </span>
         </div>
         <div>开始时间: {{ s.timestamp }}</div>
@@ -104,7 +104,10 @@
     </div>
 
     <div class="footer">
-        <p>© 2025 EMS Pool Gamble | <a href="https://github.com/xiaoyuin/EMSPoolGamble" target="_blank" rel="noopener">GitHub</a></p>
+        <p>© 2025 EMS Pool Gamble {{ app_version }} |
+           <a href="https://github.com/xiaoyuin/EMSPoolGamble" target="_blank" rel="noopener">GitHub</a> |
+           <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a>
+        </p>
     </div>
 </body>
 </html>

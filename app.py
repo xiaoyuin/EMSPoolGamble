@@ -5,6 +5,11 @@ import datetime
 import json
 import os
 
+# 应用版本信息
+APP_VERSION = "v1.2.1"
+APP_NAME = "EMS Pool Gamble"
+VERSION_DATE = "2025-06-22"
+
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev_secret_key_for_testing')  # 用于会话管理
 
@@ -164,10 +169,25 @@ def index():
     # 获取上次登录的用户名
     last_username = session.get('last_username', '')
 
+    # 检查用户当前的session_id是否仍然有效（场次是否还在进行中）
+    current_session_id = session.get('session_id')
+    if current_session_id:
+        if current_session_id not in sessions or not sessions[current_session_id].get('active', True):
+            # 清除无效的session信息
+            session.pop('session_id', None)
+            if current_session_id not in sessions:
+                flash('您所在的场次已被删除', 'error')
+            else:
+                flash('您所在的场次已结束', 'error')
+
     return render_template('index.html',
                          active_sessions=sorted_active_sessions,
                          ended_sessions=sorted_ended_sessions,
-                         last_username=last_username)
+                         last_username=last_username,
+                         sessions=sessions,
+                         app_version=APP_VERSION,
+                         app_name=APP_NAME,
+                         version_date=VERSION_DATE)
 
 @app.route('/game', methods=['GET', 'POST'])
 def game():
@@ -180,6 +200,13 @@ def game():
         return redirect(url_for('index'))
 
     game_session = sessions[session_id]
+
+    # 检查场次是否已被结束
+    if not game_session.get('active', True):
+        # 清除用户的session信息
+        session.pop('session_id', None)
+        flash('该场次已经结束，您已被自动退出', 'error')
+        return redirect(url_for('index'))
 
     if request.method == 'POST' and role == 'player':
         winner = request.form['winner']
@@ -229,7 +256,8 @@ def game():
         score_options=DEFAULT_SCORE_OPTIONS,
         sorted_players=sorted_players,
         recent_players=recent_players,  # 传递最近玩家列表
-        default_loser=next((p for p in game_session['players'] if p != username), '')
+        default_loser=next((p for p in game_session['players'] if p != username), ''),
+        app_version=APP_VERSION
     )
 
 
@@ -258,7 +286,8 @@ def history():
 
     return render_template('history.html',
                           sessions=dict(sorted_sessions),
-                          total_scores=sorted_total_scores)
+                          total_scores=sorted_total_scores,
+                          app_version=APP_VERSION)
 
 @app.route('/logout')
 def logout():
@@ -313,6 +342,14 @@ def add_player():
     role = session.get('role')
 
     if not session_id or session_id not in sessions:
+        return redirect(url_for('index'))
+
+    game_session = sessions[session_id]
+
+    # 检查场次是否已被结束
+    if not game_session.get('active', True):
+        session.pop('session_id', None)
+        flash('该场次已经结束，您已被自动退出', 'error')
         return redirect(url_for('index'))
 
     # 验证权限
@@ -396,7 +433,59 @@ def session_detail(session_id):
     return render_template('session_detail.html',
                          session_id=session_id,
                          session_data=session_data,
-                         sorted_players=sorted_players)
+                         sorted_players=sorted_players,
+                         app_version=APP_VERSION)
+
+@app.route('/delete_record/<int:record_index>', methods=['POST'])
+def delete_record(record_index):
+    # 删除计分记录
+    session_id = session.get('session_id')
+    username = session.get('username')
+    role = session.get('role')
+
+    if not session_id or session_id not in sessions:
+        return redirect(url_for('index'))
+
+    game_session = sessions[session_id]
+
+    # 检查场次是否已被结束
+    if not game_session.get('active', True):
+        session.pop('session_id', None)
+        flash('该场次已经结束，无法删除记录', 'error')
+        return redirect(url_for('index'))
+
+    # 验证权限
+    if role != 'player':
+        flash('只有玩家可以删除计分记录', 'error')
+        return redirect(url_for('game'))
+
+    game_session = sessions[session_id]
+
+    # 验证记录索引
+    if record_index < 0 or record_index >= len(game_session['records']):
+        flash('无效的记录索引', 'error')
+        return redirect(url_for('game'))
+
+    # 获取要删除的记录
+    record_to_delete = game_session['records'][record_index]
+
+    # 恢复分数（撤销这条记录的分数变化）
+    winner = record_to_delete['winner']
+    loser = record_to_delete['loser']
+    score = record_to_delete['score']
+
+    # 撤销分数变化
+    game_session['scores'][winner] -= score
+    game_session['scores'][loser] += score
+
+    # 删除记录
+    del game_session['records'][record_index]
+
+    # 保存数据
+    save_data()
+
+    flash(f'已删除记录：{winner} 胜 {loser} ({score}分)', 'success')
+    return redirect(url_for('game'))
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
