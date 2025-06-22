@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台球计分 - 进入场次</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
+        .card { background: #ffffff; border-radius: 10px; padding: 1.2em; margin-top: 2em; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .session-card { background: #ffffff; border-radius: 10px; padding: 1em; margin-top: 1em; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid #1890ff; }
+        input, select, button { width: 100%; margin: 0.5em 0; padding: 0.7em; font-size: 1em; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
+        button { background: #1890ff; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #40a9ff; }
+        .btn-success { background: #52c41a; }
+        .btn-success:hover { background: #73d13d; }
+        .header { text-align: center; color: #333; margin-bottom: 1.5em; }
+        .flash-message { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .flash-success { background-color: #f6ffed; border: 1px solid #b7eb8f; color: #52c41a; }
+        .flash-error { background-color: #fff2f0; border: 1px solid #ffccc7; color: #ff4d4f; }
+        .footer { margin-top: 2em; text-align: center; font-size: 0.8em; color: #888; }
+        .links { margin-top: 1em; text-align: center; }
+        .links a { color: #1890ff; text-decoration: none; margin: 0 0.5em; }
+        .links a:hover { text-decoration: underline; }
+        .status-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.8em; }
+        .status-active { background: #e6f7ff; color: #1890ff; }
+        .status-ended { background: #f5f5f5; color: #666; }
+        .session-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5em; }
+        .session-name { font-weight: bold; color: #1890ff; font-size: 1.1em; }
+        .session-info { color: #666; font-size: 0.9em; margin-bottom: 0.5em; }
+        .create-session-section { border-top: 2px solid #f0f0f0; padding-top: 1em; margin-top: 1em; }
+        .join-form { margin-top: 0.5em; }
+        .section-title { font-size: 1.2em; font-weight: bold; color: #333; margin-bottom: 1em; }
+        .btn-danger { background: #ff4d4f; }
+        .btn-danger:hover { background: #ff7875; }
+        .session-actions { display: flex; gap: 0.5em; margin-top: 0.5em; }
+        .session-actions button { width: 100%; padding: 0.7em; font-size: 1em; }
+        .session-actions .join-form { flex: 1; }
+        .ended-session-card { background: #fafafa; border-left: 4px solid #d9d9d9; }
+        .ended-session-card .session-name { color: #666; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>台球计分工具</h2>
+    </div>
+
+    <!-- 显示消息通知 -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-message flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- 正在进行的场次列表 -->
+    {% if active_sessions %}
+    <div class="card">
+        <div class="section-title">正在进行的场次</div>
+        {% for session_id, session_data in active_sessions %}
+        <div class="session-card">
+            <div class="session-header">
+                <div class="session-name">{{ session_data.get('name', '未命名场次') }}</div>
+                <span class="status-badge status-active">进行中</span>
+            </div>
+            <div class="session-info">
+                <div>玩家：{{ session_data.players|join(', ') if session_data.players else '暂无玩家' }}</div>
+                <div>观战者：{{ session_data.viewers|join(', ') if session_data.viewers else '暂无观战者' }}</div>
+                <div>记录数：{{ session_data.get('records', session_data.get('rounds', []))|length }} | 开始时间：{{ session_data.timestamp }}</div>
+            </div>
+
+            <div class="session-actions">
+                <form method="post" class="join-form">
+                    <input type="hidden" name="action" value="join_session">
+                    <input type="hidden" name="session_id" value="{{ session_id }}">
+                    <input type="text" name="username" placeholder="请输入您的用户名" value="{{ last_username }}" required>
+                    <select name="role" title="选择身份">
+                        <option value="player">玩家</option>
+                        <option value="viewer">观战者</option>
+                    </select>
+                    <button type="submit">加入此场次</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- 创建新场次 -->
+    <div class="card">
+        <div class="create-session-section">
+            <div class="section-title">创建新场次</div>
+            <form method="post">
+                <input type="hidden" name="action" value="create_session">
+                <label>场次名称：</label>
+                <input type="text" name="session_name" required placeholder="请输入场次名称，例如：周末台球赛">
+                <button type="submit" class="btn-success">创建场次</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 最近结束的场次 -->
+    {% if ended_sessions %}
+    <div class="card">
+        <div class="section-title">最近结束的场次</div>
+        {% for session_id, session_data in ended_sessions %}
+        <div class="session-card ended-session-card">
+            <div class="session-header">
+                <div class="session-name">{{ session_data.get('name', '未命名场次') }}</div>
+                <span class="status-badge status-ended">已结束</span>
+            </div>
+            <div class="session-info">
+                <div>玩家：{{ session_data.players|join(', ') if session_data.players else '暂无玩家' }}</div>
+                <div>记录数：{{ session_data.get('records', session_data.get('rounds', []))|length }} | 结束时间：{{ session_data.get('end_time', '未知') }}</div>
+            </div>
+
+            <form action="/delete_session/{{ session_id }}" method="get">
+                <button type="submit" class="btn-danger" onclick="return confirm('确定要删除这个场次吗？')">删除</button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- 如果没有活跃场次的提示 -->
+    {% if not active_sessions %}
+    <div class="card">
+        <p style="text-align: center; color: #666;">当前没有进行中的场次，快来创建一个吧！</p>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <div class="links">
+            <a href="/history">查看历史记录</a>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>© 2025 台球计分工具 | <a href="https://github.com/yourusername/EMSPoolGamble" target="_blank">GitHub</a></p>
+    </div>
+</body>
+</html>

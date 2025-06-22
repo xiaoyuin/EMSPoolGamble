@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台球计分 - 游戏中</title>
+    <style>
+        body { font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
+        .card { background: #ffffff; border-radius: 10px; padding: 1.2em; margin-top: 1.5em; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .score { font-size: 1.2em; margin: 0.5em 0; }
+        .rounds { margin-top: 1em; }
+        button { margin: 0.3em; padding: 0.7em; font-size: 1em; border-radius: 5px; border: none; cursor: pointer; }
+        .btn-primary { background: #1890ff; color: white; }
+        .btn-primary:hover { background: #40a9ff; }
+        .btn-success { background: #52c41a; color: white; }
+        .btn-success:hover { background: #73d13d; }
+        .btn-danger { background: #ff4d4f; color: white; }
+        .btn-danger:hover { background: #ff7875; }
+        .btn-full { width: 100%; margin: 0.5em 0; }
+        select, input { width: 100%; margin: 0.5em 0; padding: 0.7em; font-size: 1em; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
+        .header { text-align: center; color: #333; margin-bottom: 1em; }
+        .flash-message { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .flash-success { background-color: #f6ffed; border: 1px solid #b7eb8f; color: #52c41a; }
+        .flash-error { background-color: #fff2f0; border: 1px solid #ffccc7; color: #ff4d4f; }
+        .footer { margin-top: 2em; text-align: center; font-size: 0.8em; color: #888; }
+        .links { margin-top: 1em; text-align: center; }
+        .links a { color: #1890ff; text-decoration: none; margin: 0 0.5em; }
+        .links a:hover { text-decoration: underline; }
+        .player-score { display: flex; justify-content: space-between; padding: 0.5em; border-bottom: 1px solid #f0f0f0; }
+        .player-score:last-child { border-bottom: none; }
+        .player-name { font-weight: bold; }
+        .player-total { font-weight: bold; }
+        .positive { color: #52c41a; }
+        .negative { color: #ff4d4f; }
+        .neutral { color: #666; }
+        .current-round { background: #f6ffed; padding: 5px; border-radius: 5px; display: inline-block; margin-bottom: 10px; }
+        .rounds-list { max-height: 300px; overflow-y: auto; }
+        .round-item { padding: 8px; border-bottom: 1px solid #f0f0f0; }
+        .round-item:last-child { border-bottom: none; }
+        .round-number { font-weight: bold; color: #1890ff; }
+        .score-buttons { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5em; margin: 1em 0; }
+        .score-btn { background: #f0f0f0; color: #333; border: 2px solid #d9d9d9; transition: all 0.2s; min-height: 40px; }
+        .score-btn:hover { background: #e6f7ff; border-color: #1890ff; }
+        .score-btn.selected { background: #1890ff; color: white; border-color: #1890ff; }
+        .session-name { font-weight: bold; color: #1890ff; margin-bottom: 0.5em; }
+        .add-player-section { border-top: 1px solid #f0f0f0; padding-top: 1em; margin-top: 1em; }
+        .add-player-form { display: flex; gap: 0.5em; align-items: end; }
+        .add-player-form input { flex: 1; margin: 0; }
+        .add-player-form button { width: auto; margin: 0; padding: 0.7em 1em; white-space: nowrap; }
+        .player-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5em; margin: 1em 0; }
+        .player-btn { background: #f0f0f0; color: #333; border: 2px solid #d9d9d9; transition: all 0.2s; min-height: 40px; }
+        .player-btn:hover { background: #e6f7ff; border-color: #1890ff; }
+        .player-btn.selected { background: #1890ff; color: white; border-color: #1890ff; }
+        .recent-players { margin-top: 0.5em; }
+        .recent-players-title { font-size: 0.9em; color: #666; margin-bottom: 0.5em; }
+        .recent-player-btn { display: inline-block; background: #f0f0f0; color: #666; border: 1px solid #d9d9d9; border-radius: 3px; padding: 0.3em 0.6em; margin: 0.2em; font-size: 0.8em; cursor: pointer; transition: all 0.2s; }
+        .recent-player-btn:hover { background: #e6f7ff; border-color: #1890ff; color: #1890ff; }
+    </style>    <script>
+        function selectScore(score) {
+            // 移除所有按钮的选中状态
+            document.querySelectorAll('.score-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+
+            // 选中当前按钮
+            event.target.classList.add('selected');
+
+            // 设置隐藏表单字段的值
+            document.getElementById('selected_score').value = score;
+        }
+
+        function selectPlayer(playerName, type) {
+            // 移除相同类型按钮的选中状态
+            document.querySelectorAll('.' + type + '-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+
+            // 选中当前按钮
+            event.target.classList.add('selected');
+
+            // 设置隐藏表单字段的值
+            document.getElementById('selected_' + type).value = playerName;
+        }
+
+        function quickAddPlayer(playerName) {
+            document.getElementById('new_player_name').value = playerName;
+        }
+    </script>
+</head>
+<body>
+    <div class="header">
+        <h2>台球计分 - 游戏中</h2>
+        <div class="session-name">{{ session.get('name', '未命名场次') }}</div>
+    </div>
+
+    <!-- 显示消息通知 -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-message flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="card">
+        <div>当前用户：<b>{{ username }}</b>（{{ '玩家' if role == 'player' else '观战者' }}）</div>
+        <div>所有玩家：{{ session.players|join(', ') }}</div>
+        <div class="score">
+            <b>当前分数排名：</b>
+            <div>
+                {% for player, score in sorted_players %}
+                <div class="player-score">
+                    <span class="player-name">{{ player }}</span>
+                    <span class="player-total {% if score > 0 %}positive{% elif score < 0 %}negative{% else %}neutral{% endif %}">{{ score }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        {% if role == 'player' %}
+        <form method="post">
+            <label>胜者：</label>
+            <div class="player-buttons">
+                {% for p in session.players %}
+                <button type="button" class="player-btn winner-btn {% if p == username %}selected{% endif %}" onclick="selectPlayer('{{ p }}', 'winner')">{{ p }}</button>
+                {% endfor %}
+            </div>
+            <input type="hidden" id="selected_winner" name="winner" value="{{ username }}">
+
+            <label>败者：</label>
+            <div class="player-buttons">
+                {% for p in session.players %}
+                <button type="button" class="player-btn loser-btn {% if p == default_loser %}selected{% endif %}" onclick="selectPlayer('{{ p }}', 'loser')">{{ p }}</button>
+                {% endfor %}
+            </div>
+            <input type="hidden" id="selected_loser" name="loser" value="{{ default_loser }}">
+
+            <label>分数：</label>
+            <div class="score-buttons">
+                {% for s in score_options %}
+                <button type="button" class="score-btn {% if s == 1 %}selected{% endif %}" onclick="selectScore({{ s }})">{{ s }}</button>
+                {% endfor %}
+            </div>
+            <input type="hidden" id="selected_score" name="score" value="1">
+
+            <button type="submit" class="btn-primary btn-full">记录分数</button>
+        </form>
+
+        <form action="/end_session" method="get">
+            <button type="submit" class="btn-danger btn-full">结束本场</button>
+        </form>
+
+        <!-- 添加玩家功能 -->
+        <div class="add-player-section">
+            <label>添加新玩家：</label>
+            <form action="/add_player" method="post" class="add-player-form">
+                <input type="text" id="new_player_name" name="new_player_name" placeholder="输入玩家名字" required>
+                <button type="submit" class="btn-success">添加</button>
+            </form>
+
+            {% if recent_players %}
+            <div class="recent-players">
+                <div class="recent-players-title">最近添加的玩家：</div>
+                {% for player in recent_players %}
+                {% if player not in session.players %}
+                <span class="recent-player-btn" onclick="quickAddPlayer('{{ player }}')">{{ player }}</span>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 退出登录按钮单独放置 -->
+    <div class="card">
+        <form action="/logout" method="get">
+            <button type="submit" class="btn-danger btn-full">退出登录</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h4>本场所有记录</h4>
+        <div class="rounds-list">
+            {% if session.get('records', session.get('rounds', [])) %}
+                {% for r in session.get('records', session.get('rounds', [])) %}
+                <div class="round-item">
+                    <div>胜者: <b>{{ r.winner }}</b>，败者: <b>{{ r.loser }}</b>，分数:
+                        <span class="{% if r.score > 0 %}positive{% elif r.score < 0 %}negative{% else %}neutral{% endif %}">{{ r.score }}</span>
+                    </div>
+                    <div style="font-size: 0.8em; color: #999;">{{ r.timestamp }}</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>还没有计分记录</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="links">
+        <a href="/history">查看历史记录</a> |
+        <a href="/">返回首页</a>
+    </div>
+
+    <div class="footer">
+        <p>© 2025 台球计分工具 | <a href="https://github.com/yourusername/EMSPoolGamble" target="_blank" rel="noopener">GitHub</a></p>
+    </div>
+</body>
+</html>
