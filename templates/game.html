@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EMS Pool Gamble - 游戏中</title>
+    <title>{{ session.get('name', '未命名场次') }} - 游戏中</title>
     <style>
         body { font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
         .card { background: #ffffff; border-radius: 10px; padding: 1.2em; margin-top: 1.5em; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -92,6 +92,23 @@
         function quickAddPlayer(playerName) {
             document.getElementById('new_player_name').value = playerName;
         }
+
+        // 页面加载时设置默认选择
+        document.addEventListener('DOMContentLoaded', function() {
+            // 设置默认胜者（第一个玩家）
+            const winnerBtns = document.querySelectorAll('.winner-btn');
+            if (winnerBtns.length > 0) {
+                winnerBtns[0].classList.add('selected');
+                document.getElementById('selected_winner').value = winnerBtns[0].textContent;
+            }
+
+            // 设置默认败者（第二个玩家）
+            const loserBtns = document.querySelectorAll('.loser-btn');
+            if (loserBtns.length > 1) {
+                loserBtns[1].classList.add('selected');
+                document.getElementById('selected_loser').value = loserBtns[1].textContent;
+            }
+        });
     </script>
 </head>
 <body>
@@ -110,7 +127,6 @@
     {% endwith %}
 
     <div class="card">
-        <div>当前用户：<b>{{ username }}</b>（{{ '玩家' if role == 'player' else '观战者' }}）</div>
         <div>所有玩家：{{ session.players|join(', ') }}</div>
         <div class="score">
             <b>当前分数排名：</b>
@@ -124,23 +140,22 @@
             </div>
         </div>
 
-        {% if role == 'player' %}
-        <form method="post">
+        <form action="/add_score/{{ session_id }}" method="post">
             <label>胜者：</label>
             <div class="player-buttons">
                 {% for p in session.players %}
-                <button type="button" class="player-btn winner-btn {% if p == username %}selected{% endif %}" onclick="selectPlayer('{{ p }}', 'winner')">{{ p }}</button>
+                <button type="button" class="player-btn winner-btn" onclick="selectPlayer('{{ p }}', 'winner')">{{ p }}</button>
                 {% endfor %}
             </div>
-            <input type="hidden" id="selected_winner" name="winner" value="{{ username }}">
+            <input type="hidden" id="selected_winner" name="winner" value="">
 
             <label>败者：</label>
             <div class="player-buttons">
                 {% for p in session.players %}
-                <button type="button" class="player-btn loser-btn {% if p == default_loser %}selected{% endif %}" onclick="selectPlayer('{{ p }}', 'loser')">{{ p }}</button>
+                <button type="button" class="player-btn loser-btn" onclick="selectPlayer('{{ p }}', 'loser')">{{ p }}</button>
                 {% endfor %}
             </div>
-            <input type="hidden" id="selected_loser" name="loser" value="{{ default_loser }}">
+            <input type="hidden" id="selected_loser" name="loser" value="">
 
             <label>分数：</label>
             <div class="score-buttons">
@@ -153,14 +168,14 @@
             <button type="submit" class="btn-primary btn-full">记录分数</button>
         </form>
 
-        <form action="/end_session" method="get">
+        <form action="/end_session/{{ session_id }}" method="get">
             <button type="submit" class="btn-danger btn-full">结束本场</button>
         </form>
 
         <!-- 添加玩家功能 -->
         <div class="add-player-section">
             <label>添加新玩家：</label>
-            <form action="/add_player" method="post" class="add-player-form">
+            <form action="/add_player/{{ session_id }}" method="post" class="add-player-form">
                 <input type="text" id="new_player_name" name="new_player_name" placeholder="输入玩家名字" required>
                 <button type="submit" class="btn-success">添加</button>
             </form>
@@ -176,14 +191,6 @@
             </div>
             {% endif %}
         </div>
-        {% endif %}
-    </div>
-
-    <!-- 退出登录按钮单独放置 -->
-    <div class="card">
-        <form action="/logout" method="get">
-            <button type="submit" class="btn-danger btn-full">退出登录</button>
-        </form>
     </div>
 
     <div class="card">
@@ -198,11 +205,9 @@
                         </div>
                         <div class="timestamp">{{ r.timestamp }}</div>
                     </div>
-                    {% if role == 'player' %}
-                    <form action="/delete_record/{{ loop.index0 }}" method="post" class="delete-form">
+                    <form action="/delete_record/{{ session_id }}/{{ loop.index0 }}" method="post" class="delete-form">
                         <button type="submit" class="delete-record-btn" onclick="return confirm('确定要删除这条记录吗？这会恢复相应的分数变化。')">删除</button>
                     </form>
-                    {% endif %}
                 </div>
                 {% endfor %}
             {% else %}

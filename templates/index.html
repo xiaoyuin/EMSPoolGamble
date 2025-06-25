@@ -3,12 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EMS Pool Gamble -     <div class="footer">
-        <p>© 2025 EMS Pool Gamble {{ app_version }} |
-           <a href="https://github.com/xiaoyuin/EMSPoolGamble" target="_blank" rel="noopener">GitHub</a> |
-           <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a>
-        </p>
-    </div>次</title>
+    <title>EMS Pool Gamble - 台球比赛记分系统</title>
     <style>
         body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
         .card { background: #ffffff; border-radius: 10px; padding: 1.2em; margin-top: 2em; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -33,7 +28,6 @@
         .session-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5em; }
         .session-name { font-weight: bold; color: #1890ff; font-size: 1.1em; }
         .session-info { color: #666; font-size: 0.9em; margin-bottom: 0.5em; }
-        .create-session-section { border-top: 2px solid #f0f0f0; padding-top: 1em; margin-top: 1em; }
         .join-form { margin-top: 0.5em; }
         .section-title { font-size: 1.2em; font-weight: bold; color: #333; margin-bottom: 1em; }
         .btn-danger { background: #ff4d4f; }
@@ -77,25 +71,6 @@
         {% endif %}
     {% endwith %}
 
-    <!-- 显示当前登录状态 -->
-    {% if session.username %}
-    <div class="login-status">
-        <div class="user-info">
-            当前登录：{{ session.username }}
-            <span class="status-badge {% if session.role == 'player' %}status-active{% else %}status-ended{% endif %}">
-                {{ '玩家' if session.role == 'player' else '观战者' }}
-            </span>
-            <a href="/logout" class="logout-btn">退出登录</a>
-        </div>
-        {% if session.session_id and sessions.get(session.session_id) %}
-        <div class="session-info">
-            当前场次：{{ sessions[session.session_id].get('name', '未命名场次') }}
-            <a href="/game" class="game-link">→ 进入游戏</a>
-        </div>
-        {% endif %}
-    </div>
-    {% endif %}
-
     <!-- 如果没有活跃场次的提示，移到最上面 -->
     {% if not active_sessions %}
     <div class="card">
@@ -123,12 +98,7 @@
                 <form method="post" class="join-form">
                     <input type="hidden" name="action" value="join_session">
                     <input type="hidden" name="session_id" value="{{ session_id }}">
-                    <input type="text" name="username" placeholder="请输入您的用户名" value="{{ last_username }}" required>
-                    <select name="role" title="选择身份">
-                        <option value="player">玩家</option>
-                        <option value="viewer">观战者</option>
-                    </select>
-                    <button type="submit">加入此场次</button>
+                    <button type="submit" class="btn-success">进入</button>
                 </form>
             </div>
         </div>
@@ -138,15 +108,11 @@
 
     <!-- 创建新场次 -->
     <div class="card">
-        <div class="create-session-section">
-            <div class="section-title">创建新场次</div>
-            <form method="post">
-                <input type="hidden" name="action" value="create_session">
-                <label>场次名称：</label>
-                <input type="text" name="session_name" required placeholder="请输入场次名称，例如：周末台球赛">
-                <button type="submit" class="btn-success">创建场次</button>
-            </form>
-        </div>
+        <form method="post">
+            <input type="hidden" name="action" value="create_session">
+            <button type="submit" class="btn-success btn-full">快速创建 - {{ suggested_session_name }}</button>
+        </form>
+    </div>
     </div>
 
     <!-- 最近结束的场次 -->
