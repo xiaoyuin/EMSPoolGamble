@@ -91,7 +91,7 @@
             <div class="session-info">
                 <div>玩家：{{ session_data.players|join(', ') if session_data.players else '暂无玩家' }}</div>
                 <div>观战者：{{ session_data.viewers|join(', ') if session_data.viewers else '暂无观战者' }}</div>
-                <div>记录数：{{ session_data.get('records', session_data.get('rounds', []))|length }} | 开始时间：{{ session_data.timestamp }}</div>
+                <div>记录数：{{ session_data.get('records', session_data.get('rounds', []))|length }} | 开始时间：<span data-utc-time="{{ session_data.timestamp }}">{{ session_data.timestamp }}</span></div>
             </div>
 
             <div class="session-actions">
@@ -128,7 +128,7 @@
             </div>
             <div class="session-info">
                 <div>玩家：{{ session_data.players|join(', ') if session_data.players else '暂无玩家' }}</div>
-                <div>记录数：{{ session_data.get('records', session_data.get('rounds', []))|length }} | 结束时间：{{ session_data.get('end_time', '未知') }}</div>
+                <div>记录数：{{ session_data.get('records', session_data.get('rounds', []))|length }} | 结束时间：<span data-utc-time="{{ session_data.get('end_time', '未知') }}">{{ session_data.get('end_time', '未知') }}</span></div>
             </div>
 
             <a href="/session_detail/{{ session_id }}" class="detail-btn">查看详情</a>
@@ -191,6 +191,36 @@
     console.log('用户时区偏移量（分钟）:', timezoneOffset);
     console.log('建议场次名称:', generateSessionName(timezoneOffset));
 })();
+
+// 将UTC时间转换为本地时间显示
+function convertUtcToLocal() {
+    // 转换所有带有 data-utc-time 属性的元素
+    document.querySelectorAll('[data-utc-time]').forEach(function(element) {
+        const utcTime = element.getAttribute('data-utc-time');
+        if (utcTime && utcTime.trim() !== '' && utcTime !== '未知') {
+            try {
+                const utcDate = new Date(utcTime + 'Z');
+                if (!isNaN(utcDate.getTime())) {
+                    const localTimeStr = utcDate.toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                    element.textContent = localTimeStr;
+                    console.log('首页时间转换:', utcTime, '->', localTimeStr);
+                }
+            } catch (e) {
+                console.log('首页时间转换失败:', utcTime, e);
+            }
+        }
+    });
+}
+
+// 页面加载完成后执行时间转换
+document.addEventListener('DOMContentLoaded', convertUtcToLocal);
 </script>
 </body>
 </html>

@@ -47,9 +47,9 @@
         <h2>EMS Pool Gamble - 玩家详情</h2>
         <div class="player-name">{{ player.name }}</div>
         <div style="color: #666; font-size: 0.9em;">
-            创建时间: {{ player.created_at }}
+            创建时间: <span data-utc-time="{{ player.created_at }}">{{ player.created_at }}</span>
             {% if player.updated_at != player.created_at %}
-            | 最后更新: {{ player.updated_at }}
+            | 最后更新: <span data-utc-time="{{ player.updated_at }}">{{ player.updated_at }}</span>
             {% endif %}
         </div>
     </div>
@@ -156,7 +156,7 @@
                             {% endif %}
                         </div>
                         <div class="timestamp">
-                            {{ record.record.timestamp }} |
+                            <span data-utc-time="{{ record.record.timestamp }}">{{ record.record.timestamp }}</span> |
                             <a href="/game/{{ record.session_id }}" class="player-link">{{ record.session_name }}</a>
                             {% if record.record.special_score_part %}
                             | {{ record.record.special_score_part }}
@@ -196,6 +196,36 @@
 
     console.log('玩家详情页面时区偏移量（分钟）:', timezoneOffset);
 })();
+
+// 将UTC时间转换为本地时间显示
+function convertUtcToLocal() {
+    // 转换所有带有 data-utc-time 属性的元素
+    document.querySelectorAll('[data-utc-time]').forEach(function(element) {
+        const utcTime = element.getAttribute('data-utc-time');
+        if (utcTime && utcTime.trim() !== '') {
+            try {
+                const utcDate = new Date(utcTime + 'Z');
+                if (!isNaN(utcDate.getTime())) {
+                    const localTimeStr = utcDate.toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                    element.textContent = localTimeStr;
+                    console.log('时间转换:', utcTime, '->', localTimeStr);
+                }
+            } catch (e) {
+                console.log('时间转换失败:', utcTime, e);
+            }
+        }
+    });
+}
+
+// 页面加载完成后执行时间转换
+document.addEventListener('DOMContentLoaded', convertUtcToLocal);
 </script>
 </body>
 </html>

@@ -65,9 +65,9 @@
         </div>
 
         <div class="session-info">
-            <div><strong>开始时间：</strong>{{ session_data.timestamp }}</div>
+            <div><strong>开始时间：</strong><span data-utc-time="{{ session_data.timestamp }}">{{ session_data.timestamp }}</span></div>
             {% if not session_data.get('active', True) and session_data.get('end_time') %}
-            <div><strong>结束时间：</strong>{{ session_data.end_time }}</div>
+            <div><strong>结束时间：</strong><span data-utc-time="{{ session_data.end_time }}">{{ session_data.end_time }}</span></div>
             {% endif %}
             <div><strong>玩家：</strong>{{ session_data.players|join(', ') if session_data.players else '暂无玩家' }}</div>
             <div><strong>观战者：</strong>{{ session_data.viewers|join(', ') if session_data.viewers else '暂无观战者' }}</div>
@@ -126,7 +126,7 @@
                     {% endif %}
                 </td>
                 <td class="{% if r.score > 0 %}positive{% elif r.score < 0 %}negative{% else %}neutral{% endif %}">{{ r.score }}</td>
-                <td class="timestamp">{{ r.timestamp if r.timestamp else '' }}</td>
+                <td class="timestamp" data-utc-time="{{ r.timestamp if r.timestamp else '' }}">{{ r.timestamp if r.timestamp else '' }}</td>
             </tr>
             {% endfor %}
         </table>
@@ -155,5 +155,48 @@
            <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a>
         </p>
     </div>
+
+<script>
+// 通用时区转换工具函数
+function convertUTCToLocal(utcTimeString) {
+    if (!utcTimeString || utcTimeString === '未知') {
+        return utcTimeString;
+    }
+
+    try {
+        // 处理 "YYYY-MM-DD HH:MM:SS" 格式的UTC时间
+        const date = new Date(utcTimeString + ' UTC');
+
+        // 转换为用户本地时间
+        return date.toLocaleString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        });
+    } catch (error) {
+        console.warn('时间转换失败:', utcTimeString, error);
+        return utcTimeString; // 转换失败时返回原值
+    }
+}
+
+// 页面加载完成后，转换所有时间显示
+document.addEventListener('DOMContentLoaded', function() {
+    // 转换所有带有 data-utc-time 属性的元素
+    document.querySelectorAll('[data-utc-time]').forEach(function(element) {
+        const utcTime = element.getAttribute('data-utc-time');
+        if (utcTime && utcTime.trim() !== '') {
+            const localTime = convertUTCToLocal(utcTime);
+            element.textContent = localTime;
+            console.log('时间转换:', utcTime, '->', localTime);
+        }
+    });
+
+    console.log('场次详情页面时间转换完成');
+});
+</script>
 </body>
 </html>
