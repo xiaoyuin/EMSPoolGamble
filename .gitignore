@@ -1,5 +1,14 @@
 # 数据文件 - 运行时生成，不应提交到版本控制
 data.json
+data_backup_*.json
+test_data.json
+
+# 数据库文件 - SQLite 数据库文件
+*.db
+*.sqlite
+*.sqlite3
+instance/
+/instance/
 
 # Python 相关
 __pycache__/
@@ -57,3 +66,8 @@ Thumbs.db
 # 临时文件
 *.tmp
 *.temp
+
+# 部署生成的文件
+/opt/
+deployment-*.log
+diagnostic-*.txt

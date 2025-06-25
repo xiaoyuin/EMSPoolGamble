@@ -1,9 +1,10 @@
 # EMS Pool Gamble
 
-这是一个可部署到 Azure 的多人台球计分 Python Flask Web App，支持移动端浏览器访问，具有完整的场次管理和详情查看功能。
+这是一个多人台球计分 Python Flask Web App，支持移动端浏览器访问，具有完整的场次管理和详情查看功能。**现在使用 SQLite 数据库进行数据持久化**。
 
 ## 功能特点
 
+- **数据库持久化**：使用 SQLite 数据库替代内存存储，确保数据安全性和持久性
 - **完整的场次管理**：支持创建多个命名场次，每个场次独立计分
 - **场次详情页**：专门的详情页展示完整的计分记录和玩家排名
 - **主页概览**：显示进行中场次列表和最近结束的场次
@@ -17,37 +18,76 @@
 - **实时排名**：动态显示分数排名和详细历史记录查询
 - **移动端友好**：简洁美观的响应式界面，适配各种设备
 - **统一的UI设计**：所有页面使用一致的按钮和卡片样式
+- **数据迁移支持**：自动从旧的 JSON 文件格式迁移到数据库
+
+## 版本更新
+
+### v2.0.0 (2025-06-25)
+- **重大更新**：使用 SQLite 数据库替代内存存储和 JSON 文件
+- 添加数据库模型和服务层
+- 支持从旧版本 JSON 数据自动迁移
+- 提升数据安全性和并发性能
+- 优化了代码架构，提高了可维护性
 
 ## 快速开始
+
+### 方法一：使用启动脚本（推荐）
+
+```bash
+python start.py
+```
+
+启动脚本会自动：
+1. 检查并安装依赖包
+2. 初始化数据库
+3. 迁移旧数据（如果存在 data.json 文件）
+4. 启动应用
+
+### 方法二：手动安装
 
 1. 安装依赖：
    ```bash
    pip install -r requirements.txt
    ```
 
-2. 本地运行：
+2. 初始化数据库（首次运行）：
+   ```bash
+   python -c "from app import app, db; app.app_context().push(); db.create_all()"
+   ```
+
+3. 数据迁移（如果有旧的 data.json 文件）：
+   ```bash
+   python migrate_data.py
+   ```
+
+4. 本地运行：
    ```bash
    python app.py
    ```
 
-3. 在浏览器访问 http://localhost:5000
+5. 在浏览器访问 http://localhost:5000
 
-## 部署到 Azure
+## 数据库结构
 
-### 使用 Azure Portal
+项目使用 SQLite 数据库，包含以下表：
 
-1. 在 [Azure Portal](https://portal.azure.com) 创建一个 Web App 服务
-2. 选择运行时堆栈为 Python 3.12
-3. 配置部署选项，可以选择GitHub Actions或其他CI/CD方式
-4. 设置环境变量:
-   - `SECRET_KEY`: 生产环境的密钥（建议随机生成）
-   - `PORT`: 应用运行端口（默认5000）
-   - `FLASK_DEBUG`: 生产环境设为"False"
+- `game_sessions`: 游戏场次信息
+- `players`: 玩家信息
+- `viewers`: 观众信息
+- `player_scores`: 玩家分数
+- `game_records`: 游戏记录
+- `recent_players`: 最近使用的玩家名
 
-### 使用 Azure CLI
+数据库文件默认保存为 `ems_pool_gamble.db`。
 
-```bash
-# 登录Azure
+## 部署说明
+
+### 环境变量配置
+
+- `SECRET_KEY`: Flask 应用密钥（生产环境必须设置）
+- `DATABASE_URL`: 数据库连接字符串（默认使用 SQLite）
+- `PORT`: 应用运行端口（默认5000）
+- `FLASK_DEBUG`: 调试模式（生产环境设为"False"）
 az login
 
 # 创建资源组
