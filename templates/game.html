@@ -81,6 +81,8 @@
         .minus-btn.selected { background: #cf1322; opacity: 1; transform: scale(1.1); box-shadow: 0 0 0 3px #ffccc7, inset 0 0 0 2px white; }
         .action-score { margin-left: 0.2em; }
         #record-btn { margin-top: 1em; }
+        #record-btn:disabled { background: #d9d9d9; color: #8c8c8c; cursor: not-allowed; }
+        #record-btn:disabled:hover { background: #d9d9d9; }
     </style>    <script>
         let selectedScore = null;
         let selectedWinner = null;
@@ -267,25 +269,24 @@
             document.querySelectorAll('.action-btn').forEach(btn => {
                 btn.classList.remove('selected');
             });
-            const scoreForm = document.getElementById('score-form');
-            if (scoreForm) {
-                scoreForm.style.display = 'none';
-            }
-        }
-
-        function checkCanSubmit() {
+            // 不再隐藏表单，而是调用checkCanSubmit来更新按钮状态
+            checkCanSubmit();
+        }        function checkCanSubmit() {
             const requiredLosers = isSpecialScore ? 2 : 1;
+            const recordBtn = document.getElementById('record-btn');
+            const scoreForm = document.getElementById('score-form');
+            
+            // 始终显示表单
+            if (scoreForm) {
+                scoreForm.style.display = 'block';
+            }
+            
             if (selectedScore && selectedWinner && selectedLosers.length === requiredLosers) {
                 // 检查胜者不在败者列表中
                 if (!selectedLosers.includes(selectedWinner)) {
-                    // 显示提交按钮
-                    const scoreForm = document.getElementById('score-form');
-                    if (scoreForm) {
-                        scoreForm.style.display = 'block';
-                    }
-
-                    const recordBtn = document.getElementById('record-btn');
+                    // 启用按钮
                     if (recordBtn) {
+                        recordBtn.disabled = false;
                         if (isSpecialScore) {
                             recordBtn.textContent = `记录：${selectedWinner} +${selectedScore}，${selectedLosers.join('、')} 各-${selectedScore/2}`;
                         } else {
@@ -295,9 +296,23 @@
                     return;
                 }
             }
-            const scoreForm = document.getElementById('score-form');
-            if (scoreForm) {
-                scoreForm.style.display = 'none';
+            
+            // 禁用按钮并显示提示信息
+            if (recordBtn) {
+                recordBtn.disabled = true;
+                if (!selectedScore) {
+                    recordBtn.textContent = '请先选择分数';
+                } else if (!selectedWinner) {
+                    recordBtn.textContent = '请选择胜者';
+                } else if (selectedLosers.length === 0) {
+                    recordBtn.textContent = isSpecialScore ? '请选择2个败者' : '请选择败者';
+                } else if (isSpecialScore && selectedLosers.length < 2) {
+                    recordBtn.textContent = `请再选择${2 - selectedLosers.length}个败者`;
+                } else if (selectedLosers.includes(selectedWinner)) {
+                    recordBtn.textContent = '胜者和败者不能相同';
+                } else {
+                    recordBtn.textContent = '请完成选择';
+                }
             }
         }
 
@@ -331,33 +346,41 @@
 
             document.body.appendChild(form);
             form.submit();
-        }
-
-        // 页面加载完成后的初始化
+        }        // 页面加载完成后的初始化
         document.addEventListener('DOMContentLoaded', function() {
             // 初始化时隐藏所有玩家操作按钮
             document.querySelectorAll('.player-actions').forEach(actions => {
                 actions.style.display = 'none';
             });
-
+            
+            // 初始化按钮状态
+            checkCanSubmit();
+            
             // 处理表单提交
             const scoreForm = document.getElementById('score-form');
             if (scoreForm) {
                 scoreForm.addEventListener('submit', function(e) {
+                    // 如果按钮被禁用，阻止提交
+                    const recordBtn = document.getElementById('record-btn');
+                    if (recordBtn && recordBtn.disabled) {
+                        e.preventDefault();
+                        return false;
+                    }
+                    
                     if (isSpecialScore && selectedLosers.length === 2) {
                         // 对于特殊分数，使用新的接口
                         e.preventDefault();
-
+                        
                         const form = document.createElement('form');
                         form.method = 'POST';
                         form.action = `/add_special_score/{{ session_id }}`;
-
+                        
                         const winnerInput = document.createElement('input');
                         winnerInput.type = 'hidden';
                         winnerInput.name = 'winner';
                         winnerInput.value = selectedWinner;
                         form.appendChild(winnerInput);
-
+                        
                         // 添加多个败者
                         selectedLosers.forEach(loser => {
                             const loserInput = document.createElement('input');
@@ -366,13 +389,13 @@
                             loserInput.value = loser;
                             form.appendChild(loserInput);
                         });
-
+                        
                         const scoreInput = document.createElement('input');
                         scoreInput.type = 'hidden';
                         scoreInput.name = 'score';
                         scoreInput.value = selectedScore;
                         form.appendChild(scoreInput);
-
+                        
                         document.body.appendChild(form);
                         form.submit();
                     } else {
@@ -380,7 +403,7 @@
                         const winnerInput = document.getElementById('selected_winner');
                         const loserInput = document.getElementById('selected_loser');
                         const scoreInput = document.getElementById('selected_score');
-
+                        
                         if (winnerInput) winnerInput.value = selectedWinner || '';
                         if (loserInput) loserInput.value = selectedLosers[0] || '';
                         if (scoreInput) scoreInput.value = selectedScore || '';
@@ -437,11 +460,11 @@
         </div>
 
         <!-- 记录分数表单 -->
-        <form action="/add_score/{{ session_id }}" method="post" id="score-form" style="display: none;">
+        <form action="/add_score/{{ session_id }}" method="post" id="score-form">
             <input type="hidden" id="selected_winner" name="winner" value="">
             <input type="hidden" id="selected_loser" name="loser" value="">
             <input type="hidden" id="selected_score" name="score" value="">
-            <button type="submit" class="btn-primary btn-full" id="record-btn">记录分数</button>
+            <button type="submit" class="btn-primary btn-full" id="record-btn" disabled>请先选择分数</button>
         </form>
 
         <form action="/end_session/{{ session_id }}" method="get">
