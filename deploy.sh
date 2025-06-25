@@ -40,31 +40,215 @@ check_root() {
     fi
 }
 
+# 显示系统信息
+show_system_info() {
+    log_info "系统信息检测..."
+    echo "操作系统: $(uname -s)"
+    echo "内核版本: $(uname -r)"
+    echo "架构: $(uname -m)"
+
+    if [[ -f /etc/os-release ]]; then
+        . /etc/os-release
+        echo "发行版: $NAME ${VERSION:-$VERSION_ID}"
+    elif [[ -f /etc/redhat-release ]]; then
+        echo "发行版: $(cat /etc/redhat-release)"
+    elif [[ -f /etc/debian_version ]]; then
+        echo "发行版: Debian $(cat /etc/debian_version)"
+    fi
+
+    echo "内存: $(free -h 2>/dev/null | awk '/^Mem:/ {print $2}' || echo '未知')"
+    echo "磁盘空间: $(df -h / 2>/dev/null | awk 'NR==2 {print $4}' || echo '未知') 可用"
+    echo
+}
+
 # 检测操作系统
 detect_os() {
-    if [[ -f /etc/redhat-release ]]; then
-        OS="centos"
-        PACKAGE_MANAGER="yum"
-    elif [[ -f /etc/debian_version ]]; then
-        OS="ubuntu"
+    # 尝试检测基于 RPM 的系统（CentOS/RHEL/Fedora/Rocky/AlmaLinux/openSUSE/Amazon Linux等）
+    if command -v yum &> /dev/null || command -v dnf &> /dev/null || command -v zypper &> /dev/null || \
+       [[ -f /etc/redhat-release ]] || [[ -f /etc/centos-release ]] || [[ -f /etc/rocky-release ]] || \
+       [[ -f /etc/almalinux-release ]] || [[ -f /etc/fedora-release ]] || [[ -f /etc/amazon-linux-release ]] || \
+       [[ -f /etc/SuSE-release ]] || [[ -f /etc/opensuse-release ]] || [[ -f /etc/oracle-release ]] || \
+       [[ -f /etc/system-release ]] || grep -qi "red hat\|centos\|rocky\|alma\|fedora\|amazon\|oracle" /etc/os-release 2>/dev/null; then
+
+        OS="rpm_based"
+        # 优先级：dnf > yum > zypper
+        if command -v dnf &> /dev/null; then
+            PACKAGE_MANAGER="dnf"
+        elif command -v yum &> /dev/null; then
+            PACKAGE_MANAGER="yum"
+        elif command -v zypper &> /dev/null; then
+            PACKAGE_MANAGER="zypper"
+        else
+            # 最后的尝试
+            PACKAGE_MANAGER="yum"
+        fi
+        log_info "检测到基于 RPM 的系统，使用包管理器: $PACKAGE_MANAGER"
+
+    # 检测基于 DEB 的系统（Ubuntu/Debian/Mint/Pop!_OS等）
+    elif command -v apt &> /dev/null || command -v apt-get &> /dev/null || \
+         [[ -f /etc/debian_version ]] || [[ -f /etc/ubuntu-release ]] || \
+         grep -qi "ubuntu\|debian\|mint\|pop" /etc/os-release 2>/dev/null; then
+
+        OS="deb_based"
         PACKAGE_MANAGER="apt"
+        log_info "检测到基于 DEB 的系统，使用包管理器: $PACKAGE_MANAGER"
+
+    # 检测 Arch Linux 及其衍生版
+    elif command -v pacman &> /dev/null || \
+         [[ -f /etc/arch-release ]] || grep -qi "arch\|manjaro\|endeavour" /etc/os-release 2>/dev/null; then
+
+        OS="arch_based"
+        PACKAGE_MANAGER="pacman"
+        log_info "检测到基于 Arch 的系统，使用包管理器: $PACKAGE_MANAGER"
+
+    # 检测 Alpine Linux
+    elif command -v apk &> /dev/null || grep -qi "alpine" /etc/os-release 2>/dev/null; then
+
+        OS="alpine"
+        PACKAGE_MANAGER="apk"
+        log_info "检测到 Alpine Linux，使用包管理器: $PACKAGE_MANAGER"
+
     else
-        log_error "不支持的操作系统，仅支持 CentOS/RHEL 和 Ubuntu/Debian"
-        exit 1
+        # 如果无法自动检测，让用户选择
+        log_warning "无法自动检测操作系统类型"
+        echo "请选择您的系统类型："
+        echo "1) 基于 RPM 的系统 (CentOS/RHEL/Rocky/AlmaLinux/Fedora/Amazon Linux/Oracle Linux等)"
+        echo "2) 基于 DEB 的系统 (Ubuntu/Debian/Mint/Pop!_OS等)"
+        echo "3) 基于 Arch 的系统 (Arch Linux/Manjaro/EndeavourOS等)"
+        echo "4) Alpine Linux"
+        read -p "请输入选项 (1-4): " choice
+
+        case $choice in
+            1)
+                OS="rpm_based"
+                if command -v dnf &> /dev/null; then
+                    PACKAGE_MANAGER="dnf"
+                elif command -v yum &> /dev/null; then
+                    PACKAGE_MANAGER="yum"
+                elif command -v zypper &> /dev/null; then
+                    PACKAGE_MANAGER="zypper"
+                else
+                    PACKAGE_MANAGER="yum"
+                fi
+                log_info "手动选择: 基于 RPM 的系统，使用包管理器: $PACKAGE_MANAGER"
+                ;;
+            2)
+                OS="deb_based"
+                PACKAGE_MANAGER="apt"
+                log_info "手动选择: 基于 DEB 的系统，使用包管理器: $PACKAGE_MANAGER"
+                ;;
+            3)
+                OS="arch_based"
+                PACKAGE_MANAGER="pacman"
+                log_info "手动选择: 基于 Arch 的系统，使用包管理器: $PACKAGE_MANAGER"
+                ;;
+            4)
+                OS="alpine"
+                PACKAGE_MANAGER="apk"
+                log_info "手动选择: Alpine Linux，使用包管理器: $PACKAGE_MANAGER"
+                ;;
+            *)
+                log_error "无效选择，退出安装"
+                exit 1
+                ;;
+        esac
     fi
-    log_info "检测到操作系统: $OS"
 }
 
 # 安装系统依赖
 install_system_dependencies() {
     log_info "安装系统依赖..."
 
-    if [[ $OS == "ubuntu" ]]; then
+    if [[ $OS == "deb_based" ]]; then
+        log_info "更新软件包列表..."
         sudo apt update
-        sudo apt install -y python3 python3-pip python3-venv git nginx supervisor
-    elif [[ $OS == "centos" ]]; then
-        sudo yum update -y
-        sudo yum install -y python3 python3-pip git nginx supervisor
+        log_info "安装必需软件包..."
+        sudo apt install -y python3 python3-pip python3-venv git nginx supervisor curl wget
+
+    elif [[ $OS == "rpm_based" ]]; then
+        log_info "更新软件包列表..."
+        if [[ "$PACKAGE_MANAGER" == "zypper" ]]; then
+            sudo zypper refresh
+        else
+            sudo $PACKAGE_MANAGER update -y
+        fi
+
+        # 安装 EPEL 源（对于 RHEL/CentOS 系列）
+        if [[ "$PACKAGE_MANAGER" == "yum" ]] && command -v yum &> /dev/null; then
+            sudo yum install -y epel-release || log_warning "EPEL 源安装失败，继续尝试..."
+        elif [[ "$PACKAGE_MANAGER" == "dnf" ]] && grep -qi "rhel\|centos\|rocky\|alma\|oracle" /etc/os-release 2>/dev/null; then
+            sudo dnf install -y epel-release || log_warning "EPEL 源安装失败，继续尝试..."
+        fi
+
+        log_info "安装必需软件包..."
+        # 根据不同的包管理器使用不同的安装命令
+        if [[ "$PACKAGE_MANAGER" == "zypper" ]]; then
+            sudo zypper install -y python3 python3-pip git nginx supervisor curl wget || {
+                log_warning "标准安装失败，尝试替代软件包名..."
+                sudo zypper install -y python36 python36-pip git nginx supervisor curl wget || \
+                sudo zypper install -y python38 python38-pip git nginx supervisor curl wget || \
+                sudo zypper install -y python39 python39-pip git nginx supervisor curl wget
+            }
+        else
+            # yum/dnf
+            sudo $PACKAGE_MANAGER install -y python3 python3-pip git nginx supervisor curl wget || {
+                log_warning "标准安装失败，尝试替代软件包名..."
+                # 一些系统可能使用不同的包名
+                sudo $PACKAGE_MANAGER install -y python36 python36-pip git nginx supervisor curl wget || \
+                sudo $PACKAGE_MANAGER install -y python38 python38-pip git nginx supervisor curl wget || \
+                sudo $PACKAGE_MANAGER install -y python39 python39-pip git nginx supervisor curl wget
+            }
+        fi
+
+        # 确保 python3-venv 可用（在某些系统上可能需要单独安装）
+        if ! python3 -m venv --help &> /dev/null; then
+            log_info "安装 python3-venv..."
+            if [[ "$PACKAGE_MANAGER" == "zypper" ]]; then
+                sudo zypper install -y python3-venv || \
+                sudo zypper install -y python36-venv || \
+                sudo zypper install -y python38-venv || \
+                sudo zypper install -y python39-venv || \
+                log_warning "python3-venv 安装失败，将尝试使用 virtualenv"
+            else
+                sudo $PACKAGE_MANAGER install -y python3-venv || \
+                sudo $PACKAGE_MANAGER install -y python36-venv || \
+                sudo $PACKAGE_MANAGER install -y python38-venv || \
+                sudo $PACKAGE_MANAGER install -y python39-venv || \
+                log_warning "python3-venv 安装失败，将尝试使用 virtualenv"
+            fi
+        fi
+
+    elif [[ $OS == "arch_based" ]]; then
+        log_info "更新软件包列表..."
+        sudo pacman -Sy
+        log_info "安装必需软件包..."
+        sudo pacman -S --needed --noconfirm python python-pip git nginx supervisor curl wget
+
+    elif [[ $OS == "alpine" ]]; then
+        log_info "更新软件包列表..."
+        sudo apk update
+        log_info "安装必需软件包..."
+        sudo apk add python3 py3-pip git nginx supervisor curl wget
+
+    else
+        log_error "不支持的操作系统类型: $OS"
+        exit 1
+    fi
+
+    # 验证关键命令是否可用
+    log_info "验证安装结果..."
+    local missing_commands=()
+
+    for cmd in python3 git nginx; do
+        if ! command -v $cmd &> /dev/null; then
+            missing_commands+=("$cmd")
+        fi
+    done
+
+    if [[ ${#missing_commands[@]} -gt 0 ]]; then
+        log_error "以下命令安装失败: ${missing_commands[*]}"
+        log_error "请手动安装这些软件包后重新运行脚本"
+        exit 1
     fi
 
     log_success "系统依赖安装完成"
@@ -127,8 +311,24 @@ setup_data_persistence() {
 configure_nginx() {
     log_info "配置 Nginx..."
 
+    # 确定 Nginx 配置目录结构
+    local nginx_config_dir="/etc/nginx"
+    local nginx_sites_available="$nginx_config_dir/sites-available"
+    local nginx_sites_enabled="$nginx_config_dir/sites-enabled"
+    local nginx_conf_d="$nginx_config_dir/conf.d"
+
+    # 创建必要的目录（如果不存在）
+    if [[ $OS == "deb_based" ]]; then
+        sudo mkdir -p "$nginx_sites_available" "$nginx_sites_enabled"
+        config_file="$nginx_sites_available/ems-pool-gamble"
+    else
+        # RPM系列、Arch、Alpine 通常使用 conf.d 目录
+        sudo mkdir -p "$nginx_conf_d"
+        config_file="$nginx_conf_d/ems-pool-gamble.conf"
+    fi
+
     # 创建 Nginx 配置文件
-    sudo tee /etc/nginx/sites-available/ems-pool-gamble > /dev/null <<EOF
+    sudo tee "$config_file" > /dev/null <<EOF
 server {
     listen 80;
     server_name _;
@@ -154,16 +354,22 @@ server {
 }
 EOF
 
-    # 启用站点
-    if [[ $OS == "ubuntu" ]]; then
-        sudo ln -sf /etc/nginx/sites-available/ems-pool-gamble /etc/nginx/sites-enabled/
-        sudo rm -f /etc/nginx/sites-enabled/default
-    elif [[ $OS == "centos" ]]; then
-        sudo cp /etc/nginx/sites-available/ems-pool-gamble /etc/nginx/conf.d/ems-pool-gamble.conf
+    # 启用站点配置
+    if [[ $OS == "deb_based" ]]; then
+        # Debian/Ubuntu 使用 sites-available/sites-enabled 结构
+        sudo ln -sf "$nginx_sites_available/ems-pool-gamble" "$nginx_sites_enabled/"
+        # 禁用默认站点
+        sudo rm -f "$nginx_sites_enabled/default"
+    else
+        # 其他系统直接使用 conf.d，配置已经放在正确位置
+        log_info "配置文件已放置在: $config_file"
     fi
 
     # 测试配置
-    sudo nginx -t
+    if ! sudo nginx -t; then
+        log_error "Nginx 配置测试失败"
+        exit 1
+    fi
 
     log_success "Nginx 配置完成"
 }
@@ -199,13 +405,51 @@ start_services() {
     # 启动应用
     sudo supervisorctl start ems-pool-gamble
 
-    # 启动 Nginx
-    sudo systemctl enable nginx
-    sudo systemctl restart nginx
+    # 启动并启用 Nginx
+    if command -v systemctl &> /dev/null; then
+        # 使用 systemd
+        sudo systemctl enable nginx
+        sudo systemctl restart nginx
+        sudo systemctl enable supervisor
+        sudo systemctl restart supervisor
+    elif command -v service &> /dev/null; then
+        # 使用传统的 service 命令
+        sudo service nginx restart
+        sudo service supervisor restart
+        # 尝试启用服务（如果支持）
+        if command -v chkconfig &> /dev/null; then
+            sudo chkconfig nginx on
+            sudo chkconfig supervisor on
+        elif command -v update-rc.d &> /dev/null; then
+            sudo update-rc.d nginx enable
+            sudo update-rc.d supervisor enable
+        fi
+    elif [[ $OS == "alpine" ]]; then
+        # Alpine Linux 使用 OpenRC
+        sudo rc-update add nginx default
+        sudo rc-update add supervisor default
+        sudo service nginx restart
+        sudo service supervisor restart
+    else
+        log_warning "无法检测到服务管理器，请手动启动 nginx 和 supervisor 服务"
+    fi
 
-    # 启动 Supervisor
-    sudo systemctl enable supervisor
-    sudo systemctl restart supervisor
+    # 验证服务状态
+    log_info "验证服务状态..."
+
+    # 检查 Nginx
+    if pgrep nginx > /dev/null; then
+        log_success "Nginx 服务运行正常"
+    else
+        log_warning "Nginx 服务可能未正常启动"
+    fi
+
+    # 检查应用
+    if sudo supervisorctl status ems-pool-gamble | grep -q RUNNING; then
+        log_success "应用服务运行正常"
+    else
+        log_warning "应用服务可能未正常启动"
+    fi
 
     log_success "服务启动完成"
 }
