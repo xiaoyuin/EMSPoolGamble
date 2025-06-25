@@ -70,6 +70,8 @@
         .player-row:first-child { margin-top: 0; }
         .player-row:last-child { margin-bottom: 0; }
         .player-name { font-weight: bold; flex: 1; }
+        .player-name a { color: #1890ff; text-decoration: none; }
+        .player-name a:hover { text-decoration: underline; }
         .player-score { font-weight: bold; margin-right: 1em; min-width: 3em; text-align: right; }
         .player-actions { display: flex; gap: 0.5em; }
         .action-btn { padding: 0.4em 0.8em; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: all 0.2s; opacity: 0.7; transform: scale(1); }
@@ -83,6 +85,8 @@
         #record-btn { margin-top: 1em; }
         #record-btn:disabled { background: #d9d9d9; color: #8c8c8c; cursor: not-allowed; }
         #record-btn:disabled:hover { background: #d9d9d9; }
+        .player-link { color: #1890ff; text-decoration: none; }
+        .player-link:hover { text-decoration: underline; }
     </style>    <script>
         let selectedScore = null;
         let selectedWinner = null;
@@ -275,12 +279,12 @@
             const requiredLosers = isSpecialScore ? 2 : 1;
             const recordBtn = document.getElementById('record-btn');
             const scoreForm = document.getElementById('score-form');
-            
+
             // 始终显示表单
             if (scoreForm) {
                 scoreForm.style.display = 'block';
             }
-            
+
             if (selectedScore && selectedWinner && selectedLosers.length === requiredLosers) {
                 // 检查胜者不在败者列表中
                 if (!selectedLosers.includes(selectedWinner)) {
@@ -296,7 +300,7 @@
                     return;
                 }
             }
-            
+
             // 禁用按钮并显示提示信息
             if (recordBtn) {
                 recordBtn.disabled = true;
@@ -352,10 +356,10 @@
             document.querySelectorAll('.player-actions').forEach(actions => {
                 actions.style.display = 'none';
             });
-            
+
             // 初始化按钮状态
             checkCanSubmit();
-            
+
             // 处理表单提交
             const scoreForm = document.getElementById('score-form');
             if (scoreForm) {
@@ -366,21 +370,21 @@
                         e.preventDefault();
                         return false;
                     }
-                    
+
                     if (isSpecialScore && selectedLosers.length === 2) {
                         // 对于特殊分数，使用新的接口
                         e.preventDefault();
-                        
+
                         const form = document.createElement('form');
                         form.method = 'POST';
                         form.action = `/add_special_score/{{ session_id }}`;
-                        
+
                         const winnerInput = document.createElement('input');
                         winnerInput.type = 'hidden';
                         winnerInput.name = 'winner';
                         winnerInput.value = selectedWinner;
                         form.appendChild(winnerInput);
-                        
+
                         // 添加多个败者
                         selectedLosers.forEach(loser => {
                             const loserInput = document.createElement('input');
@@ -389,13 +393,13 @@
                             loserInput.value = loser;
                             form.appendChild(loserInput);
                         });
-                        
+
                         const scoreInput = document.createElement('input');
                         scoreInput.type = 'hidden';
                         scoreInput.name = 'score';
                         scoreInput.value = selectedScore;
                         form.appendChild(scoreInput);
-                        
+
                         document.body.appendChild(form);
                         form.submit();
                     } else {
@@ -403,7 +407,7 @@
                         const winnerInput = document.getElementById('selected_winner');
                         const loserInput = document.getElementById('selected_loser');
                         const scoreInput = document.getElementById('selected_score');
-                        
+
                         if (winnerInput) winnerInput.value = selectedWinner || '';
                         if (loserInput) loserInput.value = selectedLosers[0] || '';
                         if (scoreInput) scoreInput.value = selectedScore || '';
@@ -446,13 +450,19 @@
         <div class="players-table">
             <b>当前分数排名：</b>
             <div class="player-rows">
-                {% for player, score in sorted_players %}
+                {% for player in sorted_players %}
                 <div class="player-row">
-                    <span class="player-name">{{ player }}</span>
-                    <span class="player-score {% if score > 0 %}positive{% elif score < 0 %}negative{% else %}neutral{% endif %}">{{ score }}</span>
+                    <span class="player-name">
+                        {% if player.id %}
+                        <a href="/player/{{ player.id }}">{{ player.name }}</a>
+                        {% else %}
+                        {{ player.name }}
+                        {% endif %}
+                    </span>
+                    <span class="player-score {% if player.score > 0 %}positive{% elif player.score < 0 %}negative{% else %}neutral{% endif %}">{{ player.score }}</span>
                     <div class="player-actions" style="display: none;">
-                        <button type="button" class="action-btn plus-btn" onclick="selectPlayerAction('{{ player }}', 'plus')">+<span class="action-score"></span></button>
-                        <button type="button" class="action-btn minus-btn" onclick="selectPlayerAction('{{ player }}', 'minus')">-<span class="action-score"></span></button>
+                        <button type="button" class="action-btn plus-btn" onclick="selectPlayerAction('{{ player.name }}', 'plus')">+<span class="action-score"></span></button>
+                        <button type="button" class="action-btn minus-btn" onclick="selectPlayerAction('{{ player.name }}', 'minus')">-<span class="action-score"></span></button>
                     </div>
                 </div>
                 {% endfor %}
@@ -483,9 +493,7 @@
             <div class="recent-players">
                 <div class="recent-players-title">最近添加的玩家：</div>
                 {% for player in recent_players %}
-                {% if player not in session.players %}
-                <span class="recent-player-btn" onclick="quickAddPlayer('{{ player }}')">{{ player }}</span>
-                {% endif %}
+                <span class="recent-player-btn" onclick="quickAddPlayer('{{ player.name }}')">{{ player.name }}</span>
                 {% endfor %}
             </div>
             {% endif %}

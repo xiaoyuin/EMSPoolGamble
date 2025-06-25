@@ -38,6 +38,8 @@
         .btn-danger:hover { background: #ff7875; color: white; text-decoration: none; }
         .actions { margin-top: 1em; }
         .no-records-message { text-align: center; color: #666; }
+        .player-link { color: #1890ff; text-decoration: none; }
+        .player-link:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -81,11 +83,17 @@
                 <th>玩家</th>
                 <th>得分</th>
             </tr>
-            {% for player, score in sorted_players %}
+            {% for player in sorted_players %}
             <tr>
                 <td>{{ loop.index }}</td>
-                <td>{{ player }}</td>
-                <td class="{% if score > 0 %}positive{% elif score < 0 %}negative{% else %}neutral{% endif %}">{{ score }}</td>
+                <td>
+                    {% if player.id %}
+                    <a href="/player/{{ player.id }}" class="player-link">{{ player.name }}</a>
+                    {% else %}
+                    {{ player.name }}
+                    {% endif %}
+                </td>
+                <td class="{% if player.score > 0 %}positive{% elif player.score < 0 %}negative{% else %}neutral{% endif %}">{{ player.score }}</td>
             </tr>
             {% endfor %}
         </table>
@@ -101,10 +109,22 @@
                 <th>分数</th>
                 <th>时间</th>
             </tr>
-            {% for r in session_data.get('records', session_data.get('rounds', [])) %}
+            {% for r in records %}
             <tr>
-                <td>{{ r.winner }}</td>
-                <td>{{ r.loser }}</td>
+                <td>
+                    {% if r.winner_id %}
+                    <a href="/player/{{ r.winner_id }}" class="player-link">{{ r.winner }}</a>
+                    {% else %}
+                    {{ r.winner }}
+                    {% endif %}
+                </td>
+                <td>
+                    {% if r.loser_id %}
+                    <a href="/player/{{ r.loser_id }}" class="player-link">{{ r.loser }}</a>
+                    {% else %}
+                    {{ r.loser }}
+                    {% endif %}
+                </td>
                 <td class="{% if r.score > 0 %}positive{% elif r.score < 0 %}negative{% else %}neutral{% endif %}">{{ r.score }}</td>
                 <td class="timestamp">{{ r.timestamp if r.timestamp else '' }}</td>
             </tr>
