@@ -6,36 +6,134 @@ import json
 import os
 
 # 应用版本信息
-APP_VERSION = "v1.2.1"
+APP_VERSION = "v1.3.0"
 APP_NAME = "EMS Pool Gamble"
-VERSION_DATE = "2025-06-22"
+VERSION_DATE = "2025-06-26"
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev_secret_key_for_testing')  # 用于会话管理
 
 # 内存数据结构，后期可替换为数据库
-sessions = {}  # {session_id: {players, viewers, records, scores, timestamp, ...}}
+sessions = {}  # {session_id: {player_ids, viewer_ids, records, scores, timestamp, ...}}
+players = {}   # {player_id: {name, created_at, updated_at, stats, ...}}
 
-# 默认分数选项（只有正整数1-10）
-DEFAULT_SCORE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+# 默认分数选项（包含特殊分数14和20）
+DEFAULT_SCORE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 20]
 
-# 全局变量存储最近添加的玩家名字
-recent_players = []
+# 全局变量存储最近添加的玩家ID
+recent_player_ids = []
+
+# 玩家管理函数
+def create_player(name):
+    """创建新玩家，返回player_id"""
+    player_id = str(uuid.uuid4())
+    players[player_id] = {
+        'name': name,
+        'created_at': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'updated_at': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'stats': {
+            'total_games': 0,
+            'total_wins': 0,
+            'total_losses': 0,
+            'total_score': 0
+        }
+    }
+    return player_id
+
+def get_player_by_name(name):
+    """根据名字查找玩家，返回player_id或None"""
+    for player_id, player_data in players.items():
+        if player_data['name'] == name:
+            return player_id
+    return None
+
+def get_or_create_player(name):
+    """获取或创建玩家，返回player_id"""
+    player_id = get_player_by_name(name)
+    if player_id is None:
+        player_id = create_player(name)
+    return player_id
+
+def update_player_name(player_id, new_name):
+    """更新玩家名字"""
+    if player_id in players:
+        players[player_id]['name'] = new_name
+        players[player_id]['updated_at'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        return True
+    return False
+
+def get_player_name(player_id):
+    """根据player_id获取玩家名字"""
+    return players.get(player_id, {}).get('name', 'Unknown Player')
+
+# 生成自动场次名称
+def generate_session_name():
+    now = datetime.datetime.now()
+    month = now.month
+    day = now.day
+    hour = now.hour
+
+    # 判断时间段
+    if 6 <= hour < 11:
+        time_period = "上午"
+    elif 11 <= hour < 14:
+        time_period = "中午"
+    elif 14 <= hour < 18:
+        time_period = "下午"
+    else:
+        time_period = "晚上"
+
+    return f"{month}月{day}号{time_period}场"
 
 # 尝试从文件加载历史数据
 def load_data():
-    global recent_players
+    global recent_player_ids, sessions, players
     try:
+        # 加载场次数据
         if os.path.exists('data.json'):
             with open('data.json', 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                # 转换回set类型
-                for sid, s in data.items():
-                    s['players'] = set(s['players'])
-                    s['viewers'] = set(s['viewers'])
+
+                # 加载玩家数据（如果存在）
+                if 'players' in data:
+                    players = data['players']
+                    sessions_data = data.get('sessions', {})
+                else:
+                    # 兼容旧数据格式，将玩家名字转换为ID
+                    sessions_data = data
+                    players = {}
+
+                # 处理场次数据
+                for sid, s in sessions_data.items():
+                    # 兼容旧数据：从玩家名字转换为player_ids
+                    if 'players' in s and isinstance(list(s['players'])[0] if s['players'] else '', str):
+                        # 旧格式：players是名字的set
+                        player_names = s['players'] if isinstance(s['players'], list) else list(s['players'])
+                        s['player_ids'] = set()
+                        for name in player_names:
+                            player_id = get_or_create_player(name)
+                            s['player_ids'].add(player_id)
+                        # 保留原有的players字段暂时兼容
+                        s['players'] = set(player_names)
+                    elif 'player_ids' in s:
+                        # 新格式：已经有player_ids
+                        s['player_ids'] = set(s['player_ids'])
+                        # 为了显示需要，重建players字段
+                        s['players'] = set(get_player_name(pid) for pid in s['player_ids'])
+                    else:
+                        s['player_ids'] = set()
+                        s['players'] = set()
+
+                    # 处理viewers
+                    if 'viewers' in s:
+                        s['viewers'] = set(s['viewers']) if isinstance(s['viewers'], list) else s['viewers']
+                    else:
+                        s['viewers'] = set()
+
                     # 为旧数据添加默认场次名称
                     if 'name' not in s:
-                        s['name'] = f"场次 #{len(data) - list(data.keys()).index(sid)}"
+                        s['name'] = f"场次 #{len(sessions_data) - list(sessions_data.keys()).index(sid)}"
+
                     # 兼容旧数据：将rounds改为records
                     if 'rounds' in s and 'records' not in s:
                         s['records'] = s['rounds']
@@ -43,47 +141,66 @@ def load_data():
                     if 'records' not in s:
                         s['records'] = []
 
+                    # 处理records中的玩家名字，转换为player_id（如果需要）
+                    for record in s['records']:
+                        if 'winner_id' not in record and 'winner' in record:
+                            record['winner_id'] = get_or_create_player(record['winner'])
+                        if 'loser_id' not in record and 'loser' in record:
+                            record['loser_id'] = get_or_create_player(record['loser'])
+
                     # 确保scores是defaultdict类型，并且所有玩家都有分数条目
                     if not isinstance(s['scores'], defaultdict):
                         scores_dict = defaultdict(int)
                         scores_dict.update(s['scores'])
                         s['scores'] = scores_dict
 
-                    # 确保所有玩家都在scores中有条目
-                    for player in s['players']:
-                        if player not in s['scores']:
-                            s['scores'][player] = 0
+                    # 确保所有玩家都在scores中有条目（使用名字作为键）
+                    for player_name in s['players']:
+                        if player_name not in s['scores']:
+                            s['scores'][player_name] = 0
 
-                # 收集最近的玩家名字
-                all_players = set()
-                for s in data.values():
-                    all_players.update(s['players'])
-                recent_players = list(all_players)[-10:]  # 最多保留10个最近玩家
+                # 收集最近的玩家ID
+                all_player_ids = set()
+                for s in sessions_data.values():
+                    all_player_ids.update(s.get('player_ids', set()))
+                recent_player_ids = list(all_player_ids)[-10:]  # 最多保留10个最近玩家
 
-                return data
+                return sessions_data
         return {}
     except Exception as e:
         print(f"加载数据失败: {e}")
+        import traceback
+        traceback.print_exc()
         return {}
 
 # 保存数据到文件
 def save_data():
     try:
+        # 构建完整的数据结构
+        data = {
+            'players': players,
+            'sessions': {}
+        }
+
         # 将set转换为list以便JSON序列化
-        data_copy = {}
         for sid, s in sessions.items():
             s_copy = s.copy()
-            s_copy['players'] = list(s['players'])
-            s_copy['viewers'] = list(s['viewers'])
-            data_copy[sid] = s_copy
+            s_copy['players'] = list(s.get('players', set()))
+            s_copy['viewers'] = list(s.get('viewers', set()))
+            s_copy['player_ids'] = list(s.get('player_ids', set()))
+            data['sessions'][sid] = s_copy
 
         with open('data.json', 'w', encoding='utf-8') as f:
-            json.dump(data_copy, f, ensure_ascii=False, indent=2)
+            json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception as e:
         print(f"保存数据失败: {e}")
+        import traceback
+        traceback.print_exc()
 
 # 尝试加载历史数据
 sessions = load_data()
+if 'players' not in globals() or not players:
+    players = {}
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -92,18 +209,24 @@ def index():
         action = request.form.get('action')
 
         if action == 'create_session':
-            # 创建新场次
-            session_name = request.form['session_name'].strip()
-            if not session_name:
-                flash('场次名称不能为空', 'error')
-                return redirect(url_for('index'))
+            # 自动创建新场次，无需用户输入
+            session_name = generate_session_name()
+
+            # 如果已经存在相同名称的活跃场次，添加序号
+            existing_names = [s['name'] for s in sessions.values() if s.get('active', True)]
+            counter = 1
+            original_name = session_name
+            while session_name in existing_names:
+                counter += 1
+                session_name = f"{original_name} ({counter})"
 
             session_id = str(uuid.uuid4())
             sessions[session_id] = {
                 'name': session_name,
-                'players': set(),
+                'players': set(),          # 暂时保留用于显示
+                'player_ids': set(),       # 新增：存储玩家ID
                 'viewers': set(),
-                'records': [],  # 改为records存储计分记录
+                'records': [],             # 改为records存储计分记录
                 'scores': defaultdict(int),
                 'active': True,
                 'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -112,43 +235,19 @@ def index():
             # 保存数据
             save_data()
             flash(f'场次 "{session_name}" 创建成功', 'success')
-            return redirect(url_for('index'))
+            # 直接进入新创建的房间
+            return redirect(url_for('game', session_id=session_id))
 
         elif action == 'join_session':
-            # 加入现有场次
-            username = request.form['username'].strip()
-            role = request.form['role']  # player/viewer
+            # 直接加入现有场次，所有人都是玩家
             session_id = request.form['session_id']
-
-            # 验证用户名
-            if not username:
-                flash('用户名不能为空', 'error')
-                return redirect(url_for('index'))
 
             if session_id not in sessions:
                 flash('场次不存在', 'error')
                 return redirect(url_for('index'))
 
-            # 注册用户
-            if role == 'player':
-                sessions[session_id]['players'].add(username)
-                # 确保新玩家在scores字典中有条目
-                if username not in sessions[session_id]['scores']:
-                    sessions[session_id]['scores'][username] = 0
-            else:
-                sessions[session_id]['viewers'].add(username)
-
-            session['username'] = username
-            session['role'] = role
-            session['session_id'] = session_id
-
-            # 记录用户名到浏览器缓存
-            session['last_username'] = username
-
-            # 保存数据
-            save_data()
-
-            return redirect(url_for('game'))
+            # 直接跳转到游戏页面，无需登录
+            return redirect(url_for('game', session_id=session_id))
 
     # 获取所有活跃的场次
     active_sessions = {k: v for k, v in sessions.items() if v.get('active', True)}
@@ -166,97 +265,70 @@ def index():
         reverse=True
     )[:3]
 
-    # 获取上次登录的用户名
-    last_username = session.get('last_username', '')
-
-    # 检查用户当前的session_id是否仍然有效（场次是否还在进行中）
-    current_session_id = session.get('session_id')
-    if current_session_id:
-        if current_session_id not in sessions or not sessions[current_session_id].get('active', True):
-            # 清除无效的session信息
-            session.pop('session_id', None)
-            if current_session_id not in sessions:
-                flash('您所在的场次已被删除', 'error')
-            else:
-                flash('您所在的场次已结束', 'error')
-
     return render_template('index.html',
                          active_sessions=sorted_active_sessions,
                          ended_sessions=sorted_ended_sessions,
-                         last_username=last_username,
                          sessions=sessions,
+                         suggested_session_name=generate_session_name(),
                          app_version=APP_VERSION,
                          app_name=APP_NAME,
                          version_date=VERSION_DATE)
 
-@app.route('/game', methods=['GET', 'POST'])
-def game():
-    # 游戏主界面
-    session_id = session.get('session_id')
-    username = session.get('username')
-    role = session.get('role')
+@app.route('/game')
+@app.route('/game/<session_id>')
+def game(session_id=None):
+    # 游戏主界面 - 通过URL参数或session获取session_id
+    if session_id is None:
+        session_id = session.get('session_id')
 
     if not session_id or session_id not in sessions:
+        flash('请先选择一个场次', 'error')
         return redirect(url_for('index'))
 
     game_session = sessions[session_id]
 
     # 检查场次是否已被结束
     if not game_session.get('active', True):
-        # 清除用户的session信息
-        session.pop('session_id', None)
-        flash('该场次已经结束，您已被自动退出', 'error')
+        flash('该场次已经结束', 'error')
         return redirect(url_for('index'))
 
-    if request.method == 'POST' and role == 'player':
-        winner = request.form['winner']
-        loser = request.form['loser']
-        score = int(request.form['score'])
-
-        # 验证
-        if winner == loser:
-            flash('胜者和败者不能是同一个玩家', 'error')
-        elif winner not in game_session['players'] or loser not in game_session['players']:
-            flash('选择的玩家不在当前场次中', 'error')
-        else:
-            # 记录本次计分
-            record_data = {
-                'winner': winner,
-                'loser': loser,
-                'score': score,
-                'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            }
-            game_session['records'].append(record_data)
-
-            # 更新分数
-            game_session['scores'][winner] += score
-            game_session['scores'][loser] -= score
-
-            # 保存数据
-            save_data()
-            flash('成功记录分数', 'success')
-
-    # 准备玩家列表，按分数排序
+    # 准备玩家列表，按分数排序，包含player_id
     # 确保所有玩家都在scores字典中有条目
     for player in game_session['players']:
         if player not in game_session['scores']:
             game_session['scores'][player] = 0
 
-    sorted_players = sorted(
-        [(p, game_session['scores'][p]) for p in game_session['players']],
-        key=lambda x: x[1],
-        reverse=True
-    )
+    # 构建包含player_id的玩家列表
+    players_with_ids = []
+    for player_name in game_session['players']:
+        player_id = get_player_by_name(player_name)
+        score = game_session['scores'][player_name]
+        players_with_ids.append({
+            'name': player_name,
+            'id': player_id,
+            'score': score
+        })
+
+    # 按分数排序
+    sorted_players = sorted(players_with_ids, key=lambda x: x['score'], reverse=True)
+
+    # 准备最近玩家的信息（用于显示）
+    recent_player_data = []
+    for pid in recent_player_ids:
+        player_name = get_player_name(pid)
+        if player_name not in game_session['players']:  # 只显示不在当前场次的玩家
+            recent_player_data.append({
+                'id': pid,
+                'name': player_name
+            })
 
     return render_template(
         'game.html',
+        session_id=session_id,
         session=game_session,
-        username=username,
-        role=role,
         score_options=DEFAULT_SCORE_OPTIONS,
         sorted_players=sorted_players,
-        recent_players=recent_players,  # 传递最近玩家列表
-        default_loser=next((p for p in game_session['players'] if p != username), ''),
+        recent_players=recent_player_data,  # 传递包含ID的最近玩家列表
         app_version=APP_VERSION
     )
 
@@ -271,44 +343,57 @@ def history():
         reverse=True
     )
 
-    # 计算全局玩家总分
+    # 计算全局玩家总分，包含player_id
     total_scores = defaultdict(int)
     for _, s in sessions.items():
         for p in s['players']:
             total_scores[p] += s['scores'][p]
 
+    # 构建包含player_id的排行榜数据
+    sorted_total_scores = []
+    for player_name, score in total_scores.items():
+        player_id = get_player_by_name(player_name)
+        sorted_total_scores.append({
+            'name': player_name,
+            'id': player_id,
+            'score': score
+        })
+
     # 按分数排序
-    sorted_total_scores = sorted(
-        [(p, score) for p, score in total_scores.items()],
-        key=lambda x: x[1],
-        reverse=True
-    )
+    sorted_total_scores.sort(key=lambda x: x['score'], reverse=True)
+
+    # 为每个场次构建包含player_id的玩家数据
+    sessions_with_player_ids = {}
+    for sid, session_data in sorted_sessions:
+        session_copy = session_data.copy()
+        # 构建包含ID的玩家列表
+        players_with_ids = []
+        for player_name in session_data['players']:
+            player_id = get_player_by_name(player_name)
+            score = session_data['scores'].get(player_name, 0)
+            players_with_ids.append({
+                'name': player_name,
+                'id': player_id,
+                'score': score
+            })
+
+        # 按分数排序
+        players_with_ids.sort(key=lambda x: x['score'], reverse=True)
+        session_copy['players_with_ids'] = players_with_ids
+        sessions_with_player_ids[sid] = session_copy
 
     return render_template('history.html',
-                          sessions=dict(sorted_sessions),
+                          sessions=sessions_with_player_ids,
                           total_scores=sorted_total_scores,
                           app_version=APP_VERSION)
 
-@app.route('/logout')
-def logout():
-    session.clear()
-    flash('您已成功退出', 'success')
-    return redirect(url_for('index'))
 
-@app.route('/end_session')
-def end_session():
+@app.route('/end_session/<session_id>')
+def end_session(session_id):
     # 结束当前场次
-    session_id = session.get('session_id')
-    username = session.get('username')
-    role = session.get('role')
-
-    if not session_id or session_id not in sessions:
+    if session_id not in sessions:
+        flash('场次不存在', 'error')
         return redirect(url_for('index'))
-
-    # 验证权限
-    if role != 'player':
-        flash('只有玩家可以结束场次', 'error')
-        return redirect(url_for('game'))
 
     # 标记为非活跃
     sessions[session_id]['active'] = False
@@ -333,80 +418,61 @@ def api_scores():
     else:
         return jsonify({'error': 'Invalid session ID'}), 400
 
-@app.route('/add_player', methods=['POST'])
-def add_player():
-    global recent_players
+@app.route('/add_player/<session_id>', methods=['POST'])
+def add_player(session_id):
+    global recent_player_ids
     # 在游戏中添加新玩家
-    session_id = session.get('session_id')
-    username = session.get('username')
-    role = session.get('role')
-
-    if not session_id or session_id not in sessions:
+    if session_id not in sessions:
+        flash('场次不存在', 'error')
         return redirect(url_for('index'))
 
     game_session = sessions[session_id]
 
     # 检查场次是否已被结束
     if not game_session.get('active', True):
-        session.pop('session_id', None)
-        flash('该场次已经结束，您已被自动退出', 'error')
+        flash('该场次已经结束', 'error')
         return redirect(url_for('index'))
-
-    # 验证权限
-    if role != 'player':
-        flash('只有玩家可以添加新玩家', 'error')
-        return redirect(url_for('game'))
 
     new_player_name = request.form['new_player_name'].strip()
     if not new_player_name:
         flash('玩家名称不能为空', 'error')
-        return redirect(url_for('game'))
+        return redirect(url_for('game', session_id=session_id))
 
-    game_session = sessions[session_id]
-
-    # 检查玩家是否已存在
+    # 检查玩家是否已存在（按名字）
     if new_player_name in game_session['players'] or new_player_name in game_session['viewers']:
         flash('该用户名已存在', 'error')
-        return redirect(url_for('game'))
+        return redirect(url_for('game', session_id=session_id))
 
-    # 添加玩家
-    game_session['players'].add(new_player_name)
+    # 获取或创建玩家
+    player_id = get_or_create_player(new_player_name)
+
+    # 添加玩家到场次
+    game_session['player_ids'].add(player_id)
+    game_session['players'].add(new_player_name)  # 为了兼容性保留
     game_session['scores'][new_player_name] = 0
 
     # 更新最近玩家列表
-    if new_player_name not in recent_players:
-        recent_players.append(new_player_name)
+    if player_id not in recent_player_ids:
+        recent_player_ids.append(player_id)
         # 只保留最近10个玩家
-        if len(recent_players) > 10:
-            recent_players = recent_players[-10:]
+        if len(recent_player_ids) > 10:
+            recent_player_ids = recent_player_ids[-10:]
 
     # 保存数据
     save_data()
 
     flash(f'玩家 "{new_player_name}" 添加成功', 'success')
-    return redirect(url_for('game'))
+    return redirect(url_for('game', session_id=session_id))
 
 @app.route('/delete_session/<session_id>')
 def delete_session(session_id):
     # 删除场次
-    username = session.get('username')
-    role = session.get('role')
-
     if session_id not in sessions:
         flash('场次不存在', 'error')
         return redirect(url_for('history'))
 
-    # 验证权限：只有玩家才能删除场次
-    if role != 'player' or username not in sessions[session_id]['players']:
-        flash('只有该场次的玩家才能删除场次', 'error')
-        return redirect(url_for('session_detail', session_id=session_id))
-
     session_name = sessions[session_id]['name']
     del sessions[session_id]
-
-    # 如果删除的是当前场次，清除session
-    if session.get('session_id') == session_id:
-        session.pop('session_id', None)
 
     # 保存数据
     save_data()
@@ -423,48 +489,55 @@ def session_detail(session_id):
 
     session_data = sessions[session_id]
 
-    # 按分数排序玩家
-    sorted_players = sorted(
-        [(p, session_data['scores'][p]) for p in session_data['players']],
-        key=lambda x: x[1],
-        reverse=True
-    )
+    # 构建包含player_id的玩家列表并按分数排序
+    players_with_ids = []
+    for player_name in session_data['players']:
+        player_id = get_player_by_name(player_name)
+        score = session_data['scores'].get(player_name, 0)
+        players_with_ids.append({
+            'name': player_name,
+            'id': player_id,
+            'score': score
+        })
+
+    # 按分数排序
+    sorted_players = sorted(players_with_ids, key=lambda x: x['score'], reverse=True)
+
+    # 为记录添加玩家ID（如果需要）
+    records_with_ids = []
+    for record in session_data.get('records', []):
+        record_copy = record.copy()
+        if 'winner_id' not in record_copy and 'winner' in record_copy:
+            record_copy['winner_id'] = get_player_by_name(record_copy['winner'])
+        if 'loser_id' not in record_copy and 'loser' in record_copy:
+            record_copy['loser_id'] = get_player_by_name(record_copy['loser'])
+        records_with_ids.append(record_copy)
 
     return render_template('session_detail.html',
                          session_id=session_id,
                          session_data=session_data,
                          sorted_players=sorted_players,
+                         records=records_with_ids,
                          app_version=APP_VERSION)
 
-@app.route('/delete_record/<int:record_index>', methods=['POST'])
-def delete_record(record_index):
+@app.route('/delete_record/<session_id>/<int:record_index>', methods=['POST'])
+def delete_record(session_id, record_index):
     # 删除计分记录
-    session_id = session.get('session_id')
-    username = session.get('username')
-    role = session.get('role')
-
-    if not session_id or session_id not in sessions:
+    if session_id not in sessions:
+        flash('场次不存在', 'error')
         return redirect(url_for('index'))
 
     game_session = sessions[session_id]
 
     # 检查场次是否已被结束
     if not game_session.get('active', True):
-        session.pop('session_id', None)
         flash('该场次已经结束，无法删除记录', 'error')
         return redirect(url_for('index'))
-
-    # 验证权限
-    if role != 'player':
-        flash('只有玩家可以删除计分记录', 'error')
-        return redirect(url_for('game'))
-
-    game_session = sessions[session_id]
 
     # 验证记录索引
     if record_index < 0 or record_index >= len(game_session['records']):
         flash('无效的记录索引', 'error')
-        return redirect(url_for('game'))
+        return redirect(url_for('game', session_id=session_id))
 
     # 获取要删除的记录
     record_to_delete = game_session['records'][record_index]
@@ -485,7 +558,264 @@ def delete_record(record_index):
     save_data()
 
     flash(f'已删除记录：{winner} 胜 {loser} ({score}分)', 'success')
-    return redirect(url_for('game'))
+    return redirect(url_for('game', session_id=session_id))
+
+@app.route('/add_score/<session_id>', methods=['POST'])
+def add_score(session_id):
+    # 记分功能
+    if session_id not in sessions:
+        flash('场次不存在', 'error')
+        return redirect(url_for('index'))
+
+    game_session = sessions[session_id]
+
+    # 检查场次是否已被结束
+    if not game_session.get('active', True):
+        flash('该场次已经结束', 'error')
+        return redirect(url_for('index'))
+
+    winner = request.form['winner']
+    loser = request.form['loser']
+    score = int(request.form['score'])
+
+    # 验证
+    if winner == loser:
+        flash('胜者和败者不能是同一个玩家', 'error')
+    elif winner not in game_session['players'] or loser not in game_session['players']:
+        flash('选择的玩家不在当前场次中', 'error')
+    else:
+        # 获取玩家ID
+        winner_id = get_player_by_name(winner)
+        loser_id = get_player_by_name(loser)
+
+        # 记录本次计分
+        record_data = {
+            'winner': winner,
+            'loser': loser,
+            'winner_id': winner_id,
+            'loser_id': loser_id,
+            'score': score,
+            'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        game_session['records'].append(record_data)
+
+        # 更新分数
+        game_session['scores'][winner] += score
+        game_session['scores'][loser] -= score
+
+        # 保存数据
+        save_data()
+        flash('成功记录分数', 'success')
+
+    return redirect(url_for('game', session_id=session_id))
+
+@app.route('/add_special_score/<session_id>', methods=['POST'])
+def add_special_score(session_id):
+    # 处理特殊分数（14分和20分）的记分功能
+    if session_id not in sessions:
+        flash('场次不存在', 'error')
+        return redirect(url_for('index'))
+
+    game_session = sessions[session_id]
+
+    # 检查场次是否已被结束
+    if not game_session.get('active', True):
+        flash('该场次已经结束', 'error')
+        return redirect(url_for('index'))
+
+    winner = request.form.get('winner')
+    losers = request.form.getlist('losers')  # 获取多个败者
+    total_score = int(request.form.get('score', 0))
+
+    # 验证输入
+    if not winner or not losers or total_score not in [14, 20]:
+        flash('参数错误', 'error')
+        return redirect(url_for('game', session_id=session_id))
+
+    if winner in losers:
+        flash('胜者不能同时是败者', 'error')
+        return redirect(url_for('game', session_id=session_id))
+
+    if len(losers) != 2:
+        flash('特殊分数需要选择2个败者', 'error')
+        return redirect(url_for('game', session_id=session_id))
+
+    # 检查所有玩家是否存在
+    all_players = [winner] + losers
+    for player in all_players:
+        if player not in game_session['players']:
+            flash(f'玩家 {player} 不在当前场次中', 'error')
+            return redirect(url_for('game', session_id=session_id))
+
+    # 计算分数
+    half_score = total_score // 2
+
+    # 获取玩家ID
+    winner_id = get_player_by_name(winner)
+    loser_ids = [get_player_by_name(loser) for loser in losers]
+
+    # 记录第一笔：胜者得分，第一个败者失分
+    record_data_1 = {
+        'winner': winner,
+        'loser': losers[0],
+        'winner_id': winner_id,
+        'loser_id': loser_ids[0],
+        'score': half_score,
+        'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'special_score_part': f'1/2 (总分{total_score})'
+    }
+    game_session['records'].append(record_data_1)
+
+    # 记录第二笔：胜者得分，第二个败者失分
+    record_data_2 = {
+        'winner': winner,
+        'loser': losers[1],
+        'winner_id': winner_id,
+        'loser_id': loser_ids[1],
+        'score': half_score,
+        'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'special_score_part': f'2/2 (总分{total_score})'
+    }
+    game_session['records'].append(record_data_2)
+
+    # 更新分数
+    game_session['scores'][winner] += total_score
+    game_session['scores'][losers[0]] -= half_score
+    game_session['scores'][losers[1]] -= half_score
+
+    # 保存数据
+    save_data()
+    flash(f'成功记录特殊分数：{winner} +{total_score}，{losers[0]} -{half_score}，{losers[1]} -{half_score}', 'success')
+
+    return redirect(url_for('game', session_id=session_id))
+
+@app.route('/player/<player_id>')
+def player_detail(player_id):
+    """玩家详情页面"""
+    if player_id not in players:
+        flash('玩家不存在', 'error')
+        return redirect(url_for('index'))
+
+    player = players[player_id]
+
+    # 收集这个玩家的所有对战记录
+    player_records = []
+    for session_id, session_data in sessions.items():
+        for record in session_data.get('records', []):
+            if (record.get('winner_id') == player_id or record.get('loser_id') == player_id or
+                record.get('winner') == player['name'] or record.get('loser') == player['name']):
+
+                # 确保记录有player_id信息
+                if 'winner_id' not in record and 'winner' in record:
+                    record['winner_id'] = get_or_create_player(record['winner'])
+                if 'loser_id' not in record and 'loser' in record:
+                    record['loser_id'] = get_or_create_player(record['loser'])
+
+                player_records.append({
+                    'session_name': session_data.get('name', '未命名场次'),
+                    'session_id': session_id,
+                    'record': record,
+                    'is_winner': (record.get('winner_id') == player_id or record.get('winner') == player['name']),
+                    'opponent_id': record.get('loser_id') if (record.get('winner_id') == player_id or record.get('winner') == player['name']) else record.get('winner_id'),
+                    'opponent_name': get_player_name(record.get('loser_id')) if (record.get('winner_id') == player_id or record.get('winner') == player['name']) else get_player_name(record.get('winner_id')),
+                    'score': record.get('score', 0)
+                })
+
+    # 按时间排序（最新的在前面）
+    player_records.sort(key=lambda x: x['record'].get('timestamp', ''), reverse=True)
+
+    # 计算统计数据
+    stats = {
+        'total_games': len(player_records),
+        'wins': len([r for r in player_records if r['is_winner']]),
+        'losses': len([r for r in player_records if not r['is_winner']]),
+        'total_score': sum(r['score'] if r['is_winner'] else -r['score'] for r in player_records)
+    }
+    stats['win_rate'] = (stats['wins'] / stats['total_games'] * 100) if stats['total_games'] > 0 else 0
+
+    # 对手统计
+    opponent_stats = defaultdict(lambda: {'wins': 0, 'losses': 0, 'total_score': 0})
+    for record in player_records:
+        opponent_id = record['opponent_id']
+        if opponent_id:
+            if record['is_winner']:
+                opponent_stats[opponent_id]['wins'] += 1
+                opponent_stats[opponent_id]['total_score'] += record['score']
+            else:
+                opponent_stats[opponent_id]['losses'] += 1
+                opponent_stats[opponent_id]['total_score'] -= record['score']
+
+    # 转换对手统计为列表，包含名字
+    opponent_list = []
+    for opponent_id, stat in opponent_stats.items():
+        opponent_list.append({
+            'id': opponent_id,
+            'name': get_player_name(opponent_id),
+            'wins': stat['wins'],
+            'losses': stat['losses'],
+            'total_games': stat['wins'] + stat['losses'],
+            'win_rate': (stat['wins'] / (stat['wins'] + stat['losses']) * 100) if (stat['wins'] + stat['losses']) > 0 else 0,
+            'total_score': stat['total_score']
+        })
+
+    # 按总对局数排序
+    opponent_list.sort(key=lambda x: x['total_games'], reverse=True)
+
+    return render_template(
+        'player_detail.html',
+        player=player,
+        player_id=player_id,
+        stats=stats,
+        records=player_records[:50],  # 只显示最近50场
+        opponents=opponent_list,
+        app_version=APP_VERSION
+    )
+
+@app.route('/player/<player_id>/rename', methods=['POST'])
+def rename_player(player_id):
+    """重命名玩家"""
+    if player_id not in players:
+        flash('玩家不存在', 'error')
+        return redirect(url_for('index'))
+
+    new_name = request.form.get('new_name', '').strip()
+    if not new_name:
+        flash('新名字不能为空', 'error')
+        return redirect(url_for('player_detail', player_id=player_id))
+
+    # 检查新名字是否已被其他玩家使用
+    existing_player_id = get_player_by_name(new_name)
+    if existing_player_id and existing_player_id != player_id:
+        flash('该名字已被其他玩家使用', 'error')
+        return redirect(url_for('player_detail', player_id=player_id))
+
+    old_name = players[player_id]['name']
+
+    # 更新玩家名字
+    update_player_name(player_id, new_name)
+
+    # 更新所有场次中的玩家名字（为了兼容性）
+    for session_data in sessions.values():
+        if old_name in session_data.get('players', set()):
+            session_data['players'].remove(old_name)
+            session_data['players'].add(new_name)
+            # 更新分数记录
+            if old_name in session_data.get('scores', {}):
+                session_data['scores'][new_name] = session_data['scores'][old_name]
+                del session_data['scores'][old_name]
+
+        # 更新记录中的名字（为了显示）
+        for record in session_data.get('records', []):
+            if record.get('winner') == old_name:
+                record['winner'] = new_name
+            if record.get('loser') == old_name:
+                record['loser'] = new_name
+
+    # 保存数据
+    save_data()
+
+    flash(f'玩家名字已从 "{old_name}" 更改为 "{new_name}"', 'success')
+    return redirect(url_for('player_detail', player_id=player_id))
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
