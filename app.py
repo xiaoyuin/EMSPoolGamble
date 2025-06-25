@@ -358,7 +358,7 @@ def history():
             'id': player_id,
             'score': score
         })
-    
+
     # 按分数排序
     sorted_total_scores.sort(key=lambda x: x['score'], reverse=True)
 
@@ -376,7 +376,7 @@ def history():
                 'id': player_id,
                 'score': score
             })
-        
+
         # 按分数排序
         players_with_ids.sort(key=lambda x: x['score'], reverse=True)
         session_copy['players_with_ids'] = players_with_ids
@@ -499,7 +499,7 @@ def session_detail(session_id):
             'id': player_id,
             'score': score
         })
-    
+
     # 按分数排序
     sorted_players = sorted(players_with_ids, key=lambda x: x['score'], reverse=True)
 
