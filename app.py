@@ -6,7 +6,7 @@ import json
 import os
 
 # 应用版本信息
-APP_VERSION = "v1.3.0"
+APP_VERSION = "v1.3.1"
 APP_NAME = "EMS Pool Gamble"
 VERSION_DATE = "2025-06-26"
 
@@ -85,13 +85,31 @@ def generate_session_name():
 
     return f"{month}月{day}号{time_period}场"
 
+# 数据文件路径配置
+def get_data_file_path():
+    """获取数据文件路径，Azure中使用/home目录以保证持久化"""
+    if os.environ.get('WEBSITE_SITE_NAME'):  # 检测是否在Azure App Service中
+        # Azure App Service中，/home目录是持久化的
+        data_dir = '/home/data'
+        try:
+            os.makedirs(data_dir, exist_ok=True)
+        except OSError as e:
+            print(f"警告：无法创建Azure数据目录 {data_dir}: {e}")
+            # 降级到使用/home目录
+            data_dir = '/home'
+        return os.path.join(data_dir, 'data.json')
+    else:
+        # 本地开发环境
+        return 'data.json'
+
 # 尝试从文件加载历史数据
 def load_data():
     global recent_player_ids, sessions, players
+    data_file = get_data_file_path()
     try:
         # 加载场次数据
-        if os.path.exists('data.json'):
-            with open('data.json', 'r', encoding='utf-8') as f:
+        if os.path.exists(data_file):
+            with open(data_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
 
                 # 加载玩家数据（如果存在）
@@ -175,7 +193,11 @@ def load_data():
 
 # 保存数据到文件
 def save_data():
+    data_file = get_data_file_path()
     try:
+        # 确保数据目录存在
+        os.makedirs(os.path.dirname(data_file), exist_ok=True)
+        
         # 构建完整的数据结构
         data = {
             'players': players,
@@ -190,8 +212,10 @@ def save_data():
             s_copy['player_ids'] = list(s.get('player_ids', set()))
             data['sessions'][sid] = s_copy
 
-        with open('data.json', 'w', encoding='utf-8') as f:
+        with open(data_file, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        print(f"数据已保存到: {data_file}")
     except Exception as e:
         print(f"保存数据失败: {e}")
         import traceback
@@ -818,5 +842,18 @@ def rename_player(player_id):
     return redirect(url_for('player_detail', player_id=player_id))
 
 if __name__ == '__main__':
+    # 加载历史数据
+    sessions = load_data()
+    
+    # 输出数据存储位置信息
+    data_file = get_data_file_path()
+    is_azure = os.environ.get('WEBSITE_SITE_NAME') is not None
+    print(f"")
+    print(f"🎱 {APP_NAME} {APP_VERSION}")
+    print(f"📊 数据存储位置: {data_file}")
+    print(f"☁️  Azure环境: {'是' if is_azure else '否'}")
+    print(f"📝 已加载 {len(sessions)} 个场次, {len(players)} 个玩家")
+    print(f"")
+    
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_DEBUG', 'False').lower() == 'true')
