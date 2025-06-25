@@ -513,7 +513,7 @@
                         <div>胜者: <b>{{ r.winner }}</b>，败者: <b>{{ r.loser }}</b>，分数:
                             <span class="{% if r.score > 0 %}positive{% elif r.score < 0 %}negative{% else %}neutral{% endif %}">{{ r.score }}</span>
                         </div>
-                        <div class="timestamp">{{ r.timestamp }}</div>
+                        <div class="timestamp" data-utc-time="{{ r.timestamp }}">{{ r.timestamp }}</div>
                     </div>
                     <form action="/delete_record/{{ session_id }}/{{ loop.index0 }}" method="post" class="delete-form">
                         <button type="submit" class="delete-record-btn" onclick="return confirm('确定要删除这条记录吗？这会恢复相应的分数变化。')">删除</button>
@@ -563,6 +563,38 @@
 
     console.log('游戏页面时区偏移量（分钟）:', timezoneOffset);
 })();
+
+// 将UTC时间转换为本地时间显示
+function convertUtcToLocal() {
+    // 转换所有带有 data-utc-time 属性的元素
+    document.querySelectorAll('[data-utc-time]').forEach(function(element) {
+        const utcTime = element.getAttribute('data-utc-time');
+        if (utcTime && utcTime.trim() !== '') {
+            try {
+                // 尝试解析UTC时间字符串
+                const utcDate = new Date(utcTime + (utcTime.endsWith('Z') ? '' : 'Z'));
+                if (!isNaN(utcDate.getTime())) {
+                    // 转换为本地时间格式
+                    const localTimeStr = utcDate.toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                    element.textContent = localTimeStr;
+                    console.log('时间转换:', utcTime, '->', localTimeStr);
+                }
+            } catch (e) {
+                console.log('时间转换失败:', utcTime, e);
+            }
+        }
+    });
+}
+
+// 页面加载完成后执行时间转换
+document.addEventListener('DOMContentLoaded', convertUtcToLocal);
 </script>
 </body>
 </html>

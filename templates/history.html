@@ -81,9 +81,9 @@
                 {{ '进行中' if s.active else '已结束' }}
             </span>
         </div>
-        <div>开始时间: {{ s.timestamp }}</div>
+        <div>开始时间: <span data-utc-time="{{ s.timestamp }}">{{ s.timestamp }}</span></div>
         {% if not s.active and s.end_time %}
-        <div>结束时间: {{ s.end_time }}</div>
+        <div>结束时间: <span data-utc-time="{{ s.end_time }}">{{ s.end_time }}</span></div>
         {% endif %}
         <div>玩家：{{ s.players|join(', ') }}</div>
         <div>观战者：{{ s.viewers|join(', ') }}</div>
@@ -123,5 +123,48 @@
            <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a>
         </p>
     </div>
+
+<script>
+// 通用时区转换工具函数
+function convertUTCToLocal(utcTimeString) {
+    if (!utcTimeString || utcTimeString === '未知') {
+        return utcTimeString;
+    }
+    
+    try {
+        // 处理 "YYYY-MM-DD HH:MM:SS" 格式的UTC时间
+        const date = new Date(utcTimeString + ' UTC');
+        
+        // 转换为用户本地时间
+        return date.toLocaleString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        });
+    } catch (error) {
+        console.warn('时间转换失败:', utcTimeString, error);
+        return utcTimeString; // 转换失败时返回原值
+    }
+}
+
+// 页面加载完成后，转换所有时间显示
+document.addEventListener('DOMContentLoaded', function() {
+    // 转换所有带有 data-utc-time 属性的元素
+    document.querySelectorAll('[data-utc-time]').forEach(function(element) {
+        const utcTime = element.getAttribute('data-utc-time');
+        if (utcTime && utcTime.trim() !== '') {
+            const localTime = convertUTCToLocal(utcTime);
+            element.textContent = localTime;
+            console.log('时间转换:', utcTime, '->', localTime);
+        }
+    });
+    
+    console.log('历史记录页面时间转换完成');
+});
+</script>
 </body>
 </html>

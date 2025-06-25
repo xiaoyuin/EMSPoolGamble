@@ -6,9 +6,23 @@ import json
 import os
 
 # 时区处理工具函数
+def get_utc_timestamp():
+    """
+    获取UTC时间戳字符串，用于统一存储
+    :return: UTC时间戳字符串
+    """
+    return datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+
+def get_utc_iso_timestamp():
+    """
+    获取ISO格式的UTC时间戳，便于前端处理
+    :return: ISO格式的UTC时间戳
+    """
+    return datetime.datetime.utcnow().isoformat() + 'Z'
+
 def get_user_local_time(timezone_offset_minutes=None):
     """
-    获取用户本地时间
+    获取用户本地时间（保留兼容性）
     :param timezone_offset_minutes: 用户时区偏移量（分钟），正数表示UTC+，负数表示UTC-
     :return: 格式化的本地时间字符串
     """
@@ -58,7 +72,7 @@ recent_player_ids = []
 def create_player(name, timezone_offset_minutes=None):
     """创建新玩家，返回player_id"""
     player_id = str(uuid.uuid4())
-    current_time = get_user_local_time(timezone_offset_minutes)
+    current_time = get_utc_timestamp()  # 统一使用UTC时间存储
     players[player_id] = {
         'name': name,
         'created_at': current_time,
@@ -90,7 +104,7 @@ def update_player_name(player_id, new_name, timezone_offset_minutes=None):
     """更新玩家名字"""
     if player_id in players:
         players[player_id]['name'] = new_name
-        players[player_id]['updated_at'] = get_user_local_time(timezone_offset_minutes)
+        players[player_id]['updated_at'] = get_utc_timestamp()  # 统一使用UTC时间存储
         return True
     return False
 
@@ -304,7 +318,7 @@ def index():
                 'records': [],             # 改为records存储计分记录
                 'scores': defaultdict(int),
                 'active': True,
-                'timestamp': get_user_local_time(timezone_offset_minutes)
+                'timestamp': get_utc_timestamp()  # 统一使用UTC时间存储
             }
 
             # 保存数据
@@ -484,7 +498,7 @@ def end_session_post(session_id):
 
     # 标记为非活跃
     sessions[session_id]['active'] = False
-    sessions[session_id]['end_time'] = get_user_local_time(timezone_offset_minutes)
+    sessions[session_id]['end_time'] = get_utc_timestamp()  # 统一使用UTC时间存储
 
     # 保存数据
     save_data()
@@ -696,7 +710,7 @@ def add_score(session_id):
             'winner_id': winner_id,
             'loser_id': loser_id,
             'score': score,
-            'timestamp': get_user_local_time(timezone_offset_minutes)
+            'timestamp': get_utc_timestamp()  # 统一使用UTC时间存储
         }
         game_session['records'].append(record_data)
 
@@ -769,7 +783,7 @@ def add_special_score(session_id):
         'winner_id': winner_id,
         'loser_id': loser_ids[0],
         'score': half_score,
-        'timestamp': get_user_local_time(timezone_offset_minutes),
+        'timestamp': get_utc_timestamp(),  # 统一使用UTC时间存储
         'special_score_part': f'1/2 (总分{total_score})'
     }
     game_session['records'].append(record_data_1)
@@ -781,7 +795,7 @@ def add_special_score(session_id):
         'winner_id': winner_id,
         'loser_id': loser_ids[1],
         'score': half_score,
-        'timestamp': get_user_local_time(timezone_offset_minutes),
+        'timestamp': get_utc_timestamp(),  # 统一使用UTC时间存储
         'special_score_part': f'2/2 (总分{total_score})'
     }
     game_session['records'].append(record_data_2)
