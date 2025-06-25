@@ -108,9 +108,10 @@
 
     <!-- 创建新场次 -->
     <div class="card">
-        <form method="post">
+        <form method="post" id="create-session-form">
             <input type="hidden" name="action" value="create_session">
-            <button type="submit" class="btn-success btn-full">快速创建 - {{ suggested_session_name }}</button>
+            <input type="hidden" name="timezone_offset" id="timezone-offset" value="">
+            <button type="submit" class="btn-success btn-full" id="create-session-btn">快速创建 - <span id="suggested-session-name">{{ suggested_session_name }}</span></button>
         </form>
     </div>
     </div>
@@ -143,5 +144,53 @@
     <div class="footer">
         <p>© 2025 EMS Pool Gamble | <a href="https://github.com/xiaoyuin/EMSPoolGamble" target="_blank" rel="noopener">GitHub</a></p>
     </div>
+
+<script>
+// 时区偏移量和建议场次名称处理
+(function() {
+    // 获取用户时区偏移量（分钟，UTC偏移）
+    const timezoneOffset = -new Date().getTimezoneOffset();
+
+    // 设置隐藏字段的值
+    const timezoneOffsetInput = document.getElementById('timezone-offset');
+    if (timezoneOffsetInput) {
+        timezoneOffsetInput.value = timezoneOffset;
+    }
+
+    // 生成基于用户时区的建议场次名称
+    function generateSessionName(offsetMinutes) {
+        const now = new Date();
+        const userTime = new Date(now.getTime() + offsetMinutes * 60000);
+
+        const month = userTime.getMonth() + 1;
+        const day = userTime.getDate();
+        const hour = userTime.getHours();
+
+        let timePeriod;
+        if (hour >= 6 && hour < 11) {
+            timePeriod = "上午";
+        } else if (hour >= 11 && hour < 14) {
+            timePeriod = "中午";
+        } else if (hour >= 14 && hour < 18) {
+            timePeriod = "下午";
+        } else {
+            timePeriod = "晚上";
+        }
+
+        return `${month}月${day}号${timePeriod}场`;
+    }
+
+    // 更新建议的场次名称
+    const suggestedNameElement = document.getElementById('suggested-session-name');
+    if (suggestedNameElement) {
+        const userSessionName = generateSessionName(timezoneOffset);
+        suggestedNameElement.textContent = userSessionName;
+    }
+
+    // 调试信息（开发时可用）
+    console.log('用户时区偏移量（分钟）:', timezoneOffset);
+    console.log('建议场次名称:', generateSessionName(timezoneOffset));
+})();
+</script>
 </body>
 </html>

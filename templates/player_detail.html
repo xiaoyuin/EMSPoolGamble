@@ -97,6 +97,7 @@
         <h3>重命名玩家</h3>
         <form action="/player/{{ player_id }}/rename" method="post" class="rename-form">
             <input type="text" name="new_name" value="{{ player.name }}" required>
+            <input type="hidden" id="rename_timezone_offset" name="timezone_offset" value="">
             <button type="submit" class="btn btn-primary">更改名字</button>
         </form>
         <div style="font-size: 0.9em; color: #666; margin-top: 0.5em;">
@@ -181,5 +182,20 @@
            <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a>
         </p>
     </div>
+
+<script>
+// 设置时区偏移量
+(function() {
+    const timezoneOffset = -new Date().getTimezoneOffset();
+
+    // 设置重命名表单的时区偏移量
+    const renameTimezoneInput = document.getElementById('rename_timezone_offset');
+    if (renameTimezoneInput) {
+        renameTimezoneInput.value = timezoneOffset;
+    }
+
+    console.log('玩家详情页面时区偏移量（分钟）:', timezoneOffset);
+})();
+</script>
 </body>
 </html>

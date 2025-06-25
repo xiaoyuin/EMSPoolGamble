@@ -292,7 +292,7 @@
                     if (recordBtn) {
                         recordBtn.disabled = false;
                         if (isSpecialScore) {
-                            recordBtn.textContent = `记录：${selectedWinner} +${selectedScore}，${selectedLosers.join('、')} 各-${selectedScore/2}`;
+                            recordBtn.textContent = `记录：${selectedWinner} +${selectedScore}，${selectedLosers.join('、')} 各 -${selectedScore/2}`;
                         } else {
                             recordBtn.textContent = `记录：${selectedWinner} +${selectedScore}，${selectedLosers[0]} -${selectedScore}`;
                         }
@@ -474,10 +474,12 @@
             <input type="hidden" id="selected_winner" name="winner" value="">
             <input type="hidden" id="selected_loser" name="loser" value="">
             <input type="hidden" id="selected_score" name="score" value="">
+            <input type="hidden" id="timezone_offset" name="timezone_offset" value="">
             <button type="submit" class="btn-primary btn-full" id="record-btn" disabled>请先选择分数</button>
         </form>
 
-        <form action="/end_session/{{ session_id }}" method="get">
+        <form action="/end_session/{{ session_id }}" method="post">
+            <input type="hidden" id="end_session_timezone_offset" name="timezone_offset" value="">
             <button type="submit" class="btn-danger btn-full">结束本场</button>
         </form>
 
@@ -486,6 +488,7 @@
             <label>添加新玩家：</label>
             <form action="/add_player/{{ session_id }}" method="post" class="add-player-form">
                 <input type="text" id="new_player_name" name="new_player_name" placeholder="输入玩家名字" required>
+                <input type="hidden" id="add_player_timezone_offset" name="timezone_offset" value="">
                 <button type="submit" class="btn-success">添加</button>
             </form>
 
@@ -534,5 +537,32 @@
            <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a>
         </p>
     </div>
+
+<script>
+// 设置时区偏移量
+(function() {
+    const timezoneOffset = -new Date().getTimezoneOffset();
+
+    // 设置计分表单的时区偏移量
+    const timezoneInput = document.getElementById('timezone_offset');
+    if (timezoneInput) {
+        timezoneInput.value = timezoneOffset;
+    }
+
+    // 设置添加玩家表单的时区偏移量
+    const addPlayerTimezoneInput = document.getElementById('add_player_timezone_offset');
+    if (addPlayerTimezoneInput) {
+        addPlayerTimezoneInput.value = timezoneOffset;
+    }
+
+    // 设置结束场次表单的时区偏移量
+    const endSessionTimezoneInput = document.getElementById('end_session_timezone_offset');
+    if (endSessionTimezoneInput) {
+        endSessionTimezoneInput.value = timezoneOffset;
+    }
+
+    console.log('游戏页面时区偏移量（分钟）:', timezoneOffset);
+})();
+</script>
 </body>
 </html>
