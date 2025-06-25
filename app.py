@@ -16,8 +16,8 @@ app.secret_key = os.environ.get('SECRET_KEY', 'dev_secret_key_for_testing')  # �
 # 内存数据结构，后期可替换为数据库
 sessions = {}  # {session_id: {players, viewers, records, scores, timestamp, ...}}
 
-# 默认分数选项（只有正整数1-10）
-DEFAULT_SCORE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+# 默认分数选项（包含特殊分数14和20）
+DEFAULT_SCORE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 20]
 
 # 全局变量存储最近添加的玩家名字
 recent_players = []
@@ -435,6 +435,78 @@ def add_score(session_id):
         # 保存数据
         save_data()
         flash('成功记录分数', 'success')
+
+    return redirect(url_for('game', session_id=session_id))
+
+@app.route('/add_special_score/<session_id>', methods=['POST'])
+def add_special_score(session_id):
+    # 处理特殊分数（14分和20分）的记分功能
+    if session_id not in sessions:
+        flash('场次不存在', 'error')
+        return redirect(url_for('index'))
+
+    game_session = sessions[session_id]
+
+    # 检查场次是否已被结束
+    if not game_session.get('active', True):
+        flash('该场次已经结束', 'error')
+        return redirect(url_for('index'))
+
+    winner = request.form.get('winner')
+    losers = request.form.getlist('losers')  # 获取多个败者
+    total_score = int(request.form.get('score', 0))
+
+    # 验证输入
+    if not winner or not losers or total_score not in [14, 20]:
+        flash('参数错误', 'error')
+        return redirect(url_for('game', session_id=session_id))
+
+    if winner in losers:
+        flash('胜者不能同时是败者', 'error')
+        return redirect(url_for('game', session_id=session_id))
+
+    if len(losers) != 2:
+        flash('特殊分数需要选择2个败者', 'error')
+        return redirect(url_for('game', session_id=session_id))
+
+    # 检查所有玩家是否存在
+    all_players = [winner] + losers
+    for player in all_players:
+        if player not in game_session['players']:
+            flash(f'玩家 {player} 不在当前场次中', 'error')
+            return redirect(url_for('game', session_id=session_id))
+
+    # 计算分数
+    half_score = total_score // 2
+
+    # 记录第一笔：胜者得分，第一个败者失分
+    record_data_1 = {
+        'winner': winner,
+        'loser': losers[0],
+        'score': half_score,
+        'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'special_score_part': f'1/2 (总分{total_score})'
+    }
+    game_session['records'].append(record_data_1)
+
+    # 记录第二笔：胜者得分，第二个败者失分
+    record_data_2 = {
+        'winner': winner,
+        'loser': losers[1],
+        'score': half_score,
+        'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'special_score_part': f'2/2 (总分{total_score})'
+    }
+    game_session['records'].append(record_data_2)
+
+    # 更新分数
+    game_session['scores'][winner] += total_score
+    game_session['scores'][losers[0]] -= half_score
+    game_session['scores'][losers[1]] -= half_score
+
+    # 保存数据
+    save_data()
+    flash(f'成功记录特殊分数：{winner} +{total_score}，{losers[0]} -{half_score}，{losers[1]} -{half_score}', 'success')
 
     return redirect(url_for('game', session_id=session_id))
 
