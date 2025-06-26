@@ -197,14 +197,32 @@
     console.log('玩家详情页面时区偏移量（分钟）:', timezoneOffset);
 })();
 
-// 将UTC时间转换为本地时间显示
+// 将UTC时间转换为本地时间显示 - 兼容iOS Chrome
 function convertUtcToLocal() {
     // 转换所有带有 data-utc-time 属性的元素
     document.querySelectorAll('[data-utc-time]').forEach(function(element) {
         const utcTime = element.getAttribute('data-utc-time');
         if (utcTime && utcTime.trim() !== '') {
             try {
-                const utcDate = new Date(utcTime + 'Z');
+                // 统一时间格式处理，兼容iOS Chrome
+                let dateString = utcTime.trim();
+                
+                // 如果不是ISO格式且不包含时区信息，则添加Z表示UTC
+                if (!dateString.includes('T') && !dateString.endsWith('Z') && !dateString.includes('+') && !dateString.includes(' UTC')) {
+                    // 将 "YYYY-MM-DD HH:MM:SS" 格式转换为 ISO 格式
+                    dateString = dateString.replace(' ', 'T') + 'Z';
+                } else if (dateString.includes(' UTC')) {
+                    // 移除 ' UTC' 并替换为 'Z'
+                    dateString = dateString.replace(' UTC', 'Z').replace(' ', 'T');
+                } else if (!dateString.endsWith('Z') && !dateString.includes('+') && !dateString.includes('-', 10)) {
+                    // 确保有时区标识
+                    dateString += 'Z';
+                }
+
+                // 创建Date对象
+                const utcDate = new Date(dateString);
+                
+                // 检查日期是否有效
                 if (!isNaN(utcDate.getTime())) {
                     const localTimeStr = utcDate.toLocaleString('zh-CN', {
                         year: 'numeric',
@@ -215,10 +233,12 @@ function convertUtcToLocal() {
                         second: '2-digit'
                     });
                     element.textContent = localTimeStr;
-                    console.log('时间转换:', utcTime, '->', localTimeStr);
+                    console.log('玩家详情时间转换:', utcTime, '->', localTimeStr);
+                } else {
+                    console.warn('玩家详情时间解析失败:', utcTime, '转换后:', dateString);
                 }
             } catch (e) {
-                console.log('时间转换失败:', utcTime, e);
+                console.warn('玩家详情时间转换失败:', utcTime, e);
             }
         }
     });
