@@ -841,18 +841,25 @@ def player_detail(player_id):
     # 按时间排序（最新的在前面）
     player_records.sort(key=lambda x: x['record'].get('timestamp', ''), reverse=True)
 
-    # 计算统计数据
+    # 计算统计数据（排除1分记录）
+    # 将记录分为1分记录和非1分记录
+    one_point_records = [r for r in player_records if r['score'] == 1]
+    non_one_point_records = [r for r in player_records if r['score'] != 1]
+    
     stats = {
         'total_games': len(player_records),
-        'wins': len([r for r in player_records if r['is_winner']]),
-        'losses': len([r for r in player_records if not r['is_winner']]),
-        'total_score': sum(r['score'] if r['is_winner'] else -r['score'] for r in player_records)
+        'competitive_games': len(non_one_point_records),  # 不包含1分的对局数
+        'wins': len([r for r in non_one_point_records if r['is_winner']]),
+        'losses': len([r for r in non_one_point_records if not r['is_winner']]),
+        'total_score': sum(r['score'] if r['is_winner'] else -r['score'] for r in player_records),
+        'one_point_given': len([r for r in one_point_records if not r['is_winner']]),  # 送出1分次数
+        'one_point_received': len([r for r in one_point_records if r['is_winner']])    # 收到1分次数
     }
-    stats['win_rate'] = (stats['wins'] / stats['total_games'] * 100) if stats['total_games'] > 0 else 0
+    stats['win_rate'] = (stats['wins'] / stats['competitive_games'] * 100) if stats['competitive_games'] > 0 else 0
 
-    # 对手统计
+    # 对手统计（排除1分记录）
     opponent_stats = defaultdict(lambda: {'wins': 0, 'losses': 0, 'total_score': 0})
-    for record in player_records:
+    for record in non_one_point_records:
         opponent_id = record['opponent_id']
         if opponent_id:
             if record['is_winner']:

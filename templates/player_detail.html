@@ -40,6 +40,12 @@
         .footer { margin-top: 2em; text-align: center; font-size: 0.8em; color: #888; }
         .player-link { color: #1890ff; text-decoration: none; }
         .player-link:hover { text-decoration: underline; }
+        .section-title { margin-top: 1.5em; margin-bottom: 1em; color: #666; }
+        .stat-orange { color: #ff9500; }
+        .stat-green { color: #52c41a; }
+        .note-text { font-size: 0.85em; color: #888; margin-top: 1em; }
+        .note-text-above { font-size: 0.85em; color: #888; margin-bottom: 1em; }
+        .rename-note { font-size: 0.9em; color: #666; margin-top: 0.5em; }
     </style>
 </head>
 <body>
@@ -72,6 +78,10 @@
                 <div class="stat-label">总记录</div>
             </div>
             <div class="stat-card">
+                <div class="stat-number">{{ stats.competitive_games }}</div>
+                <div class="stat-label">有效对局</div>
+            </div>
+            <div class="stat-card">
                 <div class="stat-number">{{ stats.wins }}</div>
                 <div class="stat-label">胜利</div>
             </div>
@@ -90,17 +100,38 @@
                 <div class="stat-label">总分</div>
             </div>
         </div>
+        
+        <!-- 1分统计 -->
+        <h4 class="section-title">1分记录统计</h4>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number stat-orange">{{ stats.one_point_given }}</div>
+                <div class="stat-label">送出1分</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number stat-green">{{ stats.one_point_received }}</div>
+                <div class="stat-label">收到1分</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ stats.one_point_given + stats.one_point_received }}</div>
+                <div class="stat-label">1分总次数</div>
+            </div>
+        </div>
+        
+        <div class="note-text">
+            * 胜率计算不包含1分记录，仅统计有效对局（非1分记录）
+        </div>
     </div>
 
     <!-- 重命名功能 -->
     <div class="card">
         <h3>重命名玩家</h3>
         <form action="/player/{{ player_id }}/rename" method="post" class="rename-form">
-            <input type="text" name="new_name" value="{{ player.name }}" required>
+            <input type="text" name="new_name" value="{{ player.name }}" placeholder="输入新名字" title="玩家新名字" required>
             <input type="hidden" id="rename_timezone_offset" name="timezone_offset" value="">
             <button type="submit" class="btn btn-primary">更改名字</button>
         </form>
-        <div style="font-size: 0.9em; color: #666; margin-top: 0.5em;">
+        <div class="rename-note">
             注意：更改名字会影响所有历史记录中的显示
         </div>
     </div>
@@ -109,11 +140,14 @@
     {% if opponents %}
     <div class="card">
         <h3>对手统计</h3>
+        <div class="note-text-above">
+            * 以下统计数据不包含1分记录，仅统计有效对局
+        </div>
         <table class="opponents-table">
             <thead>
                 <tr>
                     <th>对手</th>
-                    <th>总对局</th>
+                    <th>有效对局</th>
                     <th>胜</th>
                     <th>负</th>
                     <th>胜率</th>
