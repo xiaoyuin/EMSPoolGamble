@@ -157,15 +157,36 @@
     </div>
 
 <script>
-// 通用时区转换工具函数
+// 通用时区转换工具函数 - 兼容iOS Chrome
 function convertUTCToLocal(utcTimeString) {
     if (!utcTimeString || utcTimeString === '未知') {
         return utcTimeString;
     }
 
     try {
-        // 处理 "YYYY-MM-DD HH:MM:SS" 格式的UTC时间
-        const date = new Date(utcTimeString + ' UTC');
+        // 统一时间格式处理，兼容iOS Chrome
+        let dateString = utcTimeString.trim();
+        
+        // 如果不是ISO格式且不包含时区信息，则添加Z表示UTC
+        if (!dateString.includes('T') && !dateString.endsWith('Z') && !dateString.includes('+') && !dateString.includes(' UTC')) {
+            // 将 "YYYY-MM-DD HH:MM:SS" 格式转换为 ISO 格式
+            dateString = dateString.replace(' ', 'T') + 'Z';
+        } else if (dateString.includes(' UTC')) {
+            // 移除 ' UTC' 并替换为 'Z'
+            dateString = dateString.replace(' UTC', 'Z').replace(' ', 'T');
+        } else if (!dateString.endsWith('Z') && !dateString.includes('+') && !dateString.includes('-', 10)) {
+            // 确保有时区标识
+            dateString += 'Z';
+        }
+
+        // 创建Date对象
+        const date = new Date(dateString);
+
+        // 检查日期是否有效
+        if (isNaN(date.getTime())) {
+            console.warn('时间解析失败:', utcTimeString, '转换后:', dateString);
+            return utcTimeString;
+        }
 
         // 转换为用户本地时间
         return date.toLocaleString('zh-CN', {
@@ -191,7 +212,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (utcTime && utcTime.trim() !== '') {
             const localTime = convertUTCToLocal(utcTime);
             element.textContent = localTime;
-            console.log('时间转换:', utcTime, '->', localTime);
+            console.log('场次详情时间转换:', utcTime, '->', localTime);
         }
     });
 

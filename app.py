@@ -51,7 +51,7 @@ def get_user_local_datetime(timezone_offset_minutes=None):
         return datetime.datetime.now()
 
 # 应用版本信息
-APP_VERSION = "v1.3.2"
+APP_VERSION = "v1.3.3"
 APP_NAME = "EMS Pool Gamble"
 VERSION_DATE = "2025-06-26"
 
@@ -69,7 +69,7 @@ DEFAULT_SCORE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 20]
 recent_player_ids = []
 
 # 玩家管理函数
-def create_player(name, timezone_offset_minutes=None):
+def create_player(name):
     """创建新玩家，返回player_id"""
     player_id = str(uuid.uuid4())
     current_time = get_utc_timestamp()  # 统一使用UTC时间存储
@@ -93,14 +93,14 @@ def get_player_by_name(name):
             return player_id
     return None
 
-def get_or_create_player(name, timezone_offset_minutes=None):
+def get_or_create_player(name):
     """获取或创建玩家，返回player_id"""
     player_id = get_player_by_name(name)
     if player_id is None:
-        player_id = create_player(name, timezone_offset_minutes)
+        player_id = create_player(name)
     return player_id
 
-def update_player_name(player_id, new_name, timezone_offset_minutes=None):
+def update_player_name(player_id, new_name):
     """更新玩家名字"""
     if player_id in players:
         players[player_id]['name'] = new_name
@@ -112,24 +112,15 @@ def get_player_name(player_id):
     """根据player_id获取玩家名字"""
     return players.get(player_id, {}).get('name', 'Unknown Player')
 
-# 生成自动场次名称
-def generate_session_name(timezone_offset_minutes=None):
+# 生成自动场次名称（服务器时间，用于降级处理）
+def generate_session_name():
     """
-    生成自动场次名称
-    :param timezone_offset_minutes: 用户时区偏移量（分钟），正数表示UTC+，负数表示UTC-
+    生成自动场次名称（使用服务器本地时间作为降级处理）
     """
-    now = datetime.datetime.utcnow()  # 使用UTC时间作为基准
-
-    if timezone_offset_minutes is not None:
-        # 根据用户时区调整时间
-        user_time = now + datetime.timedelta(minutes=timezone_offset_minutes)
-    else:
-        # 降级到服务器本地时间（兼容性）
-        user_time = datetime.datetime.now()
-
-    month = user_time.month
-    day = user_time.day
-    hour = user_time.hour
+    now = datetime.datetime.now()  # 使用服务器本地时间
+    month = now.month
+    day = now.day
+    hour = now.hour
 
     # 判断时间段
     if 6 <= hour < 11:
@@ -164,6 +155,12 @@ def get_data_file_path():
 def load_data():
     global recent_player_ids, sessions, players
     data_file = get_data_file_path()
+    
+    # 保证机制：如果get_data_file_path返回有问题的路径，降级到当前目录的data.json
+    if not data_file or data_file.strip() == '':
+        print("警告：数据文件路径为空，降级到当前目录")
+        data_file = 'data.json'
+        
     try:
         # 加载场次数据
         if os.path.exists(data_file):
@@ -252,9 +249,17 @@ def load_data():
 # 保存数据到文件
 def save_data():
     data_file = get_data_file_path()
+    
+    # 保证机制：如果get_data_file_path返回有问题的路径，降级到当前目录的data.json
+    if not data_file or data_file.strip() == '':
+        print("警告：数据文件路径为空，降级到当前目录")
+        data_file = 'data.json'
+    
     try:
-        # 确保数据目录存在
-        os.makedirs(os.path.dirname(data_file), exist_ok=True)
+        # 确保数据目录存在（只有当目录不为空时才创建）
+        data_dir = os.path.dirname(data_file)
+        if data_dir and data_dir.strip() != '':  # 只有当目录路径不为空时才创建
+            os.makedirs(data_dir, exist_ok=True)
 
         # 构建完整的数据结构
         data = {
@@ -291,15 +296,12 @@ def index():
         action = request.form.get('action')
 
         if action == 'create_session':
-            # 获取用户时区偏移量（从前端传递）
-            timezone_offset = request.form.get('timezone_offset')
-            try:
-                timezone_offset_minutes = int(timezone_offset) if timezone_offset else None
-            except (ValueError, TypeError):
-                timezone_offset_minutes = None
-
-            # 自动创建新场次，根据用户时区生成名称
-            session_name = generate_session_name(timezone_offset_minutes)
+            # 从前端接收房间名称
+            session_name = request.form.get('session_name', '').strip()
+            
+            # 如果前端没有提供房间名称，使用服务器时间生成（降级处理）
+            if not session_name:
+                session_name = generate_session_name()
 
             # 如果已经存在相同名称的活跃场次，添加序号
             existing_names = [s['name'] for s in sessions.values() if s.get('active', True)]
@@ -544,15 +546,8 @@ def add_player(session_id):
         flash('该用户名已存在', 'error')
         return redirect(url_for('game', session_id=session_id))
 
-    # 获取用户时区偏移量
-    timezone_offset = request.form.get('timezone_offset')
-    try:
-        timezone_offset_minutes = int(timezone_offset) if timezone_offset else None
-    except (ValueError, TypeError):
-        timezone_offset_minutes = None
-
     # 获取或创建玩家
-    player_id = get_or_create_player(new_player_name, timezone_offset_minutes)
+    player_id = get_or_create_player(new_player_name)
 
     # 添加玩家到场次
     game_session['player_ids'].add(player_id)
@@ -911,17 +906,10 @@ def rename_player(player_id):
         flash('该名字已被其他玩家使用', 'error')
         return redirect(url_for('player_detail', player_id=player_id))
 
-    # 获取用户时区偏移量
-    timezone_offset = request.form.get('timezone_offset')
-    try:
-        timezone_offset_minutes = int(timezone_offset) if timezone_offset else None
-    except (ValueError, TypeError):
-        timezone_offset_minutes = None
-
     old_name = players[player_id]['name']
 
     # 更新玩家名字
-    update_player_name(player_id, new_name, timezone_offset_minutes)
+    update_player_name(player_id, new_name)
 
     # 更新所有场次中的玩家名字（为了兼容性）
     for session_data in sessions.values():
