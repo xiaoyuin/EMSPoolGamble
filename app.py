@@ -27,10 +27,14 @@ def create_app():
     return app
 
 
+# 创建应用实例供uWSGI使用
+application = create_app()
+
+# 为了兼容性，也创建app变量
+app = application
+
+
 if __name__ == '__main__':
-    # 创建应用
-    app = create_app()
-    
     # 输出数据存储位置信息
     data_file = get_data_file_path()
     is_azure = os.environ.get('WEBSITE_SITE_NAME') is not None
