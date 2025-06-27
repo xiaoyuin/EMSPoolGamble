@@ -54,6 +54,29 @@
         .recent-players-title { font-size: 0.9em; color: #666; margin-bottom: 0.5em; }
         .recent-player-btn { display: inline-block; background: #f0f0f0; color: #666; border: 1px solid #d9d9d9; border-radius: 3px; padding: 0.3em 0.6em; margin: 0.2em; font-size: 0.8em; cursor: pointer; transition: all 0.2s; }
         .recent-player-btn:hover { background: #e6f7ff; border-color: #1890ff; color: #1890ff; }
+        .quick-add-section { margin: 1em 0; }
+        .quick-add-title { font-size: 0.9em; color: #666; margin-bottom: 0.6em; }
+        .quick-add-buttons { display: flex; flex-wrap: wrap; gap: 0.5em; margin-bottom: 1em; background: #f8f9fa; border-radius: 8px; padding: 1em; border: 1px solid #e9ecef; }
+        .quick-add-btn { background: #f0f0f0; color: #333; border: 2px solid #d9d9d9; border-radius: 5px; padding: 0.5em 0.8em; font-size: 0.9em; cursor: pointer; transition: all 0.2s; font-weight: 500; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.1em; min-height: 3.2em; text-align: center; box-sizing: border-box; }
+        .quick-add-btn:hover { background: #e6f7ff; border-color: #1890ff; color: #1890ff; }
+        .quick-add-btn.selected { background: #52c41a; color: white; border-color: #52c41a; transform: translateY(-1px); box-shadow: 0 2px 6px rgba(82, 196, 26, 0.3); }
+        .add-new-btn { background: #f9f9f9; color: #666; border: 2px dashed #d9d9d9; border-radius: 5px; padding: 0.5em 0.8em; font-size: 1.2em; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; min-height: 3.2em; box-sizing: border-box; }
+        .add-new-btn:hover { background: #e6f7ff; border-color: #1890ff; color: #1890ff; }
+        .player-name-text { font-weight: 500; line-height: 1.1; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+        .player-win-rate { font-size: 0.72em; color: #999; font-weight: normal; line-height: 1.1; display: block; }
+        .quick-add-btn:hover .player-win-rate { color: #1890ff; }
+        .quick-add-btn.selected .player-win-rate { color: rgba(255, 255, 255, 0.8); }
+        .new-player-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; }
+        .modal-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 2em; border-radius: 10px; min-width: 300px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3); }
+        .modal-header { margin-bottom: 1em; font-size: 1.2em; font-weight: bold; }
+        .modal-form { display: flex; flex-direction: column; gap: 1em; }
+        .modal-buttons { display: flex; gap: 0.5em; justify-content: flex-end; }
+        .quick-add-actions { display: flex; gap: 0.5em; }
+        .btn-secondary { background: #f5f5f5; color: #595959; border: 1px solid #d9d9d9; }
+        .btn-secondary:hover { background: #e6f7ff; border-color: #1890ff; color: #1890ff; }
+        .btn-secondary:disabled { background: #f5f5f5; color: #bfbfbf; border-color: #d9d9d9; cursor: not-allowed; }
+        .new-player-section { margin: 1em 0; }
+        .new-player-title { font-size: 0.9em; color: #666; margin-bottom: 0.6em; }
         .record-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #f0f0f0; }
         .record-item:last-child { border-bottom: none; }
         .record-content { flex: 1; }
@@ -324,8 +347,149 @@
             }
         }
 
+        let selectedPlayers = []; // 存储选中的玩家
+
+        function togglePlayerSelection(playerName) {
+            const button = document.querySelector(`[data-player-name="${playerName}"]`);
+            
+            if (selectedPlayers.includes(playerName)) {
+                // 取消选择
+                selectedPlayers = selectedPlayers.filter(name => name !== playerName);
+                button.classList.remove('selected');
+            } else {
+                // 添加选择
+                selectedPlayers.push(playerName);
+                button.classList.add('selected');
+            }
+            
+            updateBatchAddButtons();
+        }
+
+        function updateBatchAddButtons() {
+            const batchAddBtn = document.getElementById('batch-add-btn');
+            const clearSelectionBtn = document.getElementById('clear-selection-btn');
+            
+            if (selectedPlayers.length > 0) {
+                batchAddBtn.disabled = false;
+                clearSelectionBtn.disabled = false;
+                batchAddBtn.textContent = `添加选中的玩家 (${selectedPlayers.length})`;
+            } else {
+                batchAddBtn.disabled = true;
+                clearSelectionBtn.disabled = true;
+                batchAddBtn.textContent = '添加选中的玩家';
+            }
+        }
+
+        function clearPlayerSelection() {
+            selectedPlayers = [];
+            document.querySelectorAll('.quick-add-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            updateBatchAddButtons();
+        }
+
+        function batchAddPlayers() {
+            if (selectedPlayers.length === 0) return;
+            
+            // 创建表单批量添加玩家
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/batch_add_players/{{ session_id }}`;
+
+            // 添加所有选中的玩家
+            selectedPlayers.forEach(playerName => {
+                const playerInput = document.createElement('input');
+                playerInput.type = 'hidden';
+                playerInput.name = 'player_names';
+                playerInput.value = playerName;
+                form.appendChild(playerInput);
+            });
+
+            // 添加时区偏移量
+            const timezoneInput = document.createElement('input');
+            timezoneInput.type = 'hidden';
+            timezoneInput.name = 'timezone_offset';
+            timezoneInput.value = -new Date().getTimezoneOffset();
+            form.appendChild(timezoneInput);
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        function showNewPlayerModal() {
+            const modal = document.getElementById('newPlayerModal');
+            const input = document.getElementById('modalPlayerName');
+            modal.style.display = 'block';
+            input.value = '';
+            input.focus();
+        }
+
+        function hideNewPlayerModal() {
+            const modal = document.getElementById('newPlayerModal');
+            modal.style.display = 'none';
+        }
+
+        function createNewPlayer() {
+            const input = document.getElementById('modalPlayerName');
+            const playerName = input.value.trim();
+            
+            if (!playerName) {
+                alert('请输入玩家名字');
+                return;
+            }
+
+            // 检查是否已存在同名玩家
+            const existingButtons = document.querySelectorAll('.quick-add-btn[data-player-name]');
+            for (let btn of existingButtons) {
+                if (btn.getAttribute('data-player-name') === playerName) {
+                    alert('该玩家已存在');
+                    return;
+                }
+            }
+
+            // 创建新玩家
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/create_and_select_player/{{ session_id }}`;
+
+            const playerNameInput = document.createElement('input');
+            playerNameInput.type = 'hidden';
+            playerNameInput.name = 'new_player_name';
+            playerNameInput.value = playerName;
+
+            const timezoneInput = document.createElement('input');
+            timezoneInput.type = 'hidden';
+            timezoneInput.name = 'timezone_offset';
+            timezoneInput.value = -new Date().getTimezoneOffset();
+
+            form.appendChild(playerNameInput);
+            form.appendChild(timezoneInput);
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+
         function quickAddPlayer(playerName) {
-            document.getElementById('new_player_name').value = playerName;
+            // 保留原有的单个添加功能作为备用
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/add_player/{{ session_id }}`;
+
+            const playerNameInput = document.createElement('input');
+            playerNameInput.type = 'hidden';
+            playerNameInput.name = 'new_player_name';
+            playerNameInput.value = playerName;
+
+            const timezoneInput = document.createElement('input');
+            timezoneInput.type = 'hidden';
+            timezoneInput.name = 'timezone_offset';
+            timezoneInput.value = -new Date().getTimezoneOffset();
+
+            form.appendChild(playerNameInput);
+            form.appendChild(timezoneInput);
+
+            document.body.appendChild(form);
+            form.submit();
         }
 
         function submitScoreRecord(winner, loser, score) {
@@ -363,6 +527,36 @@
 
             // 初始化按钮状态
             checkCanSubmit();
+            
+            // 初始化批量添加按钮状态
+            updateBatchAddButtons();
+
+            // 弹窗按ESC键关闭
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    hideNewPlayerModal();
+                }
+            });
+
+            // 弹窗输入框按Enter键创建
+            const modalInput = document.getElementById('modalPlayerName');
+            if (modalInput) {
+                modalInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        createNewPlayer();
+                    }
+                });
+            }
+
+            // 点击弹窗外部关闭
+            const modal = document.getElementById('newPlayerModal');
+            if (modal) {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        hideNewPlayerModal();
+                    }
+                });
+            }
 
             // 处理表单提交
             const scoreForm = document.getElementById('score-form');
@@ -495,21 +689,27 @@
             <strong>当前玩家：</strong>{{ session.players|join('、') }}
         </div>
         
-        <!-- 添加新玩家 -->
-        <form action="/add_player/{{ session_id }}" method="post" class="add-player-form">
-            <input type="text" id="new_player_name" name="new_player_name" placeholder="输入玩家名字" required>
-            <input type="hidden" id="add_player_timezone_offset" name="timezone_offset" value="">
-            <button type="submit" class="btn-success">添加</button>
-        </form>
-
-        {% if recent_players %}
-        <div class="recent-players">
-            <div class="recent-players-title">最近添加的玩家：</div>
-            {% for player in recent_players %}
-            <span class="recent-player-btn" onclick="quickAddPlayer('{{ player.name }}')">{{ player.name }}</span>
-            {% endfor %}
+        <!-- 快速添加玩家 - 主要功能 -->
+        <div class="quick-add-section">
+            <div class="quick-add-title">快速添加玩家：</div>
+            <div class="quick-add-buttons">
+                {% for player in recent_players %}
+                <button type="button" class="quick-add-btn" data-player-name="{{ player.name }}" onclick="togglePlayerSelection('{{ player.name }}')">
+                    <span class="player-name-text">{{ player.name }}</span>
+                    {% if player.effective_win_rate is not none %}
+                    <span class="player-win-rate">{{ player.effective_win_rate }}%</span>
+                    {% else %}
+                    <span class="player-win-rate">新手</span>
+                    {% endif %}
+                </button>
+                {% endfor %}
+                <button type="button" class="add-new-btn" onclick="showNewPlayerModal()">+</button>
+            </div>
+            <div class="quick-add-actions">
+                <button type="button" id="batch-add-btn" class="btn-primary" onclick="batchAddPlayers()" disabled>添加选中的玩家</button>
+                <button type="button" id="clear-selection-btn" class="btn-secondary" onclick="clearPlayerSelection()" disabled>清空选择</button>
+            </div>
         </div>
-        {% endif %}
         
         {% if sorted_players|length < 2 %}
         <div class="hint-warning">
@@ -565,6 +765,20 @@
            <a href="https://github.com/xiaoyuin/EMSPoolGamble" target="_blank" rel="noopener">GitHub</a> |
            <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a>
         </p>
+    </div>
+
+    <!-- 新建玩家弹窗 -->
+    <div id="newPlayerModal" class="new-player-modal">
+        <div class="modal-content">
+            <div class="modal-header">创建新玩家</div>
+            <div class="modal-form">
+                <input type="text" id="modalPlayerName" placeholder="输入新玩家名字" maxlength="20">
+                <div class="modal-buttons">
+                    <button type="button" class="btn-secondary" onclick="hideNewPlayerModal()">取消</button>
+                    <button type="button" class="btn-success" onclick="createNewPlayer()">创建</button>
+                </div>
+            </div>
+        </div>
     </div>
 
 <script>

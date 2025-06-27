@@ -175,27 +175,38 @@ class DatabaseManager:
             return [dict(row) for row in cursor.fetchall()]
     
     def get_available_players(self, exclude_session_id: str = None) -> List[Dict]:
-        """获取所有可用玩家，可排除指定场次中的玩家"""
+        """获取所有可用玩家，可排除指定场次中的玩家，包含有效胜率信息"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             
             if exclude_session_id:
                 cursor.execute('''
-                    SELECT player_id, name
-                    FROM players 
-                    WHERE player_id NOT IN (
+                    SELECT p.player_id, p.name
+                    FROM players p
+                    WHERE p.player_id NOT IN (
                         SELECT player_id FROM session_players WHERE session_id = ?
                     )
-                    ORDER BY name
+                    ORDER BY p.name
                 ''', (exclude_session_id,))
             else:
                 cursor.execute('''
-                    SELECT player_id, name
-                    FROM players 
-                    ORDER BY name
+                    SELECT p.player_id, p.name
+                    FROM players p
+                    ORDER BY p.name
                 ''')
             
-            return [{'id': row['player_id'], 'name': row['name']} for row in cursor.fetchall()]
+            players = []
+            for row in cursor.fetchall():
+                player_data = {
+                    'id': row['player_id'], 
+                    'name': row['name']
+                }
+                # 计算有效胜率（排除1分对局）
+                player_data['effective_win_rate'] = self.get_player_effective_win_rate(row['player_id'])
+                
+                players.append(player_data)
+            
+            return players
     
     # ===== 场次相关操作 =====
     
@@ -528,6 +539,28 @@ class DatabaseManager:
                 leaderboard.append(stats)
             
             return leaderboard
+    
+    def get_player_effective_win_rate(self, player_id: str) -> Optional[float]:
+        """计算玩家的有效胜率（排除1分的对局）"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT 
+                    COUNT(*) as total_effective_games,
+                    SUM(CASE WHEN winner_id = ? THEN 1 ELSE 0 END) as effective_wins
+                FROM game_records
+                WHERE (winner_id = ? OR loser_id = ?) AND score > 1
+            ''', (player_id, player_id, player_id))
+            
+            result = cursor.fetchone()
+            total_games = result['total_effective_games'] or 0
+            wins = result['effective_wins'] or 0
+            
+            if total_games > 0:
+                return round((wins / total_games) * 100, 1)
+            else:
+                return None  # 没有有效对局
     
     # ===== 数据迁移工具 =====
     
