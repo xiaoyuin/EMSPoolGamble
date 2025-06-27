@@ -86,7 +86,6 @@
         <div>结束时间: <span data-utc-time="{{ s.end_time }}">{{ s.end_time }}</span></div>
         {% endif %}
         <div>玩家：{{ s.players|join(', ') }}</div>
-        <div>观战者：{{ s.viewers|join(', ') }}</div>
         <div>总记录数：{{ s.get('records', s.get('rounds', []))|length }}</div>
 
         <h5>本场玩家得分</h5>

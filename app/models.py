@@ -1,225 +1,281 @@
 """
-数据模型和数据库操作模块
+数据模型和数据库操作模块 - 使用SQLite数据库
+提供数据一致性保证和线程安全访问
 """
-import uuid
-import json
 import os
-import traceback
-from collections import defaultdict
+import json
+from typing import List, Dict, Optional
+from .database import db
 from .utils import get_utc_timestamp
 
 
-# 内存数据结构，后期可替换为数据库
-sessions = {}  # {session_id: {player_ids, viewer_ids, records, scores, timestamp, ...}}
-players = {}   # {player_id: {name, created_at, updated_at, stats, ...}}
+# ===== 兼容性接口 - 保持与原有代码的兼容性 =====
 
-# 全局变量存储最近添加的玩家ID
-recent_player_ids = []
-
-
-# 玩家管理函数
-def create_player(name):
-    """创建新玩家，返回player_id"""
-    player_id = str(uuid.uuid4())
-    current_time = get_utc_timestamp()  # 统一使用UTC时间存储
-    players[player_id] = {
-        'name': name,
-        'created_at': current_time,
-        'updated_at': current_time,
-        'stats': {
-            'total_games': 0,
-            'total_wins': 0,
-            'total_losses': 0,
-            'total_score': 0
-        }
-    }
-    return player_id
-
-
-def get_player_by_name(name):
-    """根据名字查找玩家，返回player_id或None"""
-    for player_id, player_data in players.items():
-        if player_data['name'] == name:
-            return player_id
-    return None
+def init_data():
+    """初始化数据，检查是否需要从JSON迁移"""
+    print("初始化数据库...")
+    
+    # 检查是否存在旧的JSON数据需要迁移
+    json_file = get_data_file_path()
+    if os.path.exists(json_file):
+        print(f"发现JSON数据文件: {json_file}")
+        
+        # 检查数据库是否为空（首次迁移）
+        players = db.get_all_players()
+        if not players:
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    json_data = json.load(f)
+                    db.migrate_from_json(json_data)
+                    
+                # 迁移完成后备份JSON文件
+                backup_file = json_file + '.backup'
+                os.rename(json_file, backup_file)
+                print(f"JSON数据已迁移，原文件备份为: {backup_file}")
+            except Exception as e:
+                print(f"JSON数据迁移失败: {e}")
+    
+    # 统计数据
+    players = db.get_all_players()
+    sessions = db.get_all_sessions()
+    print(f"数据库初始化完成: {len(sessions)} 个场次, {len(players)} 个玩家")
 
 
-def get_or_create_player(name):
-    """获取或创建玩家，返回player_id"""
-    player_id = get_player_by_name(name)
-    if player_id is None:
-        player_id = create_player(name)
-    return player_id
-
-
-def update_player_name(player_id, new_name):
-    """更新玩家名字"""
-    if player_id in players:
-        players[player_id]['name'] = new_name
-        players[player_id]['updated_at'] = get_utc_timestamp()  # 统一使用UTC时间存储
-        return True
-    return False
-
-
-def get_player_name(player_id):
-    """根据player_id获取玩家名字"""
-    return players.get(player_id, {}).get('name', 'Unknown Player')
-
-
-# 数据文件路径配置
 def get_data_file_path():
-    """获取数据文件路径，Azure中使用/home目录以保证持久化"""
-    if os.environ.get('WEBSITE_SITE_NAME'):  # 检测是否在Azure App Service中
-        # Azure App Service中，/home目录是持久化的
+    """获取数据文件路径（兼容性保留）"""
+    if os.environ.get('WEBSITE_SITE_NAME'):
         data_dir = '/home/data'
         try:
             os.makedirs(data_dir, exist_ok=True)
-        except OSError as e:
-            print(f"警告：无法创建Azure数据目录 {data_dir}: {e}")
-            # 降级到使用/home目录
+        except OSError:
             data_dir = '/home'
         return os.path.join(data_dir, 'data.json')
     else:
-        # 本地开发环境
         return 'data.json'
 
 
-# 尝试从文件加载历史数据
-def load_data():
-    global recent_player_ids, sessions, players
-    data_file = get_data_file_path()
-    
-    # 保证机制：如果get_data_file_path返回有问题的路径，降级到当前目录的data.json
-    if not data_file or data_file.strip() == '':
-        print("警告：数据文件路径为空，降级到当前目录")
-        data_file = 'data.json'
-        
-    try:
-        # 加载场次数据
-        if os.path.exists(data_file):
-            with open(data_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-
-                # 加载玩家数据（如果存在）
-                if 'players' in data:
-                    players.update(data['players'])  # 使用update而不是直接赋值
-                    sessions_data = data.get('sessions', {})
-                else:
-                    # 兼容旧数据格式，将玩家名字转换为ID
-                    sessions_data = data
-
-                # 处理场次数据
-                for sid, s in sessions_data.items():
-                    # 兼容旧数据：从玩家名字转换为player_ids
-                    if 'players' in s and isinstance(list(s['players'])[0] if s['players'] else '', str):
-                        # 旧格式：players是名字的set
-                        player_names = s['players'] if isinstance(s['players'], list) else list(s['players'])
-                        s['player_ids'] = set()
-                        for name in player_names:
-                            player_id = get_or_create_player(name)
-                            s['player_ids'].add(player_id)
-                        # 保留原有的players字段暂时兼容
-                        s['players'] = set(player_names)
-                    elif 'player_ids' in s:
-                        # 新格式：已经有player_ids
-                        s['player_ids'] = set(s['player_ids'])
-                        # 为了显示需要，重建players字段
-                        s['players'] = set(get_player_name(pid) for pid in s['player_ids'])
-                    else:
-                        s['player_ids'] = set()
-                        s['players'] = set()
-
-                    # 处理viewers
-                    if 'viewers' in s:
-                        s['viewers'] = set(s['viewers']) if isinstance(s['viewers'], list) else s['viewers']
-                    else:
-                        s['viewers'] = set()
-
-                    # 为旧数据添加默认场次名称
-                    if 'name' not in s:
-                        s['name'] = f"场次 #{len(sessions_data) - list(sessions_data.keys()).index(sid)}"
-
-                    # 兼容旧数据：将rounds改为records
-                    if 'rounds' in s and 'records' not in s:
-                        s['records'] = s['rounds']
-                        del s['rounds']
-                    if 'records' not in s:
-                        s['records'] = []
-
-                    # 处理records中的玩家名字，转换为player_id（如果需要）
-                    for record in s['records']:
-                        if 'winner_id' not in record and 'winner' in record:
-                            record['winner_id'] = get_or_create_player(record['winner'])
-                        if 'loser_id' not in record and 'loser' in record:
-                            record['loser_id'] = get_or_create_player(record['loser'])
-
-                    # 确保scores是defaultdict类型，并且所有玩家都有分数条目
-                    if not isinstance(s['scores'], defaultdict):
-                        scores_dict = defaultdict(int)
-                        scores_dict.update(s['scores'])
-                        s['scores'] = scores_dict
-
-                    # 确保所有玩家都在scores中有条目（使用名字作为键）
-                    for player_name in s['players']:
-                        if player_name not in s['scores']:
-                            s['scores'][player_name] = 0
-
-                # 收集最近的玩家ID
-                all_player_ids = set()
-                for s in sessions_data.values():
-                    all_player_ids.update(s.get('player_ids', set()))
-                recent_player_ids = list(all_player_ids)[-10:]  # 最多保留10个最近玩家
-
-                return sessions_data
-        return {}
-    except Exception as e:
-        print(f"加载数据失败: {e}")
-        traceback.print_exc()
-        return {}
-
-
-# 保存数据到文件
 def save_data():
-    data_file = get_data_file_path()
+    """保存数据（兼容性保留，数据库自动保存）"""
+    # 数据库操作是实时的，无需手动保存
+    pass
+
+
+# ===== 玩家管理函数 =====
+
+def create_player(name: str) -> str:
+    """创建新玩家，返回player_id"""
+    return db.create_player(name)
+
+
+def get_player_by_name(name: str) -> Optional[str]:
+    """根据名字查找玩家，返回player_id或None"""
+    return db.get_player_by_name(name)
+
+
+def get_or_create_player(name: str) -> str:
+    """获取或创建玩家，返回player_id"""
+    return db.get_or_create_player(name)
+
+
+def get_player_name(player_id: str) -> str:
+    """根据player_id获取玩家名字"""
+    return db.get_player_name(player_id)
+
+
+def update_player_name(player_id: str, new_name: str) -> bool:
+    """更新玩家名字"""
+    return db.update_player_name(player_id, new_name)
+
+
+def get_all_players() -> List[Dict]:
+    """获取所有玩家列表"""
+    return db.get_all_players()
+
+
+def get_available_players(exclude_session_id: str = None) -> List[Dict]:
+    """获取所有可用玩家，可排除指定场次中的玩家"""
+    return db.get_available_players(exclude_session_id)
+
+
+# ===== 场次管理函数 =====
+
+def create_session(name: str) -> str:
+    """创建新场次，返回session_id"""
+    return db.create_session(name)
+
+
+def get_session(session_id: str) -> Optional[Dict]:
+    """获取场次完整信息（兼容原有格式）"""
+    return db.get_session_with_players(session_id)
+
+
+def get_active_sessions() -> List[Dict]:
+    """获取所有活跃场次"""
+    return db.get_active_sessions()
+
+
+def get_ended_sessions(limit: int = 3) -> List[Dict]:
+    """获取最近结束的场次"""
+    return db.get_ended_sessions(limit)
+
+
+def get_all_sessions() -> List[Dict]:
+    """获取所有场次"""
+    return db.get_all_sessions()
+
+
+def end_session(session_id: str) -> bool:
+    """结束场次"""
+    return db.end_session(session_id)
+
+
+def delete_session(session_id: str) -> bool:
+    """删除场次"""
+    return db.delete_session(session_id)
+
+
+def add_player_to_session(session_id: str, player_id: str) -> bool:
+    """将玩家添加到场次"""
+    return db.add_player_to_session(session_id, player_id)
+
+
+def get_session_players(session_id: str) -> List[Dict]:
+    """获取场次中的所有玩家"""
+    return db.get_session_players(session_id)
+
+
+# ===== 计分记录管理 =====
+
+def add_game_record(session_id: str, winner_id: str, loser_id: str, 
+                   score: int, special_score_part: str = None) -> int:
+    """添加计分记录"""
+    return db.add_game_record(session_id, winner_id, loser_id, score, special_score_part)
+
+
+def get_session_records(session_id: str) -> List[Dict]:
+    """获取场次的计分记录"""
+    return db.get_session_records(session_id)
+
+
+def delete_game_record(record_id: int) -> Optional[Dict]:
+    """删除计分记录"""
+    return db.delete_game_record(record_id)
+
+
+def get_player_records(player_id: str) -> List[Dict]:
+    """获取玩家的所有对战记录"""
+    return db.get_player_records(player_id)
+
+
+# ===== 统计查询 =====
+
+def get_player_stats(player_id: str) -> Dict:
+    """获取玩家统计数据"""
+    return db.get_player_stats(player_id)
+
+
+def get_global_leaderboard() -> List[Dict]:
+    """获取全局排行榜"""
+    return db.get_global_leaderboard()
+
+
+def get_player_by_id(player_id: str) -> Optional[Dict]:
+    """根据player_id获取玩家完整信息"""
+    return db.get_player_by_id(player_id)
+
+
+# ===== 兼容性变量 - 用于保持与原有代码的兼容性 =====
+
+class SessionsProxy:
+    """场次代理类，提供类似字典的接口"""
     
-    # 保证机制：如果get_data_file_path返回有问题的路径，降级到当前目录的data.json
-    if not data_file or data_file.strip() == '':
-        print("警告：数据文件路径为空，降级到当前目录")
-        data_file = 'data.json'
+    def __contains__(self, session_id: str) -> bool:
+        """检查场次是否存在"""
+        return db.get_session_by_id(session_id) is not None
     
-    try:
-        # 确保数据目录存在（只有当目录不为空时才创建）
-        data_dir = os.path.dirname(data_file)
-        if data_dir and data_dir.strip() != '':  # 只有当目录路径不为空时才创建
-            os.makedirs(data_dir, exist_ok=True)
+    def __getitem__(self, session_id: str) -> Dict:
+        """获取场次信息"""
+        session = db.get_session_with_players(session_id)
+        if session is None:
+            raise KeyError(f"Session {session_id} not found")
+        return session
+    
+    def __setitem__(self, session_id: str, session_data: Dict):
+        """设置场次信息（用于兼容性，不建议使用）"""
+        # 这个方法主要用于兼容性，实际应该使用数据库接口
+        pass
+    
+    def __delitem__(self, session_id: str):
+        """删除场次"""
+        db.delete_session(session_id)
+    
+    def get(self, session_id: str, default=None):
+        """获取场次信息，不存在时返回默认值"""
+        session = db.get_session_with_players(session_id)
+        return session if session is not None else default
+    
+    def items(self):
+        """获取所有场次的迭代器"""
+        sessions = db.get_all_sessions()
+        for session in sessions:
+            full_session = db.get_session_with_players(session['session_id'])
+            yield session['session_id'], full_session
+    
+    def values(self):
+        """获取所有场次的值"""
+        sessions = db.get_all_sessions()
+        for session in sessions:
+            full_session = db.get_session_with_players(session['session_id'])
+            yield full_session
+    
+    def keys(self):
+        """获取所有场次的键"""
+        sessions = db.get_all_sessions()
+        for session in sessions:
+            yield session['session_id']
 
-        # 构建完整的数据结构
-        data = {
-            'players': players,
-            'sessions': {}
-        }
 
-        # 将set转换为list以便JSON序列化
-        for sid, s in sessions.items():
-            s_copy = s.copy()
-            s_copy['players'] = list(s.get('players', set()))
-            s_copy['viewers'] = list(s.get('viewers', set()))
-            s_copy['player_ids'] = list(s.get('player_ids', set()))
-            data['sessions'][sid] = s_copy
+class PlayersProxy:
+    """玩家代理类，提供类似字典的接口"""
+    
+    def __contains__(self, player_id: str) -> bool:
+        """检查玩家是否存在"""
+        return db.get_player_by_id(player_id) is not None
+    
+    def __getitem__(self, player_id: str) -> Dict:
+        """获取玩家信息"""
+        player = db.get_player_by_id(player_id)
+        if player is None:
+            raise KeyError(f"Player {player_id} not found")
+        return player
+    
+    def get(self, player_id: str, default=None):
+        """获取玩家信息，不存在时返回默认值"""
+        player = db.get_player_by_id(player_id)
+        return player if player is not None else default
+    
+    def items(self):
+        """获取所有玩家的迭代器"""
+        players = db.get_all_players()
+        for player in players:
+            yield player['player_id'], player
+    
+    def values(self):
+        """获取所有玩家的值"""
+        players = db.get_all_players()
+        for player in players:
+            yield player
+    
+    def keys(self):
+        """获取所有玩家的键"""
+        players = db.get_all_players()
+        for player in players:
+            yield player['player_id']
 
-        with open(data_file, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
 
-        print(f"数据已保存到: {data_file}")
-    except Exception as e:
-        print(f"保存数据失败: {e}")
-        traceback.print_exc()
+# 创建兼容性代理对象
+sessions = SessionsProxy()
+players = PlayersProxy()
 
-
-# 初始化数据
-def init_data():
-    """初始化数据，在应用启动时调用"""
-    global sessions, players
-    loaded_sessions = load_data()
-    sessions.update(loaded_sessions)
-    print(f"初始化完成: 加载了 {len(sessions)} 个场次, {len(players)} 个玩家")
+# 兼容性列表
+recent_player_ids = []  # 这个将通过get_recent_players()函数获取

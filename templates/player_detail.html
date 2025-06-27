@@ -100,15 +100,15 @@
                 <div class="stat-label">有效对局</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">{{ stats.wins }}</div>
+                <div class="stat-number">{{ stats.competitive_wins }}</div>
                 <div class="stat-label">胜利</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">{{ stats.losses }}</div>
+                <div class="stat-number">{{ stats.competitive_losses }}</div>
                 <div class="stat-label">失败</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">{{ "%.1f"|format(stats.win_rate) }}%</div>
+                <div class="stat-number">{{ "%.1f"|format(stats.competitive_win_rate) }}%</div>
                 <div class="stat-label">胜率</div>
             </div>
             <div class="stat-card">
@@ -208,10 +208,10 @@
                             {% endif %}
                         </div>
                         <div class="timestamp">
-                            <span data-utc-time="{{ record.record.timestamp }}">{{ record.record.timestamp }}</span> |
+                            <span data-utc-time="{{ record.timestamp }}">{{ record.timestamp }}</span> |
                             <a href="/game/{{ record.session_id }}" class="player-link">{{ record.session_name }}</a>
-                            {% if record.record.special_score_part %}
-                            | {{ record.record.special_score_part }}
+                            {% if record.special_score_part %}
+                            | {{ record.special_score_part }}
                             {% endif %}
                         </div>
                     </div>

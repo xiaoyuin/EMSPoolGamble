@@ -38,11 +38,18 @@ if __name__ == '__main__':
     # 输出数据存储位置信息
     data_file = get_data_file_path()
     is_azure = os.environ.get('WEBSITE_SITE_NAME') is not None
+    
+    # 获取统计信息
+    from app.models import get_all_sessions, get_player_by_id
+    from app.database import db
+    all_sessions = get_all_sessions()
+    all_players = db.get_all_players()
+    
     print(f"")
     print(f"🎱 {APP_NAME} {APP_VERSION}")
-    print(f"📊 数据存储位置: {data_file}")
+    print(f"📊 数据存储位置: SQLite数据库 ({db.db_path})")
     print(f"☁️  Azure环境: {'是' if is_azure else '否'}")
-    print(f"📝 已加载 {len(sessions)} 个场次, {len(players)} 个玩家")
+    print(f"📝 已加载 {len(all_sessions)} 个场次, {len(all_players)} 个玩家")
     print(f"")
 
     port = int(os.environ.get('PORT', 5000))

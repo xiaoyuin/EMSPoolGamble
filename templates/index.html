@@ -90,7 +90,6 @@
             </div>
             <div class="session-info">
                 <div>玩家：{{ session_data.players|join(', ') if session_data.players else '暂无玩家' }}</div>
-                <div>观战者：{{ session_data.viewers|join(', ') if session_data.viewers else '暂无观战者' }}</div>
                 <div>记录数：{{ session_data.get('records', session_data.get('rounds', []))|length }} | 开始时间：<span data-utc-time="{{ session_data.timestamp }}">{{ session_data.timestamp }}</span></div>
             </div>
 
