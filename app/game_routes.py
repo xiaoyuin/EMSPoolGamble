@@ -6,7 +6,7 @@ from .models import (sessions, players, save_data,
                      get_player_by_name, get_player_name, get_or_create_player,
                      get_available_players, get_session,
                      add_player_to_session, add_game_record, delete_game_record,
-                     end_session)
+                     end_session, delete_session)
 from .utils import get_utc_timestamp
 from . import DEFAULT_SCORE_OPTIONS, APP_VERSION
 

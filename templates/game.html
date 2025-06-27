@@ -43,8 +43,7 @@
         .score-btn:hover { background: #e6f7ff; border-color: #1890ff; }
         .score-btn.selected { background: #1890ff; color: white; border-color: #1890ff; }
         .session-name { font-weight: bold; color: #1890ff; margin-bottom: 0.5em; }
-        .add-player-section { border-top: 1px solid #f0f0f0; padding-top: 1em; margin-top: 1em; }
-        .add-player-form { display: flex; gap: 0.5em; align-items: end; }
+        .add-player-form { display: flex; gap: 0.5em; align-items: end; margin-bottom: 1em; }
         .add-player-form input { flex: 1; margin: 0; }
         .add-player-form button { width: auto; margin: 0; padding: 0.7em 1em; white-space: nowrap; }
         .player-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5em; margin: 1em 0; }
@@ -87,6 +86,11 @@
         #record-btn:disabled:hover { background: #d9d9d9; }
         .player-link { color: #1890ff; text-decoration: none; }
         .player-link:hover { text-decoration: underline; }
+        .hint-warning { margin-top: 1em; padding: 0.8em; background: #fff7e6; border: 1px solid #ffd591; border-radius: 5px; color: #ad6800; }
+        .hint-success { margin-top: 1em; padding: 0.8em; background: #f6ffed; border: 1px solid #b7eb8f; border-radius: 5px; color: #389e0d; }
+        .player-actions { display: none; }
+        .current-players { margin-bottom: 1em; }
+        .btn-link { display: block; text-align: center; text-decoration: none; margin: 0.3em; padding: 0.7em; font-size: 1em; border-radius: 5px; border: none; cursor: pointer; }
     </style>    <script>
         let selectedScore = null;
         let selectedWinner = null;
@@ -432,9 +436,11 @@
         {% endif %}
     {% endwith %}
 
+    <!-- 主计分卡片 - 只有玩家数量大于等于2时才显示 -->
+    {% if sorted_players|length >= 2 %}
     <div class="card">
-        <div>所有玩家：{{ session.players|join(', ') }}</div>
-
+        <h4>计分面板</h4>
+        
         <!-- 分数选择区域 -->
         <div class="score-selection">
             <label>选择分数：</label>
@@ -460,7 +466,7 @@
                         {% endif %}
                     </span>
                     <span class="player-score {% if player.score > 0 %}positive{% elif player.score < 0 %}negative{% else %}neutral{% endif %}">{{ player.score }}</span>
-                    <div class="player-actions" style="display: none;">
+                    <div class="player-actions">
                         <button type="button" class="action-btn plus-btn" onclick="selectPlayerAction('{{ player.name }}', 'plus')">+<span class="action-score"></span></button>
                         <button type="button" class="action-btn minus-btn" onclick="selectPlayerAction('{{ player.name }}', 'minus')">-<span class="action-score"></span></button>
                     </div>
@@ -477,32 +483,55 @@
             <input type="hidden" id="timezone_offset" name="timezone_offset" value="">
             <button type="submit" class="btn-primary btn-full" id="record-btn" disabled>请先选择分数</button>
         </form>
+    </div>
+    {% endif %}
 
-        <form action="/end_session/{{ session_id }}" method="post">
-            <input type="hidden" id="end_session_timezone_offset" name="timezone_offset" value="">
-            <button type="submit" class="btn-danger btn-full">结束本场</button>
+    <!-- 玩家管理卡片 - 始终显示，在主计分卡片之后 -->
+    <div class="card">
+        <h4>玩家管理</h4>
+        
+        <!-- 显示所有玩家 -->
+        <div class="current-players">
+            <strong>当前玩家：</strong>{{ session.players|join('、') }}
+        </div>
+        
+        <!-- 添加新玩家 -->
+        <form action="/add_player/{{ session_id }}" method="post" class="add-player-form">
+            <input type="text" id="new_player_name" name="new_player_name" placeholder="输入玩家名字" required>
+            <input type="hidden" id="add_player_timezone_offset" name="timezone_offset" value="">
+            <button type="submit" class="btn-success">添加</button>
         </form>
 
-        <!-- 添加玩家功能 -->
-        <div class="add-player-section">
-            <label>添加新玩家：</label>
-            <form action="/add_player/{{ session_id }}" method="post" class="add-player-form">
-                <input type="text" id="new_player_name" name="new_player_name" placeholder="输入玩家名字" required>
-                <input type="hidden" id="add_player_timezone_offset" name="timezone_offset" value="">
-                <button type="submit" class="btn-success">添加</button>
-            </form>
-
-            {% if recent_players %}
-            <div class="recent-players">
-                <div class="recent-players-title">最近添加的玩家：</div>
-                {% for player in recent_players %}
-                <span class="recent-player-btn" onclick="quickAddPlayer('{{ player.name }}')">{{ player.name }}</span>
-                {% endfor %}
-            </div>
-            {% endif %}
+        {% if recent_players %}
+        <div class="recent-players">
+            <div class="recent-players-title">最近添加的玩家：</div>
+            {% for player in recent_players %}
+            <span class="recent-player-btn" onclick="quickAddPlayer('{{ player.name }}')">{{ player.name }}</span>
+            {% endfor %}
         </div>
+        {% endif %}
+        
+        {% if sorted_players|length < 2 %}
+        <div class="hint-warning">
+            <strong>提示：</strong> 至少需要2个玩家才能开始游戏，请先添加玩家。
+        </div>
+        {% endif %}
     </div>
 
+    <!-- 场次控制卡片 -->
+    <div class="card">
+        {% if sorted_players|length < 2 %}
+        <button type="button" class="btn-danger btn-full" 
+                onclick="if(confirm('确定要取消这个场次吗？所有数据将被删除。')) { window.location.href='/delete_session/{{ session_id }}'; }">取消场次</button>
+        {% else %}
+        <form action="/end_session/{{ session_id }}" method="post">
+            <input type="hidden" id="end_session_timezone_offset" name="timezone_offset" value="">
+            <button type="submit" class="btn-danger btn-full" onclick="return confirm('确定要结束本场游戏吗？')">结束本场</button>
+        </form>
+        {% endif %}
+    </div>
+
+    <!-- 游戏记录卡片 -->
     <div class="card">
         <h4>本场所有记录</h4>
         <div class="rounds-list">
