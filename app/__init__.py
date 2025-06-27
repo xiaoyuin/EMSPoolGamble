@@ -4,9 +4,9 @@ EMS Pool Gamble Application
 """
 
 # 应用版本信息
-APP_VERSION = "v1.4.0"
+APP_VERSION = "v1.5.0"
 APP_NAME = "EMS Pool Gamble"
-VERSION_DATE = "2025-06-27"
+VERSION_DATE = "2025-06-28"
 
 # 默认分数选项（包含特殊分数14和20）
 DEFAULT_SCORE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 20]
