@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ player.name }} - 玩家详情</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
         .card { background: #ffffff; border-radius: 10px; padding: 1.2em; margin-top: 1.5em; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -64,6 +65,8 @@
         .note-text-above { font-size: 0.85em; color: #888; margin-bottom: 1em; }
         .rename-note { font-size: 0.9em; color: #666; margin-top: 0.5em; }
         .player-info { color: #666; font-size: 0.9em; }
+        .chart-container { position: relative; width: 100%; height: 400px; margin-top: 1em; }
+        .chart-container canvas { max-width: 100% !important; height: auto !important; }
     </style>
 </head>
 <body>
@@ -131,15 +134,26 @@
                 <div class="stat-label">收到1分</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">{{ stats.one_point_given + stats.one_point_received }}</div>
-                <div class="stat-label">1分总次数</div>
+                <div class="stat-number {% if stats.one_point_profit > 0 %}stat-green{% elif stats.one_point_profit < 0 %}stat-orange{% endif %}">{{ stats.one_point_profit }}</div>
+                <div class="stat-label">1分收益</div>
             </div>
         </div>
         
         <div class="note-text">
-            * 胜率计算不包含1分记录，仅统计有效对局（非1分记录）
+            * 胜率计算不包含1分记录，仅统计有效对局（非1分记录）<br>
+            * 1分收益 = 收到1分次数 - 送出1分次数（正值表示收益，负值表示亏损）
         </div>
     </div>
+
+    <!-- 分数趋势图表 -->
+    {% if score_trend_data %}
+    <div class="card">
+        <h3>分数趋势</h3>
+        <div class="chart-container">
+            <canvas id="scoreChart" width="400" height="200"></canvas>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- 重命名功能 -->
     <div class="card">
@@ -159,7 +173,7 @@
     <div class="card">
         <h3>对手统计</h3>
         <div class="note-text-above">
-            * 以下统计数据不包含1分记录，仅统计有效对局
+            * 胜负统计不包含1分记录，总分差包含所有记录（含1分记录）
         </div>
         <table class="opponents-table">
             <thead>
@@ -209,7 +223,7 @@
                         </div>
                         <div class="timestamp">
                             <span data-utc-time="{{ record.timestamp }}">{{ record.timestamp }}</span> |
-                            <a href="/game/{{ record.session_id }}" class="player-link">{{ record.session_name }}</a>
+                            <a href="/session_detail/{{ record.session_id }}" class="player-link">{{ record.session_name }}</a>
                             {% if record.special_score_part %}
                             | {{ record.special_score_part }}
                             {% endif %}
@@ -296,8 +310,110 @@ function convertUtcToLocal() {
     });
 }
 
-// 页面加载完成后执行时间转换
-document.addEventListener('DOMContentLoaded', convertUtcToLocal);
+// 页面加载完成后执行时间转换和图表初始化
+document.addEventListener('DOMContentLoaded', function() {
+    convertUtcToLocal();
+    initScoreChart();
+});
+
+// 初始化分数趋势图表
+function initScoreChart() {
+    const canvas = document.getElementById('scoreChart');
+    if (!canvas) return; // 如果没有图表元素就跳过
+
+    // 从后端获取数据
+    const trendData = {{ score_trend_data | tojson }};
+    if (!trendData || trendData.length === 0) return;
+
+    const ctx = canvas.getContext('2d');
+    
+    // 准备图表数据
+    const labels = trendData.map((item, index) => ''); // 空标签，不显示横轴文字
+    const scores = trendData.map(item => item.score);
+    
+    // 根据分数正负值设置数据点颜色
+    const pointColors = scores.map(score => score >= 0 ? '#52c41a' : '#ff4d4f');
+    const pointBorderColors = scores.map(score => score >= 0 ? '#52c41a' : '#ff4d4f');
+    
+    // 创建图表
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: '累计总分',
+                data: scores,
+                borderColor: '#1890ff',
+                backgroundColor: 'rgba(24, 144, 255, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4, // 增加曲线平滑度
+                pointBackgroundColor: pointColors,
+                pointBorderColor: pointBorderColors,
+                pointBorderWidth: 2,
+                pointRadius: 3, // 默认较小的数据点
+                pointHoverRadius: 6 // 悬停时较大的数据点
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: '累计总分变化趋势',
+                    font: {
+                        size: 16
+                    }
+                },
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        title: function(context) {
+                            const dataIndex = context[0].dataIndex;
+                            const record = trendData[dataIndex];
+                            return record.session_name;
+                        },
+                        label: function(context) {
+                            const dataIndex = context.dataIndex;
+                            const record = trendData[dataIndex];
+                            const result = record.is_winner ? '胜' : '负';
+                            const scoreChange = record.is_winner ? `+${record.record_score}` : `-${record.record_score}`;
+                            return [
+                                `累计总分: ${context.parsed.y}`,
+                                `对手: ${record.opponent_name}`,
+                                `结果: ${result} (${scoreChange}分)`
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    display: false, // 完全隐藏X轴
+                    grid: {
+                        display: false
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: '累计总分'
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    }
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            }
+        }
+    });
+}
 </script>
 </body>
 </html>

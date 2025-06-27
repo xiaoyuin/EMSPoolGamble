@@ -46,18 +46,28 @@ def register_player_routes(app):
         stats['competitive_games'] = competitive_games
         stats['one_point_given'] = len([r for r in one_point_records if not r['is_winner']])  # 送出1分次数
         stats['one_point_received'] = len([r for r in one_point_records if r['is_winner']])    # 收到1分次数
+        stats['one_point_profit'] = stats['one_point_received'] - stats['one_point_given']  # 1分收益（收到-送出）
         stats['competitive_win_rate'] = (competitive_wins / competitive_games * 100) if competitive_games > 0 else 0
 
-        # 对手统计（排除1分记录）
+        # 对手统计（胜负统计排除1分记录，但总分差包含所有记录）
         opponent_stats = defaultdict(lambda: {'wins': 0, 'losses': 0, 'total_score': 0})
+        
+        # 计算胜负统计（排除1分记录）
         for record in non_one_point_records:
             opponent_id = record['opponent_id']
             if opponent_id:
                 if record['is_winner']:
                     opponent_stats[opponent_id]['wins'] += 1
-                    opponent_stats[opponent_id]['total_score'] += record['score']
                 else:
                     opponent_stats[opponent_id]['losses'] += 1
+        
+        # 计算总分差（包含所有记录，包括1分记录）
+        for record in player_records:
+            opponent_id = record['opponent_id']
+            if opponent_id:
+                if record['is_winner']:
+                    opponent_stats[opponent_id]['total_score'] += record['score']
+                else:
                     opponent_stats[opponent_id]['total_score'] -= record['score']
 
         # 转换对手统计为列表，包含名字
@@ -76,6 +86,29 @@ def register_player_routes(app):
         # 按总对局数排序
         opponent_list.sort(key=lambda x: x['total_games'], reverse=True)
 
+        # 准备分数趋势图表数据
+        score_trend_data = []
+        cumulative_score = 0
+        
+        # 按时间排序所有记录（最早的在前）
+        sorted_records = sorted(player_records, key=lambda x: x['timestamp'])
+        
+        for i, record in enumerate(sorted_records):
+            if record['is_winner']:
+                cumulative_score += record['score']
+            else:
+                cumulative_score -= record['score']
+            
+            score_trend_data.append({
+                'game_index': i + 1,  # 第几场比赛
+                'score': cumulative_score,
+                'timestamp': record['timestamp'],
+                'opponent_name': record['opponent_name'],
+                'session_name': record['session_name'],
+                'record_score': record['score'],
+                'is_winner': record['is_winner']
+            })
+
         return render_template(
             'player_detail.html',
             player=player,
@@ -83,6 +116,7 @@ def register_player_routes(app):
             stats=stats,
             records=player_records[:50],  # 只显示最近50场
             opponents=opponent_list,
+            score_trend_data=score_trend_data,
             app_version=APP_VERSION
         )
 
