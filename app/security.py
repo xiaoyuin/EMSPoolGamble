@@ -4,6 +4,7 @@
 import os
 import secrets
 from functools import wraps
+from urllib.parse import urlparse
 from flask import request, session, flash, redirect, url_for, render_template_string
 
 
@@ -53,8 +54,13 @@ def require_admin_auth(f):
         
         # 检查管理员认证状态
         if not session.get('admin_authenticated'):
+            # 获取相对路径，避免包含域名
+            parsed_url = urlparse(request.url)
+            relative_url = parsed_url.path
+            if parsed_url.query:
+                relative_url += '?' + parsed_url.query
             # 显示密码输入页面
-            return render_admin_login_form(request.url)
+            return render_admin_login_form(relative_url)
         
         return f(*args, **kwargs)
     return decorated_function
@@ -199,12 +205,27 @@ def register_security_routes(app):
             flash('安全验证失败，请重试', 'error')
             return redirect(url_for('index'))
         
+        # 安全验证redirect_url，确保是相对路径
+        parsed_url = urlparse(redirect_url)
+        
+        # 如果URL包含域名，只取路径部分
+        if parsed_url.netloc:
+            safe_redirect_url = parsed_url.path
+            if parsed_url.query:
+                safe_redirect_url += '?' + parsed_url.query
+        else:
+            safe_redirect_url = redirect_url
+        
+        # 确保是以 / 开头的相对路径
+        if not safe_redirect_url.startswith('/'):
+            safe_redirect_url = url_for('index')
+        
         # 验证密码
         if password == ADMIN_PASSWORD:
             session['admin_authenticated'] = True
             session.permanent = True  # 使session持久化
             flash('管理员验证成功', 'success')
-            return redirect(redirect_url)
+            return redirect(safe_redirect_url)
         else:
             flash('密码错误', 'error')
             return redirect(url_for('index'))
