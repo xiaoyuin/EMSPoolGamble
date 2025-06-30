@@ -33,8 +33,8 @@ def register_game_routes(app):
 
         # 检查场次是否已被结束
         if not game_session.get('active', True):
-            flash('该场次已经结束', 'error')
-            return redirect(url_for('index'))
+            flash('该场次已经结束，跳转到详情页面查看结果', 'info')
+            return redirect(url_for('session_detail', session_id=session_id))
 
         # 准备玩家列表，按分数排序，包含player_id
         # 构建包含player_id的玩家列表
