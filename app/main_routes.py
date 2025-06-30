@@ -8,6 +8,7 @@ from .models import (sessions, players, save_data, get_player_by_name, get_playe
                      create_session, get_active_sessions, get_ended_sessions, 
                      get_all_sessions, delete_session, get_session)
 from .utils import get_utc_timestamp, generate_session_name
+from .security import require_admin_auth, require_csrf_protection
 from . import APP_VERSION, APP_NAME, VERSION_DATE
 
 
@@ -142,7 +143,9 @@ def register_main_routes(app):
                              records=records_with_ids,
                              app_version=APP_VERSION)
 
-    @app.route('/delete_session/<session_id>')
+    @app.route('/delete_session/<session_id>', methods=['POST'])
+    @require_admin_auth
+    @require_csrf_protection
     def delete_session_route(session_id):
         # 删除场次
         if session_id not in sessions:

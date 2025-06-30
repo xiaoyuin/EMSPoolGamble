@@ -1,8 +1,8 @@
 # EMS Pool Gamble
 
-> **v1.5.0** - 专业游戏管理平台 🎱
+> **v1.5.1** - 专业游戏管理平台 🎱
 
-这是一个功能完整的多人台球计分 Python Flask Web App，支持移动端浏览器访问。经过 v1.5.0 UI/UX 深度优化，实现了游戏页面的全方位体验提升，特别是"快速添加玩家"功能的交互升级和界面美化，为用户提供现代化的产品级体验。
+这是一个功能完整的多人台球计分 Python Flask Web App，支持移动端浏览器访问。经过 v1.5.1 安全升级和 v1.5.0 UI/UX 深度优化，实现了企业级安全防护和现代化的产品级体验，特别是"快速添加玩家"功能的交互升级和完善的安全保护机制。
 
 ## ✨ 核心功能
 
@@ -25,6 +25,13 @@
 - **历史回顾**：按时间顺序展示所有参与的场次记录
 - **排行榜系统**：全局排行榜和场次排行榜
 
+### 🔒 安全保护 **(v1.5.1 升级)**
+- **CSRF 漏洞修复**：修复删除场次的安全漏洞，防止恶意脚本攻击
+- **管理员认证**：关键操作（删除记录、结束场次、玩家重命名）需要管理员密码
+- **CSRF保护**：防止跨站请求伪造攻击，所有表单都包含安全令牌
+- **IP白名单**：可选的IP地址限制功能，适用于内网环境
+- **安全状态显示**：首页显示管理员模式状态，可随时退出管理模式
+
 ### 🎨 用户体验 **(v1.5.0 重点优化)**
 - **卡片布局重构**：玩家管理、计分面板、场次控制功能分工明确，层次清晰
 - **快速添加玩家升级**：多选批量添加、动态按钮状态、选中数量实时显示
@@ -43,12 +50,27 @@
    pip install -r requirements.txt
    ```
 
-2. 本地运行：
+2. (推荐) 设置安全环境变量：
+   ```bash
+   # Windows PowerShell
+   $env:ADMIN_PASSWORD="your_secure_password"
+   $env:CSRF_SECRET_KEY="your_csrf_key"
+   $env:SECRET_KEY="your_flask_secret"
+   
+   # Linux/macOS
+   export ADMIN_PASSWORD="your_secure_password"
+   export CSRF_SECRET_KEY="your_csrf_key"
+   export SECRET_KEY="your_flask_secret"
+   ```
+
+3. 本地运行：
    ```bash
    python app.py
    ```
 
-3. 在浏览器访问 http://localhost:5000
+4. 在浏览器访问 http://localhost:5000
+
+> **安全提示**：如不设置密码，将使用默认管理员密码 `admin123`。详细安全配置请参见 [SECURITY.md](./SECURITY.md)
 
 ## 部署到 Azure
 
@@ -59,6 +81,9 @@
 3. 配置部署选项，可以选择GitHub Actions或其他CI/CD方式
 4. 设置环境变量:
    - `SECRET_KEY`: 生产环境的密钥（建议随机生成）
+   - `ADMIN_PASSWORD`: 管理员密码（用于保护关键操作）
+   - `CSRF_SECRET_KEY`: CSRF保护密钥（建议随机生成）
+   - `ALLOWED_IPS`: IP白名单（可选，用逗号分隔多个IP）
    - `PORT`: 应用运行端口（默认5000）
    - `FLASK_DEBUG`: 生产环境设为"False"
 

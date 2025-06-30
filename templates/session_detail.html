@@ -34,7 +34,7 @@
         .flash-message { padding: 10px; margin: 10px 0; border-radius: 5px; }
         .flash-success { background-color: #f6ffed; border: 1px solid #b7eb8f; color: #52c41a; }
         .flash-error { background-color: #fff2f0; border: 1px solid #ffccc7; color: #ff4d4f; }
-        .btn-danger { background: #ff4d4f; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; text-decoration: none; display: block; margin-top: 1em; width: 100%; box-sizing: border-box; text-align: center; }
+        .btn-danger { background: #ff4d4f; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; text-decoration: none; display: block; margin-top: 1em; width: 100%; box-sizing: border-box; text-align: center; font-size: 1em; }
         .btn-danger:hover { background: #ff7875; color: white; text-decoration: none; }
         .actions { margin-top: 1em; }
         .no-records-message { text-align: center; color: #666; }
@@ -138,7 +138,10 @@
     {% if not session_data.get('active', True) %}
     <div class="card">
         <div class="actions">
-            <a href="/delete_session/{{ session_id }}" class="btn-danger" onclick="return confirm('确定要删除这个场次吗？此操作无法撤销！')">删除场次</a>
+            <form action="/delete_session/{{ session_id }}" method="post" onsubmit="return confirm('确定要删除这个场次吗？此操作无法撤销！')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn-danger">删除场次</button>
+            </form>
         </div>
     </div>
     {% endif %}

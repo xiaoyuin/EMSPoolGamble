@@ -7,6 +7,7 @@ from .models import (sessions, players, save_data,
                      get_player_by_name, get_player_name, get_or_create_player, 
                      update_player_name, get_player_by_id, get_player_records,
                      get_player_stats)
+from .security import require_admin_auth, require_csrf_protection
 from . import APP_VERSION
 
 
@@ -121,6 +122,8 @@ def register_player_routes(app):
         )
 
     @app.route('/player/<player_id>/rename', methods=['POST'])
+    @require_admin_auth
+    @require_csrf_protection
     def rename_player(player_id):
         """重命名玩家"""
         if player_id not in players:

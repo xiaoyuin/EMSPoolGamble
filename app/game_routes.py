@@ -8,6 +8,7 @@ from .models import (sessions, players, save_data,
                      add_player_to_session, add_game_record, delete_game_record,
                      end_session, delete_session)
 from .utils import get_utc_timestamp
+from .security import require_admin_auth, require_csrf_protection
 from . import DEFAULT_SCORE_OPTIONS, APP_VERSION
 
 
@@ -300,6 +301,8 @@ def register_game_routes(app):
         return redirect(url_for('game', session_id=session_id))
 
     @app.route('/delete_record/<session_id>/<int:record_index>', methods=['POST'])
+    @require_admin_auth
+    @require_csrf_protection
     def delete_record(session_id, record_index):
         # 删除计分记录
         if session_id not in sessions:
@@ -348,6 +351,8 @@ def register_game_routes(app):
         return end_session_post(session_id)
 
     @app.route('/end_session/<session_id>', methods=['POST'])
+    @require_admin_auth
+    @require_csrf_protection
     def end_session_post(session_id):
         # 结束当前场次
         if session_id not in sessions:

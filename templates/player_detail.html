@@ -161,6 +161,7 @@
         <form action="/player/{{ player_id }}/rename" method="post" class="rename-form">
             <input type="text" name="new_name" value="{{ player.name }}" placeholder="输入新名字" title="玩家新名字" required>
             <input type="hidden" id="rename_timezone_offset" name="timezone_offset" value="">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-primary">更改名字</button>
         </form>
         <div class="rename-note">

@@ -721,11 +721,14 @@
     <!-- 场次控制卡片 -->
     <div class="card">
         {% if sorted_players|length < 2 %}
-        <button type="button" class="btn-danger btn-full" 
-                onclick="if(confirm('确定要取消这个场次吗？所有数据将被删除。')) { window.location.href='/delete_session/{{ session_id }}'; }">取消场次</button>
+        <form action="/delete_session/{{ session_id }}" method="post" onsubmit="return confirm('确定要取消这个场次吗？所有数据将被删除。')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn-danger btn-full">取消场次</button>
+        </form>
         {% else %}
         <form action="/end_session/{{ session_id }}" method="post">
             <input type="hidden" id="end_session_timezone_offset" name="timezone_offset" value="">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn-danger btn-full" onclick="return confirm('确定要结束本场游戏吗？')">结束本场</button>
         </form>
         {% endif %}
@@ -745,6 +748,7 @@
                         <div class="timestamp" data-utc-time="{{ r.timestamp }}">{{ r.timestamp }}</div>
                     </div>
                     <form action="/delete_record/{{ session_id }}/{{ loop.index0 }}" method="post" class="delete-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="delete-record-btn" onclick="return confirm('确定要删除这条记录吗？这会恢复相应的分数变化。')">删除</button>
                     </form>
                 </div>

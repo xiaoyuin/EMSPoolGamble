@@ -40,7 +40,7 @@
         .no-sessions-message { text-align: center; color: #666; }
         .detail-btn { display: block; padding: 8px 16px; background: #1890ff; color: white; border-radius: 5px; text-decoration: none; margin-top: 0.5em; text-align: center; width: 100%; box-sizing: border-box; }
         .detail-btn:hover { background: #40a9ff; color: white; text-decoration: none; }
-        .login-status { background: #e6f7ff; border: 1px solid #91d5ff; border-radius: 8px; padding: 12px; margin-bottom: 1em; }
+        .login-status { background: #e6f7ff; border: 1px solid #91d5ff; border-radius: 8px; padding: 12px; margin-bottom: 1em; margin-top: 1em;}
         .login-status .user-info { font-weight: bold; color: #1890ff; }
         .login-status .session-info { font-size: 0.9em; color: #666; margin-top: 4px; }
         .logout-btn { display: inline-block; padding: 4px 8px; background: #ff4d4f; color: white; border-radius: 4px; text-decoration: none; font-size: 0.8em; margin-left: 8px; }
@@ -60,6 +60,17 @@
             <span class="version-badge">{{ app_version }}</span>
             <span class="build-date">{{ version_date }}</span>
         </div>
+        
+        <!-- 管理员状态显示 -->
+        {% if is_admin_authenticated() %}
+        <div class="login-status">
+            <div class="user-info">
+                🔓 管理员模式已启用
+                <a href="/admin_logout" class="logout-btn">退出管理员模式</a>
+            </div>
+            <div class="session-info">可以执行删除、结束场次等关键操作</div>
+        </div>
+        {% endif %}
     </div>
 
     <!-- 显示消息通知 -->

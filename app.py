@@ -9,12 +9,16 @@ from app.models import init_data, get_data_file_path, sessions, players
 from app.main_routes import register_main_routes
 from app.game_routes import register_game_routes
 from app.player_routes import register_player_routes
+from app.security import register_security_routes
 
 
 def create_app():
     """创建Flask应用实例"""
     app = Flask(__name__)
     app.secret_key = os.environ.get('SECRET_KEY', 'dev_secret_key_for_testing')
+    
+    # 设置session持久化时间（7天）
+    app.permanent_session_lifetime = 604800
     
     # 初始化数据
     init_data()
@@ -23,6 +27,7 @@ def create_app():
     register_main_routes(app)
     register_game_routes(app)
     register_player_routes(app)
+    register_security_routes(app)
     
     return app
 
