@@ -54,13 +54,12 @@ def require_admin_auth(f):
         
         # 检查管理员认证状态
         if not session.get('admin_authenticated'):
-            # 获取相对路径，避免包含域名
-            parsed_url = urlparse(request.url)
-            relative_url = parsed_url.path
-            if parsed_url.query:
-                relative_url += '?' + parsed_url.query
+            # 存储referrer信息
+            session['pending_admin_operation'] = {
+                'referrer': request.referrer or url_for('index')
+            }
             # 显示密码输入页面
-            return render_admin_login_form(relative_url)
+            return render_admin_login_form()
         
         return f(*args, **kwargs)
     return decorated_function
@@ -80,7 +79,7 @@ def require_csrf_protection(f):
     return decorated_function
 
 
-def render_admin_login_form(redirect_url):
+def render_admin_login_form():
     """渲染管理员登录表单"""
     form_html = '''
     <!DOCTYPE html>
@@ -160,6 +159,7 @@ def render_admin_login_form(redirect_url):
     <body>
         <div class="auth-card">
             <h2 class="title">🔒 管理员验证</h2>
+            
             <p>此操作需要管理员权限，请输入管理员密码：</p>
             
             <form method="post" action="{{ url_for('admin_login') }}">
@@ -168,10 +168,9 @@ def render_admin_login_form(redirect_url):
                     <input type="password" id="password" name="password" required autocomplete="current-password">
                 </div>
                 
-                <input type="hidden" name="redirect_url" value="{{ redirect_url }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 
-                <button type="submit" class="btn">验证</button>
+                <button type="submit" class="btn">验证身份</button>
             </form>
             
             <div class="warning">
@@ -179,16 +178,14 @@ def render_admin_login_form(redirect_url):
             </div>
             
             <div class="back-link">
-                <a href="{{ url_for('index') }}">← 返回首页</a>
+                <a href="{{ url_for('index') }}">← 取消操作，返回首页</a>
             </div>
         </div>
     </body>
     </html>
     '''
     
-    return render_template_string(form_html, 
-                                redirect_url=redirect_url, 
-                                csrf_token=generate_csrf_token)
+    return render_template_string(form_html, csrf_token=generate_csrf_token)
 
 
 def register_security_routes(app):
@@ -198,34 +195,26 @@ def register_security_routes(app):
     def admin_login():
         """处理管理员登录"""
         password = request.form.get('password', '')
-        redirect_url = request.form.get('redirect_url', url_for('index'))
         
         # 验证CSRF token
         if not validate_csrf_token(request.form.get('csrf_token')):
             flash('安全验证失败，请重试', 'error')
             return redirect(url_for('index'))
         
-        # 安全验证redirect_url，确保是相对路径
-        parsed_url = urlparse(redirect_url)
-        
-        # 如果URL包含域名，只取路径部分
-        if parsed_url.netloc:
-            safe_redirect_url = parsed_url.path
-            if parsed_url.query:
-                safe_redirect_url += '?' + parsed_url.query
-        else:
-            safe_redirect_url = redirect_url
-        
-        # 确保是以 / 开头的相对路径
-        if not safe_redirect_url.startswith('/'):
-            safe_redirect_url = url_for('index')
-        
         # 验证密码
         if password == ADMIN_PASSWORD:
             session['admin_authenticated'] = True
             session.permanent = True  # 使session持久化
-            flash('管理员验证成功', 'success')
-            return redirect(safe_redirect_url)
+            
+            # 检查是否有待执行的操作
+            operation_info = session.pop('pending_admin_operation', None)  
+            if operation_info:
+                referrer = operation_info.get('referrer', url_for('index'))
+                flash('✅ 管理员身份验证成功！现在可以重新执行操作了。', 'success')
+                return redirect(referrer)
+            else:
+                flash('管理员身份验证成功', 'success')
+                return redirect(url_for('index'))
         else:
             flash('密码错误', 'error')
             return redirect(url_for('index'))
