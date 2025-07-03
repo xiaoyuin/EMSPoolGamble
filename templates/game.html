@@ -102,6 +102,12 @@
             text-decoration: underline; 
         }
         .score-selection { margin: 1em 0; }
+        .score-selection.hidden { display: none; }
+        .game-type-selection { margin: 1em 0; }
+        .game-type-buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5em; margin: 1em 0; }
+        .game-type-btn { background: #f0f0f0; color: #333; border: 2px solid #d9d9d9; transition: all 0.2s; min-height: 40px; padding: 0.7em; font-size: 1em; border-radius: 5px; cursor: pointer; }
+        .game-type-btn:hover { background: #e6f7ff; border-color: #1890ff; }
+        .game-type-btn.selected { background: #1890ff; color: white; border-color: #1890ff; }
         .score-hint { margin-top: 0.5em; font-size: 0.9em; color: #666; text-align: center; }
         .players-table { margin: 1em 0; }
         .player-rows { background: #f9f9f9; border-radius: 5px; padding: 0.5em; }
@@ -136,16 +142,110 @@
         let selectedWinner = null;
         let selectedLosers = [];  // 支持多个败者
         let isSpecialScore = false;  // 是否是特殊分数
+        let selectedGameType = null;  // 当前选择的游戏种类
+        let currentSpecialScore = null;  // 当前特殊分数类型（如"双吃"、"小金"、"大金"）
+
+        // 游戏种类配置
+        const gameTypeConfig = {
+            normal: {
+                name: '普胜',
+                scores: [1, 2, 3, 4, 5],
+                losersCount: 1,
+                specialScore: null
+            },
+            double: {
+                name: '双吃',
+                scores: [8, 14],
+                losersCount: 2,
+                specialScore: '双吃'
+            },
+            small: {
+                name: '小金',
+                scores: [7, 8, 9, 10],
+                losersCount: 1,
+                specialScore: '小金'
+            },
+            big: {
+                name: '大金',
+                scores: [20],
+                losersCount: 2,
+                specialScore: '大金'
+            }
+        };
+
+        function selectGameType(gameType) {
+            console.log('selectGameType called with:', gameType);
+
+            // 移除所有种类按钮的选中状态
+            document.querySelectorAll('.game-type-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+
+            // 选中当前按钮
+            const currentButton = document.querySelector(`[data-type="${gameType}"]`);
+            if (currentButton) {
+                currentButton.classList.add('selected');
+            }
+
+            selectedGameType = gameType;
+            const config = gameTypeConfig[gameType];
+            currentSpecialScore = config.specialScore;
+
+            // 生成对应的分数按钮
+            generateScoreButtons(config.scores);
+
+            // 更新分数选择区域的提示文字
+            updateGameTypeHint(config);
+
+            // 重置选择状态
+            resetAllSelections();
+
+            console.log('Selected game type:', gameType, 'config:', config);
+        }
+
+        function updateGameTypeHint(config) {
+            const hintElement = document.getElementById('score-hint');
+            if (!hintElement) return;
+
+            if (config.losersCount === 2) {
+                hintElement.textContent = `${config.name}：请选择分数，然后选择一个胜者和两个败者`;
+            } else {
+                hintElement.textContent = `${config.name}：请选择分数，然后选择一个胜者和一个败者`;
+            }
+        }
+
+        function generateScoreButtons(scores) {
+            const container = document.getElementById('score-buttons-container');
+            if (!container) return;
+
+            // 清空现有按钮
+            container.innerHTML = '';
+
+            // 生成新的分数按钮
+            scores.forEach(score => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'score-btn';
+                button.textContent = score;
+                button.onclick = () => selectScore(score);
+                container.appendChild(button);
+            });
+        }
 
         function selectScore(score) {
-            console.log('selectScore called with:', score); // 调试日志
+            console.log('selectScore called with:', score);
+
+            if (!selectedGameType) {
+                alert('请先选择游戏种类');
+                return;
+            }
 
             // 移除所有分数按钮的选中状态
             document.querySelectorAll('.score-btn').forEach(btn => {
                 btn.classList.remove('selected');
             });
 
-            // 选中当前按钮 - 需要找到正确的按钮
+            // 选中当前按钮
             const scoreButtons = document.querySelectorAll('.score-btn');
             scoreButtons.forEach(btn => {
                 if (btn.textContent.trim() === score.toString()) {
@@ -154,55 +254,98 @@
             });
 
             selectedScore = score;
-            isSpecialScore = (score === 14 || score === 20);
+            const config = gameTypeConfig[selectedGameType];
+            isSpecialScore = config.losersCount === 2;
 
-            console.log('Selected score:', selectedScore, 'isSpecial:', isSpecialScore); // 调试日志
+            console.log('Selected score:', selectedScore, 'isSpecial:', isSpecialScore, 'type:', selectedGameType);
 
             // 显示玩家操作按钮并更新分数显示
             document.querySelectorAll('.player-actions').forEach(actions => {
                 actions.style.display = 'flex';
-                console.log('Showing player actions for:', actions.parentElement.querySelector('.player-name').textContent); // 调试日志
             });
 
             // 更新分数显示
-            if (isSpecialScore) {
-                const halfScore = score / 2;
-                document.querySelectorAll('.action-score').forEach(span => {
-                    if (span.parentElement.classList.contains('plus-btn')) {
-                        span.textContent = score;
-                    } else {
-                        span.textContent = halfScore;
-                    }
-                });
-            } else {
-                document.querySelectorAll('.action-score').forEach(span => {
-                    span.textContent = score;
-                });
-            }
+            updatePlayerActionScores(config);
 
             // 更新提示文字
-            const hintElement = document.getElementById('score-hint');
-            if (hintElement) {
-                if (isSpecialScore) {
-                    hintElement.textContent = `已选择分数 ${score}，请选择一个玩家获得 +${score} 分，两个玩家各获得 -${score/2} 分`;
-                } else {
-                    hintElement.textContent = `已选择分数 ${score}，请选择一个玩家获得 +${score} 分，一个玩家获得 -${score} 分`;
-                }
-            }
+            updateScoreHint(config, score);
 
             // 重置玩家选择
             resetPlayerSelection();
         }
 
-        function selectPlayerAction(playerName, action) {
-            console.log('selectPlayerAction called:', playerName, action); // 调试日志
+        function updatePlayerActionScores(config) {
+            if (config.losersCount === 2) {
+                // 多败者情况：胜者得全分，败者各得一半负分
+                const halfScore = selectedScore / 2;
+                document.querySelectorAll('.action-score').forEach(span => {
+                    if (span.parentElement.classList.contains('plus-btn')) {
+                        span.textContent = selectedScore;
+                    } else {
+                        span.textContent = halfScore;
+                    }
+                });
+            } else {
+                // 单败者情况：都是全分
+                document.querySelectorAll('.action-score').forEach(span => {
+                    span.textContent = selectedScore;
+                });
+            }
+        }
 
-            // 找到对应的玩家行和按钮 - 不依赖event.target
+        function updateScoreHint(config, score) {
+            const hintElement = document.getElementById('score-hint');
+            if (!hintElement) return;
+
+            if (config.losersCount === 2) {
+                hintElement.textContent = `已选择 ${config.name} ${score} 分，请选择一个玩家获得 +${score} 分，两个玩家各获得 -${score/2} 分`;
+            } else {
+                hintElement.textContent = `已选择 ${config.name} ${score} 分，请选择一个玩家获得 +${score} 分，一个玩家获得 -${score} 分`;
+            }
+        }
+
+        function resetAllSelections() {
+            selectedScore = null;
+            selectedWinner = null;
+            selectedLosers = [];
+            isSpecialScore = false;
+
+            // 重置所有按钮状态
+            document.querySelectorAll('.score-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            document.querySelectorAll('.action-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+
+            // 隐藏玩家操作按钮
+            document.querySelectorAll('.player-actions').forEach(actions => {
+                actions.style.display = 'none';
+            });
+
+            // 如果已选择游戏种类，恢复对应的提示文字
+            if (selectedGameType) {
+                const config = gameTypeConfig[selectedGameType];
+                updateGameTypeHint(config);
+            }
+
+            // 更新提交按钮状态
+            checkCanSubmit();
+        }
+
+        function selectPlayerAction(playerName, action) {
+            console.log('selectPlayerAction called:', playerName, action);
+
+            if (!selectedGameType || !selectedScore) {
+                alert('请先选择游戏种类和分数');
+                return;
+            }
+
+            // 找到对应的玩家行和按钮
             const playerRows = document.querySelectorAll('.player-row');
             let targetButton = null;
             let playerRow = null;
 
-            // 找到对应的玩家行和按钮
             playerRows.forEach(row => {
                 const nameElement = row.querySelector('.player-name');
                 if (nameElement && nameElement.textContent.trim() === playerName) {
@@ -219,6 +362,8 @@
                 console.error('Cannot find button or row for player:', playerName);
                 return;
             }
+
+            const config = gameTypeConfig[selectedGameType];
 
             if (action === 'plus') {
                 // 处理加分按钮
@@ -250,14 +395,14 @@
                 }
             } else {
                 // 处理减分按钮
-                if (isSpecialScore) {
-                    // 特殊分数：允许最多选择2个败者
+                if (config.losersCount === 2) {
+                    // 多败者：允许最多选择指定数量的败者
                     if (selectedLosers.includes(playerName)) {
                         // 如果已选择，则取消选择
                         console.log('取消选中败者:', playerName);
                         selectedLosers = selectedLosers.filter(loser => loser !== playerName);
                         targetButton.classList.remove('selected');
-                    } else if (selectedLosers.length < 2) {
+                    } else if (selectedLosers.length < config.losersCount) {
                         // 如果未选择且未达到上限，则添加
                         console.log('选中败者:', playerName);
                         selectedLosers.push(playerName);
@@ -273,11 +418,11 @@
                         }
                     } else {
                         // 已达到上限，不允许选择更多
-                        alert('特殊分数只能选择2个败者');
+                        alert(`${config.name}只能选择${config.losersCount}个败者`);
                         return;
                     }
                 } else {
-                    // 普通分数：只允许一个败者
+                    // 单败者：只允许一个败者
                     if (selectedLosers.includes(playerName)) {
                         // 如果已选择，则取消选择
                         console.log('取消选中败者:', playerName);
@@ -320,7 +465,8 @@
             // 不再隐藏表单，而是调用checkCanSubmit来更新按钮状态
             checkCanSubmit();
         }        function checkCanSubmit() {
-            const requiredLosers = isSpecialScore ? 2 : 1;
+            const config = gameTypeConfig[selectedGameType];
+            const requiredLosers = config ? config.losersCount : 1;
             const recordBtn = document.getElementById('record-btn');
             const scoreForm = document.getElementById('score-form');
 
@@ -335,10 +481,10 @@
                     // 启用按钮
                     if (recordBtn) {
                         recordBtn.disabled = false;
-                        if (isSpecialScore) {
-                            recordBtn.textContent = `记录：${selectedWinner} +${selectedScore}，${selectedLosers.join('、')} 各 -${selectedScore/2}`;
+                        if (config && config.losersCount === 2) {
+                            recordBtn.textContent = `记录${config.name}：${selectedWinner} +${selectedScore}，${selectedLosers.join('、')} 各 -${selectedScore/2}`;
                         } else {
-                            recordBtn.textContent = `记录：${selectedWinner} +${selectedScore}，${selectedLosers[0]} -${selectedScore}`;
+                            recordBtn.textContent = `记录${config ? config.name : ''}：${selectedWinner} +${selectedScore}，${selectedLosers[0]} -${selectedScore}`;
                         }
                     }
                     return;
@@ -353,9 +499,9 @@
                 } else if (!selectedWinner) {
                     recordBtn.textContent = '请选择胜者';
                 } else if (selectedLosers.length === 0) {
-                    recordBtn.textContent = isSpecialScore ? '请选择2个败者' : '请选择败者';
-                } else if (isSpecialScore && selectedLosers.length < 2) {
-                    recordBtn.textContent = `请再选择${2 - selectedLosers.length}个败者`;
+                    recordBtn.textContent = requiredLosers === 2 ? '请选择2个败者' : '请选择败者';
+                } else if (selectedLosers.length < requiredLosers) {
+                    recordBtn.textContent = `请再选择${requiredLosers - selectedLosers.length}个败者`;
                 } else if (selectedLosers.includes(selectedWinner)) {
                     recordBtn.textContent = '胜者和败者不能相同';
                 } else {
@@ -542,6 +688,9 @@
                 actions.style.display = 'none';
             });
 
+            // 默认选择普胜
+            selectGameType('normal');
+
             // 初始化按钮状态
             checkCanSubmit();
             
@@ -586,8 +735,16 @@
                         return false;
                     }
 
-                    if (isSpecialScore && selectedLosers.length === 2) {
-                        // 对于特殊分数，使用新的接口
+                    if (!selectedGameType) {
+                        e.preventDefault();
+                        alert('请先选择游戏种类');
+                        return false;
+                    }
+
+                    const config = gameTypeConfig[selectedGameType];
+
+                    if (config.losersCount === 2) {
+                        // 多败者情况：使用特殊分数接口
                         e.preventDefault();
 
                         const form = document.createElement('form');
@@ -615,17 +772,28 @@
                         scoreInput.value = selectedScore;
                         form.appendChild(scoreInput);
 
+                        // 添加特殊分数类型
+                        const specialScoreInput = document.createElement('input');
+                        specialScoreInput.type = 'hidden';
+                        specialScoreInput.name = 'special_score';
+                        specialScoreInput.value = currentSpecialScore || config.specialScore;
+                        form.appendChild(specialScoreInput);
+
                         document.body.appendChild(form);
                         form.submit();
                     } else {
-                        // 普通分数，正常提交
+                        // 单败者情况：使用普通接口，设置隐藏字段
                         const winnerInput = document.getElementById('selected_winner');
                         const loserInput = document.getElementById('selected_loser');
                         const scoreInput = document.getElementById('selected_score');
+                        const specialScoreInput = document.getElementById('selected_special_score');
 
                         if (winnerInput) winnerInput.value = selectedWinner || '';
                         if (loserInput) loserInput.value = selectedLosers[0] || '';
                         if (scoreInput) scoreInput.value = selectedScore || '';
+                        if (specialScoreInput) specialScoreInput.value = currentSpecialScore || config.specialScore || '';
+
+                        // 不需要阻止默认提交，让表单正常提交到 add_score 路由
                     }
                 });
             }
@@ -652,15 +820,24 @@
     <div class="card">
         <h4>计分面板</h4>
         
-        <!-- 分数选择区域 -->
-        <div class="score-selection">
-            <label>选择分数：</label>
-            <div class="score-buttons">
-                {% for s in score_options %}
-                <button type="button" class="score-btn" onclick="selectScore({{ s }})">{{ s }}</button>
-                {% endfor %}
+        <!-- 种类选择区域 -->
+        <div class="game-type-selection">
+            <label>选择种类：</label>
+            <div class="game-type-buttons">
+                <button type="button" class="game-type-btn selected" data-type="normal" onclick="selectGameType('normal')">普胜</button>
+                <button type="button" class="game-type-btn" data-type="double" onclick="selectGameType('double')">双吃</button>
+                <button type="button" class="game-type-btn" data-type="small" onclick="selectGameType('small')">小金</button>
+                <button type="button" class="game-type-btn" data-type="big" onclick="selectGameType('big')">大金</button>
             </div>
-            <div id="score-hint" class="score-hint">请先选择分数，然后点击玩家右侧的 + 或 - 按钮</div>
+        </div>
+
+        <!-- 分数选择区域 -->
+        <div class="score-selection" id="score-selection">
+            <label>选择分数：</label>
+            <div class="score-buttons" id="score-buttons-container">
+                <!-- 动态生成分数按钮 -->
+            </div>
+            <div id="score-hint" class="score-hint">请选择分数，然后点击玩家右侧的 + 或 - 按钮</div>
         </div>
 
         <!-- 玩家分数表格 -->
@@ -691,8 +868,9 @@
             <input type="hidden" id="selected_winner" name="winner" value="">
             <input type="hidden" id="selected_loser" name="loser" value="">
             <input type="hidden" id="selected_score" name="score" value="">
+            <input type="hidden" id="selected_special_score" name="special_score" value="">
             <input type="hidden" id="timezone_offset" name="timezone_offset" value="">
-            <button type="submit" class="btn-primary btn-full" id="record-btn" disabled>请先选择分数</button>
+            <button type="submit" class="btn-primary btn-full" id="record-btn" disabled>请先选择游戏种类</button>
         </form>
     </div>
     {% endif %}

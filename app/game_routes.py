@@ -219,6 +219,11 @@ def register_game_routes(app):
         winner = request.form['winner']
         loser = request.form['loser']
         score = int(request.form['score'])
+        special_score = request.form.get('special_score', None)  # 获取特殊分数类型
+        
+        # 如果special_score是空字符串，设为None
+        if special_score == '':
+            special_score = None
 
         # 验证
         if winner == loser:
@@ -230,12 +235,16 @@ def register_game_routes(app):
             winner_id = get_player_by_name(winner)
             loser_id = get_player_by_name(loser)
 
-            # 添加计分记录（数据库会自动更新分数）
-            add_game_record(session_id, winner_id, loser_id, score)
+            # 添加计分记录（传递特殊分数类型）
+            add_game_record(session_id, winner_id, loser_id, score, special_score)
 
             # 保存数据（数据库自动保存）
             save_data()
-            flash('成功记录分数', 'success')
+            
+            if special_score:
+                flash(f'成功记录{special_score}分数', 'success')
+            else:
+                flash('成功记录分数', 'success')
 
         return redirect(url_for('game', session_id=session_id))
 
@@ -259,9 +268,10 @@ def register_game_routes(app):
         winner = request.form.get('winner')
         losers = request.form.getlist('losers')  # 获取多个败者
         total_score = int(request.form.get('score', 0))
+        special_score = request.form.get('special_score', None)  # 获取特殊分数类型
 
         # 验证输入
-        if not winner or not losers or total_score not in [14, 20]:
+        if not winner or not losers or total_score not in [8, 14, 20]:
             flash('请选择胜者、败者和正确的分数', 'error')
             return redirect(url_for('game', session_id=session_id))
 
@@ -286,11 +296,13 @@ def register_game_routes(app):
         loser_ids = [get_player_by_name(loser) for loser in losers]
 
         # 使用统一的计分记录方法（支持多败者）
-        add_game_record(session_id, winner_id, loser_ids[0], total_score, None, loser_ids[1])
+        add_game_record(session_id, winner_id, loser_ids[0], total_score, special_score, loser_ids[1])
 
         # 保存数据（数据库自动保存）
         save_data()
-        flash(f'成功记录特殊分数：{winner} 胜 {losers[0]}+{losers[1]} ({total_score}分)', 'success')
+        
+        type_name = special_score if special_score else '特殊分数'
+        flash(f'成功记录{type_name}：{winner} 胜 {losers[0]}+{losers[1]} ({total_score}分)', 'success')
 
         return redirect(url_for('game', session_id=session_id))
 
