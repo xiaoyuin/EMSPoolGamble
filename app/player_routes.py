@@ -6,7 +6,7 @@ from flask import render_template, request, redirect, url_for, flash
 from .models import (sessions, players, save_data, 
                      get_player_by_name, get_player_name, get_or_create_player, 
                      update_player_name, get_player_by_id, get_player_records,
-                     get_player_stats)
+                     get_player_stats, get_player_special_wins, get_players_special_wins_batch)
 from .security import require_admin_auth, require_csrf_protection
 from . import APP_VERSION
 
@@ -28,6 +28,23 @@ def register_player_routes(app):
 
         # 获取玩家的所有对战记录
         player_records = get_player_records(player_id)
+
+        # 获取玩家的特殊胜利记录（小金、大金）
+        special_wins = get_player_special_wins(player_id)
+
+        # 计算特殊胜利次数
+        special_wins_counts = {
+            'small_gold_count': 0,
+            'big_gold_count': 0
+        }
+        
+        # 从玩家记录中统计特殊胜利次数
+        for record in player_records:
+            if record['is_winner'] and record.get('special_score'):
+                if record['special_score'] == '小金':
+                    special_wins_counts['small_gold_count'] += 1
+                elif record['special_score'] == '大金':
+                    special_wins_counts['big_gold_count'] += 1
 
         # 将记录分为1分记录和非1分记录
         one_point_records = [r for r in player_records if r['score'] == 1]
@@ -96,7 +113,9 @@ def register_player_routes(app):
 
         # 转换对手统计为列表，包含名字
         opponent_list = []
+        opponent_ids = []  # 收集所有对手ID
         for opponent_id, stat in opponent_stats.items():
+            opponent_ids.append(opponent_id)
             opponent_list.append({
                 'id': opponent_id,
                 'name': get_player_name(opponent_id),
@@ -106,6 +125,16 @@ def register_player_routes(app):
                 'win_rate': (stat['wins'] / (stat['wins'] + stat['losses']) * 100) if (stat['wins'] + stat['losses']) > 0 else 0,
                 'total_score': stat['total_score']
             })
+
+        # 获取所有对手的特殊胜利记录
+        if opponent_ids:
+            opponents_special_wins = get_players_special_wins_batch(opponent_ids)
+            # 将特殊胜利记录添加到对手信息中
+            for opponent in opponent_list:
+                if opponent['id'] in opponents_special_wins:
+                    opponent.update(opponents_special_wins[opponent['id']])
+                else:
+                    opponent.update({'has_small_gold': False, 'has_big_gold': False})
 
         # 按总对局数排序
         opponent_list.sort(key=lambda x: x['total_games'], reverse=True)
@@ -141,6 +170,8 @@ def register_player_routes(app):
             records=player_records[:50],  # 只显示最近50场
             opponents=opponent_list,
             score_trend_data=score_trend_data,
+            special_wins=special_wins,  # 传递特殊胜利记录
+            special_wins_counts=special_wins_counts,  # 传递特殊胜利次数统计
             app_version=APP_VERSION
         )
 

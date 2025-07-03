@@ -117,6 +117,32 @@
         .player-name { font-weight: bold; flex: 1; }
         .player-name a { color: #1890ff; text-decoration: none; }
         .player-name a:hover { text-decoration: underline; }
+        /* 特殊胜利高亮样式 */
+        .player-name.has-small-gold a,
+        .player-name.has-small-gold {
+            color: #fa8c16 !important;
+            text-shadow: 0 0 3px rgba(250, 140, 22, 0.3);
+            font-weight: 700;
+        }
+        .player-name.has-big-gold a,
+        .player-name.has-big-gold {
+            color: #722ed1 !important;
+            text-shadow: 0 0 4px rgba(114, 46, 209, 0.4);
+            font-weight: 700;
+            background: linear-gradient(135deg, #722ed1, #9254de);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .player-name.has-small-gold:hover a,
+        .player-name.has-small-gold:hover {
+            color: #d48806 !important;
+        }
+        .player-name.has-big-gold:hover a,
+        .player-name.has-big-gold:hover {
+            color: #531dab !important;
+            -webkit-text-fill-color: #531dab;
+        }
         .player-score { font-weight: bold; margin-right: 1em; min-width: 3em; text-align: right; }
         .player-actions { display: flex; gap: 0.5em; }
         .action-btn { padding: 0.4em 0.8em; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: all 0.2s; opacity: 0.7; transform: scale(1); }
@@ -132,6 +158,28 @@
         #record-btn:disabled:hover { background: #d9d9d9; }
         .player-link { color: #1890ff; text-decoration: none; }
         .player-link:hover { text-decoration: underline; }
+        /* 特殊胜利高亮样式 */
+        .has-small-gold {
+            color: #ff8c00 !important;
+            font-weight: bold;
+        }
+        .has-big-gold {
+            background: linear-gradient(45deg, #ffd700, #daa520, #b8860b);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: bold;
+        }
+        .has-big-gold a {
+            background: linear-gradient(45deg, #ffd700, #daa520, #b8860b);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-decoration: none;
+        }
+        .has-big-gold a:hover {
+            text-decoration: underline;
+        }
         .hint-warning { margin-top: 1em; padding: 0.8em; background: #fff7e6; border: 1px solid #ffd591; border-radius: 5px; color: #ad6800; }
         .hint-success { margin-top: 1em; padding: 0.8em; background: #f6ffed; border: 1px solid #b7eb8f; border-radius: 5px; color: #389e0d; }
         .player-actions { display: none; }
@@ -846,7 +894,7 @@
             <div class="player-rows">
                 {% for player in sorted_players %}
                 <div class="player-row">
-                    <span class="player-name">
+                    <span class="player-name{% if player.has_big_gold %} has-big-gold{% elif player.has_small_gold %} has-small-gold{% endif %}">
                         {% if player.id %}
                         <a href="/player/{{ player.id }}">{{ player.name }}</a>
                         {% else %}

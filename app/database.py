@@ -583,7 +583,7 @@ class DatabaseManager:
             return record_id
 
     def get_session_records(self, session_id: str) -> List[Dict]:
-        """获取场次的所有计分记录"""
+        """获取场次的所有计分记录（按时间降序，最新记录在前）"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('''
@@ -596,7 +596,7 @@ class DatabaseManager:
                 JOIN players pl1 ON gr.loser_id = pl1.player_id
                 LEFT JOIN players pl2 ON gr.loser_id2 = pl2.player_id
                 WHERE gr.session_id = ?
-                ORDER BY gr.record_id
+                ORDER BY gr.record_id DESC
             ''', (session_id,))
             
             records = []
@@ -711,6 +711,15 @@ class DatabaseManager:
                     record['opponent_name'] = ' + '.join(opponents)
                     record['opponent_id'] = opponent_ids[0] if len(opponent_ids) == 1 else opponent_ids
                     
+                    # 为模板添加结构化的对手信息
+                    if len(opponent_ids) > 1:
+                        record['opponent_names'] = [
+                            {'id': opponent_ids[0], 'name': opponents[0]},
+                            {'id': opponent_ids[1], 'name': opponents[1]}
+                        ]
+                    else:
+                        record['opponent_names'] = None
+                    
                 else:
                     # 当前玩家是败者
                     record['is_winner'] = False
@@ -723,6 +732,7 @@ class DatabaseManager:
                     
                     record['opponent_name'] = record['winner_name']
                     record['opponent_id'] = record['winner_id']
+                    record['opponent_names'] = None  # 败者通常只有一个对手
                 
                 # 添加兼容性字段
                 record['timestamp'] = record['created_at']
@@ -958,7 +968,75 @@ class DatabaseManager:
             
             conn.commit()
             print("JSON数据迁移完成！")
-
+    
+    def get_player_special_wins(self, player_id: str) -> Dict[str, bool]:
+        """获取玩家的特殊胜利记录（小金、大金）"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # 查询玩家赢过的特殊分数记录
+            cursor.execute('''
+                SELECT DISTINCT special_score
+                FROM game_records
+                WHERE winner_id = ? AND special_score IS NOT NULL
+            ''', (player_id,))
+            
+            special_wins = cursor.fetchall()
+            
+            # 构建结果字典
+            result = {
+                'has_small_gold': False,
+                'has_big_gold': False
+            }
+            
+            for win in special_wins:
+                special_score = win['special_score']
+                if special_score == '小金':
+                    result['has_small_gold'] = True
+                elif special_score == '大金':
+                    result['has_big_gold'] = True
+            
+            return result
+    
+    def get_players_special_wins_batch(self, player_ids: List[str]) -> Dict[str, Dict[str, bool]]:
+        """批量获取多个玩家的特殊胜利记录"""
+        if not player_ids:
+            return {}
+            
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # 构建IN查询的占位符
+            placeholders = ','.join(['?'] * len(player_ids))
+            
+            # 查询所有玩家的特殊胜利记录
+            cursor.execute(f'''
+                SELECT winner_id, special_score
+                FROM game_records
+                WHERE winner_id IN ({placeholders}) AND special_score IS NOT NULL
+            ''', player_ids)
+            
+            special_wins = cursor.fetchall()
+            
+            # 初始化所有玩家的结果
+            result = {}
+            for player_id in player_ids:
+                result[player_id] = {
+                    'has_small_gold': False,
+                    'has_big_gold': False
+                }
+            
+            # 填充特殊胜利记录
+            for win in special_wins:
+                player_id = win['winner_id']
+                special_score = win['special_score']
+                
+                if special_score == '小金':
+                    result[player_id]['has_small_gold'] = True
+                elif special_score == '大金':
+                    result[player_id]['has_big_gold'] = True
+            
+            return result
 
 # 全局数据库实例
 db = DatabaseManager()

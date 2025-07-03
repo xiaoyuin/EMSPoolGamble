@@ -6,7 +6,8 @@ from .models import (sessions, players, save_data,
                      get_player_by_name, get_player_name, get_or_create_player, create_player,
                      get_available_players, get_session,
                      add_player_to_session, add_game_record, delete_game_record,
-                     end_session, delete_session, add_multi_loser_record)
+                     end_session, delete_session, add_multi_loser_record,
+                     get_players_special_wins_batch)
 from .utils import get_utc_timestamp
 from .security import require_admin_auth, require_csrf_protection
 from . import DEFAULT_SCORE_OPTIONS, APP_VERSION
@@ -50,6 +51,17 @@ def register_game_routes(app):
 
         # 按分数排序
         sorted_players = sorted(players_with_ids, key=lambda x: x['score'], reverse=True)
+
+        # 获取玩家的特殊胜利记录（小金、大金）
+        current_player_ids = [p['id'] for p in players_with_ids if p['id']]
+        special_wins = get_players_special_wins_batch(current_player_ids) if current_player_ids else {}
+
+        # 将特殊胜利记录添加到玩家信息中
+        for player in sorted_players:
+            if player['id'] and player['id'] in special_wins:
+                player.update(special_wins[player['id']])
+            else:
+                player.update({'has_small_gold': False, 'has_big_gold': False})
 
         # 准备可用玩家的信息（用于显示）
         available_player_data = get_available_players(exclude_session_id=session_id)

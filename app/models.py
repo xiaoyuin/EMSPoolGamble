@@ -190,6 +190,18 @@ def get_player_by_id(player_id: str) -> Optional[Dict]:
     return db.get_player_by_id(player_id)
 
 
+# ===== 特殊胜利记录查询 =====
+
+def get_player_special_wins(player_id: str) -> Dict:
+    """获取玩家的特殊胜利记录（小金、大金）"""
+    return db.get_player_special_wins(player_id)
+
+
+def get_players_special_wins_batch(player_ids: List[str]) -> Dict:
+    """批量获取多个玩家的特殊胜利记录"""
+    return db.get_players_special_wins_batch(player_ids)
+
+
 # ===== 兼容性变量 - 用于保持与原有代码的兼容性 =====
 
 class SessionsProxy:

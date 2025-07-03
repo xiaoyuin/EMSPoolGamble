@@ -77,12 +77,55 @@
             margin-left: 8px; 
             font-weight: normal; 
         }
+        /* 特殊胜利高亮样式 */
+        .player-name.has-small-gold,
+        .player-link.has-small-gold {
+            color: #fa8c16 !important;
+            text-shadow: 0 0 3px rgba(250, 140, 22, 0.3);
+            font-weight: 700;
+        }
+        .player-name.has-big-gold,
+        .player-link.has-big-gold {
+            color: #722ed1 !important;
+            text-shadow: 0 0 4px rgba(114, 46, 209, 0.4);
+            font-weight: 700;
+            background: linear-gradient(135deg, #722ed1, #9254de);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .player-name.has-small-gold:hover,
+        .player-link.has-small-gold:hover {
+            color: #d48806 !important;
+        }
+        .player-name.has-big-gold:hover,
+        .player-link.has-big-gold:hover {
+            color: #531dab !important;
+            -webkit-text-fill-color: #531dab;
+        }
+        /* 特殊胜利统计数字样式 */
+        .stat-small-gold {
+            color: #fa8c16 !important;
+            font-weight: bold;
+        }
+        .stat-big-gold {
+            background: linear-gradient(135deg, #722ed1, #9254de);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: bold;
+        }
+        /* 修复1分统计中的颜色冲突 */
+        .stat-red {
+            color: #ff4d4f !important;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <h2>EMS Pool Gamble - 玩家详情</h2>
-        <div class="player-name">{{ player.name }}</div>
+        <div class="player-name{% if special_wins.has_big_gold %} has-big-gold{% elif special_wins.has_small_gold %} has-small-gold{% endif %}">{{ player.name }}</div>
         <div class="player-info">
             创建时间: <span data-utc-time="{{ player.created_at }}">{{ player.created_at }}</span>
             {% if player.updated_at != player.created_at %}
@@ -130,13 +173,25 @@
                 </div>
                 <div class="stat-label">总分</div>
             </div>
+            {% if special_wins_counts.small_gold_count > 0 %}
+            <div class="stat-card">
+                <div class="stat-number stat-small-gold">{{ special_wins_counts.small_gold_count }}</div>
+                <div class="stat-label">小金</div>
+            </div>
+            {% endif %}
+            {% if special_wins_counts.big_gold_count > 0 %}
+            <div class="stat-card">
+                <div class="stat-number stat-big-gold">{{ special_wins_counts.big_gold_count }}</div>
+                <div class="stat-label">大金</div>
+            </div>
+            {% endif %}
         </div>
         
         <!-- 1分统计 -->
         <h4 class="section-title">1分记录统计</h4>
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-number stat-orange">{{ stats.one_point_given }}</div>
+                <div class="stat-number stat-red">{{ stats.one_point_given }}</div>
                 <div class="stat-label">送出1分</div>
             </div>
             <div class="stat-card">
@@ -144,7 +199,7 @@
                 <div class="stat-label">收到1分</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number {% if stats.one_point_profit > 0 %}stat-green{% elif stats.one_point_profit < 0 %}stat-orange{% endif %}">{{ stats.one_point_profit }}</div>
+                <div class="stat-number {% if stats.one_point_profit > 0 %}stat-green{% elif stats.one_point_profit < 0 %}stat-red{% endif %}">{{ stats.one_point_profit }}</div>
                 <div class="stat-label">1分收益</div>
             </div>
         </div>
@@ -201,7 +256,7 @@
                 {% for opponent in opponents %}
                 <tr>
                     <td>
-                        <a href="/player/{{ opponent.id }}" class="player-link">{{ opponent.name }}</a>
+                        <a href="/player/{{ opponent.id }}" class="player-link{% if opponent.has_big_gold %} has-big-gold{% elif opponent.has_small_gold %} has-small-gold{% endif %}">{{ opponent.name }}</a>
                     </td>
                     <td>{{ opponent.total_games }}</td>
                     <td class="win">{{ opponent.wins }}</td>
@@ -227,9 +282,17 @@
                     <div class="record-content">
                         <div class="record-result {% if record.is_winner %}win{% else %}loss{% endif %}">
                             {% if record.is_winner %}
-                                胜 {{ record.opponent_name }} (+{{ record.score }}分)
+                                胜 
+                                {% if record.opponent_names %}
+                                    {% for opponent in record.opponent_names %}
+                                        <a href="/player/{{ opponent.id }}" class="player-link">{{ opponent.name }}</a>{% if not loop.last %} + {% endif %}
+                                    {% endfor %}
+                                {% else %}
+                                    <a href="/player/{{ record.opponent_id }}" class="player-link">{{ record.opponent_name }}</a>
+                                {% endif %}
+                                (+{{ record.score }}分)
                             {% else %}
-                                负于 {{ record.opponent_name }} (-{{ record.score }}分)
+                                负于 <a href="/player/{{ record.opponent_id }}" class="player-link">{{ record.opponent_name }}</a> (-{{ record.score }}分)
                             {% endif %}
                             {% if record.special_score %}
                             <span class="special-score-tag">{{ record.special_score }}</span>

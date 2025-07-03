@@ -50,6 +50,28 @@
             margin-left: 8px; 
             font-weight: normal; 
         }
+        /* 特殊胜利高亮样式 */
+        .player-link.has-small-gold {
+            color: #fa8c16 !important;
+            text-shadow: 0 0 3px rgba(250, 140, 22, 0.3);
+            font-weight: 700;
+        }
+        .player-link.has-big-gold {
+            color: #722ed1 !important;
+            text-shadow: 0 0 4px rgba(114, 46, 209, 0.4);
+            font-weight: 700;
+            background: linear-gradient(135deg, #722ed1, #9254de);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .player-link.has-small-gold:hover {
+            color: #d48806 !important;
+        }
+        .player-link.has-big-gold:hover {
+            color: #531dab !important;
+            -webkit-text-fill-color: #531dab;
+        }
     </style>
 </head>
 <body>
@@ -97,7 +119,7 @@
                 <td>{{ loop.index }}</td>
                 <td>
                     {% if player.id %}
-                    <a href="/player/{{ player.id }}" class="player-link">{{ player.name }}</a>
+                    <a href="/player/{{ player.id }}" class="player-link{% if player.has_big_gold %} has-big-gold{% elif player.has_small_gold %} has-small-gold{% endif %}">{{ player.name }}</a>
                     {% else %}
                     {{ player.name }}
                     {% endif %}
