@@ -346,14 +346,29 @@ function initScoreChart() {
                 data: scores,
                 borderColor: '#1890ff',
                 backgroundColor: 'rgba(24, 144, 255, 0.1)',
-                borderWidth: 2,
+                borderWidth: 3,
                 fill: true,
                 tension: 0.4, // 增加曲线平滑度
                 pointBackgroundColor: pointColors,
                 pointBorderColor: pointBorderColors,
                 pointBorderWidth: 2,
-                pointRadius: 3, // 默认较小的数据点
-                pointHoverRadius: 6 // 悬停时较大的数据点
+                pointRadius: 0, // 默认不显示数据点
+                pointHoverRadius: 4, // 悬停时显示数据点
+                segment: {
+                    borderColor: function(ctx) {
+                        // 根据到达数据点（终点）的值来决定线段颜色
+                        const endValue = ctx.p1.parsed.y;
+                        
+                        // 如果到达点是正数或零，使用绿色
+                        if (endValue >= 0) {
+                            return '#52c41a';
+                        }
+                        // 如果到达点是负数，使用红色
+                        else {
+                            return '#ff4d4f';
+                        }
+                    }
+                }
             }]
         },
         options: {
