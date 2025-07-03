@@ -84,6 +84,23 @@
         .delete-record-btn:hover { background: #ff7875; }
         .delete-form { display: inline; }
         .timestamp { font-size: 0.8em; color: #999; }
+        .special-score-tag { 
+            font-size: 0.7em; 
+            color: #fa8c16; 
+            background: #fff7e6; 
+            border: 1px solid #ffec3d; 
+            border-radius: 3px; 
+            padding: 2px 6px; 
+            margin-left: 8px; 
+            font-weight: normal; 
+        }
+        .record-player-link { 
+            color: inherit; 
+            text-decoration: none; 
+        }
+        .record-player-link:hover { 
+            text-decoration: underline; 
+        }
         .score-selection { margin: 1em 0; }
         .score-hint { margin-top: 0.5em; font-size: 0.9em; color: #666; text-align: center; }
         .players-table { margin: 1em 0; }
@@ -742,8 +759,19 @@
                 {% for r in session.get('records', session.get('rounds', [])) %}
                 <div class="record-item">
                     <div class="record-content">
-                        <div>胜者: <b>{{ r.winner }}</b>，败者: <b>{{ r.loser }}</b>，分数:
+                        <div>胜者: <b>{{ r.winner }}</b>，败者: <b>
+                            {% if r.is_multi_loser %}
+                                {% for loser in r.losers %}
+                                    <a href="/player/{{ loser.id }}" class="record-player-link">{{ loser.name }}</a>{% if not loop.last %} + {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <a href="/player/{{ r.loser_id }}" class="record-player-link">{{ r.loser }}</a>
+                            {% endif %}
+                        </b>，分数:
                             <span class="{% if r.score > 0 %}positive{% elif r.score < 0 %}negative{% else %}neutral{% endif %}">{{ r.score }}</span>
+                            {% if r.special_score %}
+                            <span class="special-score-tag">{{ r.special_score }}</span>
+                            {% endif %}
                         </div>
                         <div class="timestamp" data-utc-time="{{ r.timestamp }}">{{ r.timestamp }}</div>
                     </div>

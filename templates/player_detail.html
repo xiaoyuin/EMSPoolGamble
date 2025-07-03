@@ -67,6 +67,16 @@
         .player-info { color: #666; font-size: 0.9em; }
         .chart-container { position: relative; width: 100%; height: 400px; margin-top: 1em; }
         .chart-container canvas { max-width: 100% !important; height: auto !important; }
+        .special-score-tag { 
+            font-size: 0.7em; 
+            color: #fa8c16; 
+            background: #fff7e6; 
+            border: 1px solid #ffec3d; 
+            border-radius: 3px; 
+            padding: 2px 6px; 
+            margin-left: 8px; 
+            font-weight: normal; 
+        }
     </style>
 </head>
 <body>
@@ -198,7 +208,7 @@
                     <td class="loss">{{ opponent.losses }}</td>
                     <td>{{ "%.1f"|format(opponent.win_rate) }}%</td>
                     <td class="{% if opponent.total_score > 0 %}win{% elif opponent.total_score < 0 %}loss{% endif %}">
-                        {{ opponent.total_score }}
+                        {{ "%.0f"|format(opponent.total_score) }}
                     </td>
                 </tr>
                 {% endfor %}
@@ -217,17 +227,17 @@
                     <div class="record-content">
                         <div class="record-result {% if record.is_winner %}win{% else %}loss{% endif %}">
                             {% if record.is_winner %}
-                                胜 <a href="/player/{{ record.opponent_id }}" class="player-link">{{ record.opponent_name }}</a> (+{{ record.score }}分)
+                                胜 {{ record.opponent_name }} (+{{ record.score }}分)
                             {% else %}
-                                负于 <a href="/player/{{ record.opponent_id }}" class="player-link">{{ record.opponent_name }}</a> (-{{ record.score }}分)
+                                负于 {{ record.opponent_name }} (-{{ record.score }}分)
+                            {% endif %}
+                            {% if record.special_score %}
+                            <span class="special-score-tag">{{ record.special_score }}</span>
                             {% endif %}
                         </div>
                         <div class="timestamp">
                             <span data-utc-time="{{ record.timestamp }}">{{ record.timestamp }}</span> |
                             <a href="/session_detail/{{ record.session_id }}" class="player-link">{{ record.session_name }}</a>
-                            {% if record.special_score_part %}
-                            | {{ record.special_score_part }}
-                            {% endif %}
                         </div>
                     </div>
                 </div>

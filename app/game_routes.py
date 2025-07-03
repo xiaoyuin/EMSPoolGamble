@@ -6,7 +6,7 @@ from .models import (sessions, players, save_data,
                      get_player_by_name, get_player_name, get_or_create_player, create_player,
                      get_available_players, get_session,
                      add_player_to_session, add_game_record, delete_game_record,
-                     end_session, delete_session)
+                     end_session, delete_session, add_multi_loser_record)
 from .utils import get_utc_timestamp
 from .security import require_admin_auth, require_csrf_protection
 from . import DEFAULT_SCORE_OPTIONS, APP_VERSION
@@ -281,18 +281,12 @@ def register_game_routes(app):
                 flash(f'玩家 {player} 不在当前场次中', 'error')
                 return redirect(url_for('game', session_id=session_id))
 
-        # 计算分数
-        half_score = total_score // 2
-
         # 获取玩家ID
         winner_id = get_player_by_name(winner)
         loser_ids = [get_player_by_name(loser) for loser in losers]
 
-        # 记录第一笔：胜者得分，第一个败者失分
-        add_game_record(session_id, winner_id, loser_ids[0], half_score, f'1/2 (总分{total_score})')
-
-        # 记录第二笔：胜者得分，第二个败者失分
-        add_game_record(session_id, winner_id, loser_ids[1], half_score, f'2/2 (总分{total_score})')
+        # 使用统一的计分记录方法（支持多败者）
+        add_game_record(session_id, winner_id, loser_ids[0], total_score, None, loser_ids[1])
 
         # 保存数据（数据库自动保存）
         save_data()

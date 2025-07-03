@@ -109,6 +109,151 @@ class DatabaseManager:
             
             conn.commit()
             print(f"数据库初始化完成: {self.db_path}")
+        
+        # 检查并执行数据库升级
+        self.upgrade_to_multi_loser_support()
+
+    def upgrade_to_multi_loser_support(self):
+        """升级数据库以支持多败者记录"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # 检查是否已经有 loser_id2 列
+            cursor.execute("PRAGMA table_info(game_records)")
+            columns = [column[1] for column in cursor.fetchall()]
+            
+            if 'loser_id2' in columns and 'special_score' in columns:
+                print("数据库已支持多败者记录")
+                return
+            
+            print("开始升级数据库以支持多败者记录...")
+            
+            # 添加新列
+            if 'loser_id2' not in columns:
+                cursor.execute('ALTER TABLE game_records ADD COLUMN loser_id2 TEXT')
+                print("添加了 loser_id2 列")
+            
+            if 'special_score' not in columns:
+                cursor.execute('ALTER TABLE game_records ADD COLUMN special_score TEXT')
+                print("添加了 special_score 列")
+            
+            # 如果有 special_score_part 列，进行数据迁移
+            if 'special_score_part' in columns:
+                print("开始迁移数据...")
+                
+                # 获取所有记录
+                cursor.execute('''
+                    SELECT record_id, session_id, winner_id, loser_id, score, 
+                           created_at, special_score_part
+                    FROM game_records 
+                    ORDER BY session_id, created_at
+                ''')
+                all_records = cursor.fetchall()
+                
+                # 分析并合并记录
+                records_to_delete = []
+                records_to_update = []
+                
+                i = 0
+                while i < len(all_records):
+                    record = all_records[i]
+                    special_part = record[6]  # special_score_part
+                    
+                    # 检查是否是特殊分数的第一条记录
+                    if special_part and '1/2 (总分' in special_part:
+                        # 提取总分数
+                        total_score = int(special_part.split('总分')[1].split(')')[0])
+                        
+                        # 寻找对应的第二条记录
+                        if i + 1 < len(all_records):
+                            next_record = all_records[i + 1]
+                            next_special_part = next_record[6]
+                            
+                            if (next_special_part and 
+                                f'2/2 (总分{total_score})' in next_special_part and
+                                next_record[1] == record[1] and  # 同一场次
+                                next_record[2] == record[2]):    # 同一胜者
+                                
+                                # 合并两条记录为一条
+                                special_score = "大金" if total_score == 20 else "双吃"
+                                
+                                records_to_update.append({
+                                    'record_id': record[0],
+                                    'loser_id2': next_record[3],  # 第二个败者
+                                    'total_score': total_score,
+                                    'special_score': special_score
+                                })
+                                
+                                # 标记第二条记录待删除
+                                records_to_delete.append(next_record[0])
+                                
+                                i += 2  # 跳过下一条记录
+                                continue
+                    
+                    # 处理普通记录
+                    special_score = None
+                    if record[4] >= 7:  # score >= 7
+                        special_score = "小金"
+                    
+                    records_to_update.append({
+                        'record_id': record[0],
+                        'loser_id2': None,
+                        'total_score': record[4],
+                        'special_score': special_score
+                    })
+                    
+                    i += 1
+                
+                # 执行更新
+                for update in records_to_update:
+                    cursor.execute('''
+                        UPDATE game_records 
+                        SET loser_id2 = ?, score = ?, special_score = ?
+                        WHERE record_id = ?
+                    ''', (update['loser_id2'], update['total_score'], 
+                          update['special_score'], update['record_id']))
+                
+                # 删除重复记录
+                for record_id in records_to_delete:
+                    cursor.execute('DELETE FROM game_records WHERE record_id = ?', (record_id,))
+                
+                print(f"更新了 {len(records_to_update)} 条记录")
+                print(f"删除了 {len(records_to_delete)} 条重复记录")
+                
+                # 删除旧列
+                cursor.execute('''
+                    CREATE TABLE game_records_new (
+                        record_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        session_id TEXT NOT NULL,
+                        winner_id TEXT NOT NULL,
+                        loser_id TEXT NOT NULL,
+                        loser_id2 TEXT,
+                        score INTEGER NOT NULL,
+                        created_at TEXT NOT NULL,
+                        special_score TEXT,
+                        FOREIGN KEY (session_id) REFERENCES sessions (session_id),
+                        FOREIGN KEY (winner_id) REFERENCES players (player_id),
+                        FOREIGN KEY (loser_id) REFERENCES players (player_id),
+                        FOREIGN KEY (loser_id2) REFERENCES players (player_id)
+                    )
+                ''')
+                
+                cursor.execute('''
+                    INSERT INTO game_records_new 
+                    (record_id, session_id, winner_id, loser_id, loser_id2, score, created_at, special_score)
+                    SELECT record_id, session_id, winner_id, loser_id, loser_id2, score, created_at, special_score
+                    FROM game_records
+                ''')
+                
+                cursor.execute('DROP TABLE game_records')
+                cursor.execute('ALTER TABLE game_records_new RENAME TO game_records')
+                
+                # 重建索引
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_game_records_session ON game_records (session_id)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_game_records_players ON game_records (winner_id, loser_id)')
+            
+            conn.commit()
+            print("数据库升级完成！")
     
     # ===== 玩家相关操作 =====
     
@@ -372,34 +517,71 @@ class DatabaseManager:
     # ===== 计分记录操作 =====
     
     def add_game_record(self, session_id: str, winner_id: str, loser_id: str, 
-                       score: int, special_score_part: str = None) -> int:
-        """添加计分记录，返回record_id"""
+                       score: int, special_score: str = None, loser_id2: str = None) -> int:
+        """添加计分记录，返回record_id
+        
+        Args:
+            session_id: 场次ID
+            winner_id: 赢家ID
+            loser_id: 第一个败者ID
+            score: 分数
+            special_score: 特殊分数标签（由UI层传入，如"大金"、"小金"等）
+            loser_id2: 第二个败者ID（可选）
+        """
         current_time = get_utc_timestamp()
         
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO game_records 
-                (session_id, winner_id, loser_id, score, created_at, special_score_part)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (session_id, winner_id, loser_id, score, current_time, special_score_part))
+            
+            # 检查表结构是否支持新字段
+            cursor.execute("PRAGMA table_info(game_records)")
+            columns = [column[1] for column in cursor.fetchall()]
+            
+            if 'loser_id2' in columns and 'special_score' in columns:
+                # 使用新表结构
+                cursor.execute('''
+                    INSERT INTO game_records 
+                    (session_id, winner_id, loser_id, loser_id2, score, created_at, special_score)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (session_id, winner_id, loser_id, loser_id2, score, current_time, special_score))
+            else:
+                # 使用旧表结构（兼容性），将special_score存入special_score_part字段
+                cursor.execute('''
+                    INSERT INTO game_records 
+                    (session_id, winner_id, loser_id, score, created_at, special_score_part)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (session_id, winner_id, loser_id, score, current_time, special_score))
             
             record_id = cursor.lastrowid
             
-            # 同时更新玩家分数
+            # 更新玩家分数
             cursor.execute('''
                 UPDATE session_players SET score = score + ? 
                 WHERE session_id = ? AND player_id = ?
             ''', (score, session_id, winner_id))
             
-            cursor.execute('''
-                UPDATE session_players SET score = score - ? 
-                WHERE session_id = ? AND player_id = ?
-            ''', (score, session_id, loser_id))
+            # 如果有第二个败者，每个败者承担一半分数
+            if loser_id2:
+                score_per_loser = score // 2
+                cursor.execute('''
+                    UPDATE session_players SET score = score - ? 
+                    WHERE session_id = ? AND player_id = ?
+                ''', (score_per_loser, session_id, loser_id))
+                
+                cursor.execute('''
+                    UPDATE session_players SET score = score - ? 
+                    WHERE session_id = ? AND player_id = ?
+                ''', (score_per_loser, session_id, loser_id2))
+            else:
+                # 单个败者承担全部分数
+                cursor.execute('''
+                    UPDATE session_players SET score = score - ? 
+                    WHERE session_id = ? AND player_id = ?
+                ''', (score, session_id, loser_id))
             
             conn.commit()
             return record_id
-    
+
     def get_session_records(self, session_id: str) -> List[Dict]:
         """获取场次的所有计分记录"""
         with self.get_connection() as conn:
@@ -407,10 +589,12 @@ class DatabaseManager:
             cursor.execute('''
                 SELECT gr.*, 
                        pw.name as winner_name, 
-                       pl.name as loser_name
+                       pl1.name as loser_name,
+                       pl2.name as loser2_name
                 FROM game_records gr
                 JOIN players pw ON gr.winner_id = pw.player_id
-                JOIN players pl ON gr.loser_id = pl.player_id
+                JOIN players pl1 ON gr.loser_id = pl1.player_id
+                LEFT JOIN players pl2 ON gr.loser_id2 = pl2.player_id
                 WHERE gr.session_id = ?
                 ORDER BY gr.record_id
             ''', (session_id,))
@@ -422,6 +606,25 @@ class DatabaseManager:
                 record['winner'] = record['winner_name']
                 record['loser'] = record['loser_name']
                 record['timestamp'] = record['created_at']
+                
+                # 构建败者显示文本和ID信息
+                if record['loser2_name']:
+                    # 有两个败者的情况
+                    record['loser_display'] = f"{record['loser_name']} + {record['loser2_name']}"
+                    record['is_multi_loser'] = True
+                    # 为模板提供败者信息列表
+                    record['losers'] = [
+                        {'id': record['loser_id'], 'name': record['loser_name']},
+                        {'id': record['loser_id2'], 'name': record['loser2_name']}
+                    ]
+                else:
+                    # 单个败者的情况
+                    record['loser_display'] = record['loser_name']
+                    record['is_multi_loser'] = False
+                    record['losers'] = [
+                        {'id': record['loser_id'], 'name': record['loser_name']}
+                    ]
+                
                 records.append(record)
             
             return records
@@ -445,10 +648,24 @@ class DatabaseManager:
                 WHERE session_id = ? AND player_id = ?
             ''', (record_dict['score'], record_dict['session_id'], record_dict['winner_id']))
             
-            cursor.execute('''
-                UPDATE session_players SET score = score + ? 
-                WHERE session_id = ? AND player_id = ?
-            ''', (record_dict['score'], record_dict['session_id'], record_dict['loser_id']))
+            # 如果有第二个败者，需要正确恢复每个败者的分数
+            if record_dict.get('loser_id2'):
+                score_per_loser = record_dict['score'] // 2
+                cursor.execute('''
+                    UPDATE session_players SET score = score + ? 
+                    WHERE session_id = ? AND player_id = ?
+                ''', (score_per_loser, record_dict['session_id'], record_dict['loser_id']))
+                
+                cursor.execute('''
+                    UPDATE session_players SET score = score + ? 
+                    WHERE session_id = ? AND player_id = ?
+                ''', (score_per_loser, record_dict['session_id'], record_dict['loser_id2']))
+            else:
+                # 单个败者恢复全部分数
+                cursor.execute('''
+                    UPDATE session_players SET score = score + ? 
+                    WHERE session_id = ? AND player_id = ?
+                ''', (record_dict['score'], record_dict['session_id'], record_dict['loser_id']))
             
             # 删除记录
             cursor.execute('DELETE FROM game_records WHERE record_id = ?', (record_id,))
@@ -463,22 +680,51 @@ class DatabaseManager:
             cursor.execute('''
                 SELECT gr.*, s.name as session_name,
                        pw.name as winner_name, 
-                       pl.name as loser_name
+                       pl1.name as loser1_name,
+                       pl2.name as loser2_name
                 FROM game_records gr
                 JOIN sessions s ON gr.session_id = s.session_id
                 JOIN players pw ON gr.winner_id = pw.player_id
-                JOIN players pl ON gr.loser_id = pl.player_id
-                WHERE gr.winner_id = ? OR gr.loser_id = ?
+                JOIN players pl1 ON gr.loser_id = pl1.player_id
+                LEFT JOIN players pl2 ON gr.loser_id2 = pl2.player_id
+                WHERE gr.winner_id = ? OR gr.loser_id = ? OR gr.loser_id2 = ?
                 ORDER BY gr.created_at DESC
-            ''', (player_id, player_id))
+            ''', (player_id, player_id, player_id))
             
             records = []
             for row in cursor.fetchall():
                 record = dict(row)
-                # 添加额外信息便于统计
-                record['is_winner'] = (record['winner_id'] == player_id)
-                record['opponent_id'] = record['loser_id'] if record['is_winner'] else record['winner_id']
-                record['opponent_name'] = record['loser_name'] if record['is_winner'] else record['winner_name']
+                
+                # 判断当前玩家在这场比赛中的角色
+                if record['winner_id'] == player_id:
+                    # 当前玩家是赢家
+                    record['is_winner'] = True
+                    record['score'] = record['score']  # 赢家得全部分数
+                    
+                    # 构建对手信息
+                    opponents = [record['loser1_name']]
+                    opponent_ids = [record['loser_id']]
+                    if record['loser2_name']:
+                        opponents.append(record['loser2_name'])
+                        opponent_ids.append(record['loser_id2'])
+                    
+                    record['opponent_name'] = ' + '.join(opponents)
+                    record['opponent_id'] = opponent_ids[0] if len(opponent_ids) == 1 else opponent_ids
+                    
+                else:
+                    # 当前玩家是败者
+                    record['is_winner'] = False
+                    
+                    # 如果有两个败者，当前玩家只承担一半分数
+                    if record['loser_id2']:
+                        record['score'] = record['score'] // 2
+                    else:
+                        record['score'] = record['score']
+                    
+                    record['opponent_name'] = record['winner_name']
+                    record['opponent_id'] = record['winner_id']
+                
+                # 添加兼容性字段
                 record['timestamp'] = record['created_at']
                 records.append(record)
             
@@ -487,61 +733,128 @@ class DatabaseManager:
     # ===== 统计查询 =====
     
     def get_player_stats(self, player_id: str) -> Dict:
-        """获取玩家统计数据"""
+        """获取玩家统计数据（正确处理多败者记录）"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             
-            # 获取基本统计
+            # 获取所有相关记录
             cursor.execute('''
-                SELECT 
-                    COUNT(*) as total_games,
-                    SUM(CASE WHEN winner_id = ? THEN 1 ELSE 0 END) as wins,
-                    SUM(CASE WHEN loser_id = ? THEN 1 ELSE 0 END) as losses,
-                    SUM(CASE WHEN winner_id = ? THEN score ELSE -score END) as total_score
+                SELECT winner_id, loser_id, loser_id2, score
                 FROM game_records
-                WHERE winner_id = ? OR loser_id = ?
-            ''', (player_id, player_id, player_id, player_id, player_id))
+                WHERE winner_id = ? OR loser_id = ? OR loser_id2 = ?
+            ''', (player_id, player_id, player_id))
             
-            result = cursor.fetchone()
+            total_games = 0
+            wins = 0
+            losses = 0
+            total_score = 0
+            
+            for record in cursor.fetchall():
+                if record['winner_id'] == player_id:
+                    # 玩家是赢家
+                    wins += 1
+                    total_games += 1
+                    total_score += record['score']
+                elif record['loser_id'] == player_id or record['loser_id2'] == player_id:
+                    # 玩家是败者
+                    losses += 1
+                    total_games += 1
+                    
+                    # 如果有两个败者，只承担一半分数
+                    if record['loser_id2']:
+                        total_score -= record['score'] // 2
+                    else:
+                        total_score -= record['score']
             
             return {
-                'total_games': result['total_games'] or 0,
-                'wins': result['wins'] or 0,
-                'losses': result['losses'] or 0,
-                'total_score': result['total_score'] or 0
+                'total_games': total_games,
+                'wins': wins,
+                'losses': losses,
+                'total_score': total_score
             }
     
     def get_global_leaderboard(self) -> List[Dict]:
-        """获取全局排行榜"""
+        """获取全局排行榜（正确处理多败者记录，使用有效胜率）"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute('''
-                SELECT 
-                    p.player_id, p.name,
-                    COUNT(*) as total_games,
-                    SUM(CASE WHEN gr.winner_id = p.player_id THEN 1 ELSE 0 END) as wins,
-                    SUM(CASE WHEN gr.loser_id = p.player_id THEN 1 ELSE 0 END) as losses,
-                    SUM(CASE WHEN gr.winner_id = p.player_id THEN gr.score ELSE -gr.score END) as total_score
-                FROM players p
-                JOIN game_records gr ON (gr.winner_id = p.player_id OR gr.loser_id = p.player_id)
-                GROUP BY p.player_id, p.name
-                ORDER BY total_score DESC
-            ''')
+            
+            # 获取所有玩家
+            cursor.execute('SELECT player_id, name FROM players')
+            players = cursor.fetchall()
             
             leaderboard = []
-            for row in cursor.fetchall():
-                stats = dict(row)
-                stats['win_rate'] = (stats['wins'] / stats['total_games'] * 100) if stats['total_games'] > 0 else 0
-                # 为兼容性添加 score 字段（与 total_score 相同）
-                stats['score'] = stats['total_score']
-                # 为兼容性添加 id 字段（与 player_id 相同）
-                stats['id'] = stats['player_id']
-                leaderboard.append(stats)
+            for player in players:
+                player_id = player['player_id']
+                player_name = player['name']
+                
+                # 获取玩家的所有相关记录
+                cursor.execute('''
+                    SELECT winner_id, loser_id, loser_id2, score
+                    FROM game_records
+                    WHERE winner_id = ? OR loser_id = ? OR loser_id2 = ?
+                ''', (player_id, player_id, player_id))
+                
+                total_games = 0
+                wins = 0
+                losses = 0
+                total_score = 0
+                effective_games = 0
+                effective_wins = 0
+                
+                for record in cursor.fetchall():
+                    if record['winner_id'] == player_id:
+                        # 玩家是赢家
+                        wins += 1
+                        total_games += 1
+                        total_score += record['score']
+                        
+                        # 有效对局（分数 > 1）
+                        if record['score'] > 1:
+                            effective_games += 1
+                            effective_wins += 1
+                            
+                    elif record['loser_id'] == player_id or record['loser_id2'] == player_id:
+                        # 玩家是败者
+                        losses += 1
+                        total_games += 1
+                        
+                        # 如果有两个败者，只承担一半分数
+                        if record['loser_id2']:
+                            total_score -= record['score'] // 2
+                        else:
+                            total_score -= record['score']
+                        
+                        # 有效对局（分数 > 1）
+                        if record['score'] > 1:
+                            effective_games += 1
+                
+                # 只包含有游戏记录的玩家
+                if total_games > 0:
+                    # 计算有效胜率（排除1分局）
+                    effective_win_rate = (effective_wins / effective_games * 100) if effective_games > 0 else 0
+                    
+                    stats = {
+                        'player_id': player_id,
+                        'name': player_name,
+                        'total_games': total_games,
+                        'wins': wins,
+                        'losses': losses,
+                        'total_score': total_score,
+                        'win_rate': effective_win_rate,  # 使用有效胜率
+                        'effective_games': effective_games,
+                        'effective_wins': effective_wins,
+                        # 为兼容性添加字段
+                        'score': total_score,
+                        'id': player_id
+                    }
+                    leaderboard.append(stats)
             
+            # 按总分排序
+            leaderboard.sort(key=lambda x: x['total_score'], reverse=True)
             return leaderboard
     
     def get_player_effective_win_rate(self, player_id: str) -> Optional[float]:
-        """计算玩家的有效胜率（排除1分的对局）"""
+        """计算玩家的有效胜率（排除1分的对局，正确处理多败者）"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             
@@ -550,8 +863,8 @@ class DatabaseManager:
                     COUNT(*) as total_effective_games,
                     SUM(CASE WHEN winner_id = ? THEN 1 ELSE 0 END) as effective_wins
                 FROM game_records
-                WHERE (winner_id = ? OR loser_id = ?) AND score > 1
-            ''', (player_id, player_id, player_id))
+                WHERE (winner_id = ? OR loser_id = ? OR loser_id2 = ?) AND score > 1
+            ''', (player_id, player_id, player_id, player_id))
             
             result = cursor.fetchone()
             total_games = result['total_effective_games'] or 0

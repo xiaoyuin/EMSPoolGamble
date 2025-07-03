@@ -40,6 +40,16 @@
         .no-records-message { text-align: center; color: #666; }
         .player-link { color: #1890ff; text-decoration: none; }
         .player-link:hover { text-decoration: underline; }
+        .special-score-tag { 
+            font-size: 0.7em; 
+            color: #fa8c16; 
+            background: #fff7e6; 
+            border: 1px solid #ffec3d; 
+            border-radius: 3px; 
+            padding: 2px 6px; 
+            margin-left: 8px; 
+            font-weight: normal; 
+        }
     </style>
 </head>
 <body>
@@ -118,13 +128,22 @@
                     {% endif %}
                 </td>
                 <td>
-                    {% if r.loser_id %}
-                    <a href="/player/{{ r.loser_id }}" class="player-link">{{ r.loser }}</a>
+                    {% if r.is_multi_loser %}
+                        {% for loser in r.losers %}
+                            <a href="/player/{{ loser.id }}" class="player-link">{{ loser.name }}</a>{% if not loop.last %} + {% endif %}
+                        {% endfor %}
+                    {% elif r.loser_id %}
+                        <a href="/player/{{ r.loser_id }}" class="player-link">{{ r.loser }}</a>
                     {% else %}
-                    {{ r.loser }}
+                        {{ r.loser }}
                     {% endif %}
                 </td>
-                <td class="{% if r.score > 0 %}positive{% elif r.score < 0 %}negative{% else %}neutral{% endif %}">{{ r.score }}</td>
+                <td class="{% if r.score > 0 %}positive{% elif r.score < 0 %}negative{% else %}neutral{% endif %}">
+                    {{ r.score }}
+                    {% if r.special_score %}
+                    <span class="special-score-tag">{{ r.special_score }}</span>
+                    {% endif %}
+                </td>
                 <td class="timestamp" data-utc-time="{{ r.timestamp if r.timestamp else '' }}">{{ r.timestamp if r.timestamp else '' }}</td>
             </tr>
             {% endfor %}

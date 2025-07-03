@@ -56,6 +56,7 @@
                 <th>排名</th>
                 <th>玩家</th>
                 <th>总分</th>
+                <th>胜率</th>
             </tr>
             {% for player in total_scores %}
             <tr>
@@ -68,6 +69,7 @@
                     {% endif %}
                 </td>
                 <td class="{% if player.score > 0 %}positive{% elif player.score < 0 %}negative{% else %}neutral{% endif %}">{{ player.score }}</td>
+                <td>{{ "%.1f"|format(player.win_rate) }}%</td>
             </tr>
             {% endfor %}
         </table>

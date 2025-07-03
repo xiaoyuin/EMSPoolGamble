@@ -56,20 +56,43 @@ def register_player_routes(app):
         # 计算胜负统计（排除1分记录）
         for record in non_one_point_records:
             opponent_id = record['opponent_id']
-            if opponent_id:
-                if record['is_winner']:
-                    opponent_stats[opponent_id]['wins'] += 1
-                else:
-                    opponent_stats[opponent_id]['losses'] += 1
+            # 处理多个对手的情况
+            if isinstance(opponent_id, list):
+                # 如果是多个对手，为每个对手单独统计（但分数要分摊）
+                for single_opponent_id in opponent_id:
+                    if single_opponent_id:
+                        if record['is_winner']:
+                            opponent_stats[single_opponent_id]['wins'] += 1
+                        else:
+                            opponent_stats[single_opponent_id]['losses'] += 1
+            else:
+                # 单个对手的情况
+                if opponent_id:
+                    if record['is_winner']:
+                        opponent_stats[opponent_id]['wins'] += 1
+                    else:
+                        opponent_stats[opponent_id]['losses'] += 1
         
         # 计算总分差（包含所有记录，包括1分记录）
         for record in player_records:
             opponent_id = record['opponent_id']
-            if opponent_id:
-                if record['is_winner']:
-                    opponent_stats[opponent_id]['total_score'] += record['score']
-                else:
-                    opponent_stats[opponent_id]['total_score'] -= record['score']
+            # 处理多个对手的情况
+            if isinstance(opponent_id, list):
+                # 如果是多个对手，分数要分摊（使用整数除法）
+                score_per_opponent = record['score'] // len(opponent_id)
+                for single_opponent_id in opponent_id:
+                    if single_opponent_id:
+                        if record['is_winner']:
+                            opponent_stats[single_opponent_id]['total_score'] += score_per_opponent
+                        else:
+                            opponent_stats[single_opponent_id]['total_score'] -= score_per_opponent
+            else:
+                # 单个对手的情况
+                if opponent_id:
+                    if record['is_winner']:
+                        opponent_stats[opponent_id]['total_score'] += record['score']
+                    else:
+                        opponent_stats[opponent_id]['total_score'] -= record['score']
 
         # 转换对手统计为列表，包含名字
         opponent_list = []
