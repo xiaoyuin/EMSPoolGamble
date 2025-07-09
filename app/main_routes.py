@@ -7,7 +7,7 @@ from flask import render_template, request, redirect, url_for, flash, jsonify
 from .models import (sessions, players, save_data, get_player_by_name, get_player_name,
                      create_session, get_active_sessions, get_ended_sessions, 
                      get_all_sessions, delete_session, get_session,
-                     get_players_special_wins_batch)
+                     get_players_special_wins_batch, get_session_players)
 from .utils import get_utc_timestamp, generate_session_name
 from .security import require_admin_auth, require_csrf_protection
 from . import APP_VERSION, APP_NAME, VERSION_DATE
@@ -88,7 +88,8 @@ def register_main_routes(app):
     @app.route('/history')
     def history():
         # 展示所有场次和分数历史
-        all_sessions_list = get_all_sessions()
+        # 初始只加载前3个场次
+        search_query = request.args.get('search', '').strip()
         
         # 计算全局玩家总分，包含player_id
         from .models import get_global_leaderboard
@@ -100,9 +101,38 @@ def register_main_routes(app):
             if player.get('player_id'):
                 all_player_ids.add(player['player_id'])
 
-        # 获取每个场次的完整信息（包含players_with_ids）
+        # 获取所有场次用于计算总数
+        all_sessions_list = get_all_sessions()
+        
+        # 如果有搜索查询，过滤场次
+        if search_query:
+            filtered_sessions = []
+            for session_data in all_sessions_list:
+                # 搜索场次名称
+                session_name = session_data.get('name', '').lower()
+                if search_query.lower() in session_name:
+                    filtered_sessions.append(session_data)
+                    continue
+                
+                # 搜索玩家名称 - 需要查询数据库获取玩家信息
+                session_id = session_data.get('session_id')
+                if session_id:
+                    session_players = get_session_players(session_id)
+                    for player_data in session_players:
+                        player_name = player_data.get('name', '').lower()
+                        if search_query.lower() in player_name:
+                            filtered_sessions.append(session_data)
+                            break
+            all_sessions_list = filtered_sessions
+
+        # 初始加载前3个场次
+        sessions_for_page = all_sessions_list[:3]
+        total_sessions = len(all_sessions_list)
+        has_more = len(all_sessions_list) > 3
+
+        # 获取场次的完整信息（包含players_with_ids）
         sessions_with_player_ids = {}
-        for session_data in all_sessions_list:
+        for session_data in sessions_for_page:
             sid = session_data['session_id']
             # 获取完整场次信息包含玩家数据
             full_session = get_session(sid)
@@ -136,7 +166,83 @@ def register_main_routes(app):
         return render_template('history.html',
                               sessions=sessions_with_player_ids,
                               total_scores=sorted_total_scores,
-                              app_version=APP_VERSION)
+                              app_version=APP_VERSION,
+                              search_query=search_query,
+                              total_sessions=total_sessions,
+                              has_more=has_more)
+
+    @app.route('/api/load_more_sessions')
+    def load_more_sessions():
+        """API接口：加载更多场次"""
+        search_query = request.args.get('search', '').strip()
+        offset = int(request.args.get('offset', 0))
+        limit = 3  # 每次加载3个
+        
+        # 获取所有场次
+        all_sessions_list = get_all_sessions()
+        
+        # 如果有搜索查询，过滤场次
+        if search_query:
+            filtered_sessions = []
+            for session_data in all_sessions_list:
+                # 搜索场次名称
+                session_name = session_data.get('name', '').lower()
+                if search_query.lower() in session_name:
+                    filtered_sessions.append(session_data)
+                    continue
+                
+                # 搜索玩家名称 - 需要查询数据库获取玩家信息
+                session_id = session_data.get('session_id')
+                if session_id:
+                    session_players = get_session_players(session_id)
+                    for player_data in session_players:
+                        player_name = player_data.get('name', '').lower()
+                        if search_query.lower() in player_name:
+                            filtered_sessions.append(session_data)
+                            break
+            all_sessions_list = filtered_sessions
+
+        # 获取指定范围的场次
+        sessions_for_page = all_sessions_list[offset:offset + limit]
+        total_sessions = len(all_sessions_list)
+        has_more = (offset + limit) < total_sessions
+
+        # 收集玩家ID
+        all_player_ids = set()
+        
+        # 获取场次的完整信息
+        sessions_data = []
+        for session_data in sessions_for_page:
+            sid = session_data['session_id']
+            full_session = get_session(sid)
+            if full_session:
+                sessions_data.append({
+                    'session_id': sid,
+                    'session_data': full_session
+                })
+                # 收集场次中的玩家ID
+                for player in full_session.get('players_with_ids', []):
+                    if player.get('id'):
+                        all_player_ids.add(player['id'])
+
+        # 批量获取玩家的特殊胜利记录
+        players_special_wins = get_players_special_wins_batch(list(all_player_ids)) if all_player_ids else {}
+
+        # 将特殊胜利记录添加到场次玩家数据中
+        for session_info in sessions_data:
+            session = session_info['session_data']
+            for player in session.get('players_with_ids', []):
+                player_id = player.get('id')
+                if player_id and player_id in players_special_wins:
+                    player.update(players_special_wins[player_id])
+                else:
+                    player.update({'has_small_gold': False, 'has_big_gold': False})
+
+        return jsonify({
+            'sessions': sessions_data,
+            'has_more': has_more,
+            'total_sessions': total_sessions
+        })
 
     @app.route('/session_detail/<session_id>')
     def session_detail(session_id):

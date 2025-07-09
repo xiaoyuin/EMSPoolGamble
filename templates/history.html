@@ -56,6 +56,59 @@
             color: #531dab !important;
             -webkit-text-fill-color: #531dab;
         }
+        /* 搜索框样式 */
+        .search-container { margin-top: 1em; }
+        .search-form { display: flex; gap: 0.5em; align-items: stretch; }
+        .search-form input[type="text"] { 
+            flex: 1; 
+            padding: 0.8em 1em; 
+            border: 1px solid #d9d9d9; 
+            border-radius: 5px; 
+            font-size: 1em;
+            height: auto;
+            box-sizing: border-box;
+            min-width: 0;
+        }
+        .search-form .btn { 
+            flex-shrink: 0;
+            padding: 0.8em 1em; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-size: 1em; 
+            height: auto;
+            box-sizing: border-box;
+            white-space: nowrap;
+        }
+        .btn-primary { background: #1890ff; color: white; }
+        .btn-primary:hover { background: #40a9ff; }
+        .btn-secondary { background: #f5f5f5; color: #666; border: 1px solid #d9d9d9; text-decoration: none; }
+        .btn-secondary:hover { background: #e6f7ff; text-decoration: none; }
+        /* 加载更多按钮样式 */
+        .load-more-container { text-align: center; margin: 1em 0 2.5em 0; }
+        .load-more-btn { 
+            background: none;
+            border: none;
+            color: #1890ff;
+            font-size: 1em;
+            cursor: pointer;
+            text-decoration: none;
+            padding: 0;
+            margin: 0 0.5em;
+        }
+        .load-more-btn:hover { 
+            text-decoration: underline;
+        }
+        .load-more-btn:disabled { 
+            color: #ccc; 
+            cursor: not-allowed;
+        }
+        .load-more-btn:disabled:hover {
+            text-decoration: none;
+        }
+        .loading-text { color: #666; font-size: 0.9em; margin-top: 0.5em; display: none; }
+        /* 搜索结果提示 */
+        .search-result-info { color: #666; font-size: 0.9em; margin-top: 0.5em; }
     </style>
 </head>
 <body>
@@ -98,8 +151,27 @@
         </table>
     </div>
 
-    {% for sid, s in sessions.items() %}
+    <!-- 搜索功能 -->
     <div class="card">
+        <h3>搜索场次</h3>
+        <form class="search-form" method="GET" action="/history" onsubmit="handleSearch(event)">
+            <input type="text" name="search" value="{{ search_query or '' }}" placeholder="搜索场次名称或玩家名称..." title="搜索场次名称或玩家名称">
+            <button type="submit" class="btn btn-primary">搜索</button>
+            {% if search_query %}
+            <a href="/history" class="btn btn-secondary">清除</a>
+            {% endif %}
+        </form>
+        {% if search_query %}
+        <div class="search-result-info">
+            搜索 "{{ search_query }}" 共找到 {{ total_sessions }} 个场次
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 历史场次列表容器 -->
+    <div id="sessions-container">
+    {% for sid, s in sessions.items() %}
+    <div class="card session-card">
         <div class="session-header">
             <h4>{{ s.get('name', '未命名场次') }}</h4>
             <span class="status-badge {% if s.active %}status-active{% else %}status-ended{% endif %}">
@@ -133,9 +205,24 @@
     </div>
     {% else %}
     <div class="card">
-        <p class="center">暂无历史记录</p>
+        <p class="center">
+            {% if search_query %}
+            没有找到匹配 "{{ search_query }}" 的场次
+            {% else %}
+            暂无历史记录
+            {% endif %}
+        </p>
     </div>
     {% endfor %}
+    </div>
+
+    <!-- 加载更多按钮 -->
+    {% if has_more %}
+    <div class="load-more-container">
+        <button id="load-more-btn" class="load-more-btn" onclick="loadMoreSessions()">显示更多历史场次</button>
+        <div id="loading-text" class="loading-text">正在加载...</div>
+    </div>
+    {% endif %}
 
     <div class="links">
         <a href="/">返回首页</a>
@@ -210,6 +297,134 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('历史记录页面时间转换完成');
 });
+
+// Ajax加载更多场次
+let currentOffset = {{ sessions|length }};
+const searchQuery = {{ (search_query or '')|tojson }};
+
+function handleSearch(event) {
+    // 让表单正常提交，页面会刷新并显示搜索结果
+    return true;
+}
+
+function loadMoreSessions() {
+    const loadMoreBtn = document.getElementById('load-more-btn');
+    const loadingText = document.getElementById('loading-text');
+    
+    // 显示加载状态
+    loadMoreBtn.disabled = true;
+    loadMoreBtn.textContent = '加载中...';
+    loadingText.style.display = 'block';
+    
+    // 构建请求URL
+    let url = `/api/load_more_sessions?offset=${currentOffset}`;
+    if (searchQuery) {
+        url += `&search=${encodeURIComponent(searchQuery)}`;
+    }
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            if (data.sessions && data.sessions.length > 0) {
+                // 渲染新的场次
+                const container = document.getElementById('sessions-container');
+                
+                data.sessions.forEach(sessionInfo => {
+                    const sessionCard = createSessionCard(sessionInfo.session_id, sessionInfo.session_data);
+                    container.appendChild(sessionCard);
+                });
+                
+                // 更新偏移量
+                currentOffset += data.sessions.length;
+                
+                // 转换新添加的时间元素
+                document.querySelectorAll('[data-utc-time]').forEach(function(element) {
+                    const utcTime = element.getAttribute('data-utc-time');
+                    if (utcTime && utcTime.trim() !== '' && element.textContent === utcTime) {
+                        const localTime = convertUTCToLocal(utcTime);
+                        element.textContent = localTime;
+                    }
+                });
+                
+                // 检查是否还有更多数据
+                if (!data.has_more) {
+                    document.querySelector('.load-more-container').style.display = 'none';
+                } else {
+                    // 恢复按钮状态
+                    loadMoreBtn.disabled = false;
+                    loadMoreBtn.textContent = '显示更多历史场次';
+                }
+            } else {
+                // 没有更多数据
+                document.querySelector('.load-more-container').style.display = 'none';
+            }
+        })
+        .catch(error => {
+            console.error('加载更多场次失败:', error);
+            loadMoreBtn.textContent = '加载失败，点击重试';
+            loadMoreBtn.disabled = false;
+        })
+        .finally(() => {
+            loadingText.style.display = 'none';
+        });
+}
+
+function createSessionCard(sessionId, sessionData) {
+    const card = document.createElement('div');
+    card.className = 'card session-card';
+    
+    // 构建状态徽章
+    const statusClass = sessionData.active ? 'status-active' : 'status-ended';
+    const statusText = sessionData.active ? '进行中' : '已结束';
+    
+    // 构建玩家列表
+    const playerNames = sessionData.players ? sessionData.players.join(', ') : '';
+    
+    // 构建玩家得分列表
+    let playersScoreHtml = '';
+    if (sessionData.players_with_ids) {
+        sessionData.players_with_ids.forEach(player => {
+            const scoreClass = player.score > 0 ? 'positive' : (player.score < 0 ? 'negative' : 'neutral');
+            const playerLinkClass = player.has_big_gold ? ' has-big-gold' : (player.has_small_gold ? ' has-small-gold' : '');
+            const playerLink = player.id ? 
+                `<a href="/player/${player.id}" class="player-link${playerLinkClass}">${player.name}</a>` : 
+                player.name;
+            
+            playersScoreHtml += `
+                <div class="score-item">
+                    <span>${playerLink}：</span>
+                    <span class="${scoreClass}">${player.score}</span>
+                </div>
+            `;
+        });
+    }
+    
+    // 构建结束时间行
+    let endTimeHtml = '';
+    if (!sessionData.active && sessionData.end_time) {
+        endTimeHtml = `<div>结束时间: <span data-utc-time="${sessionData.end_time}">${sessionData.end_time}</span></div>`;
+    }
+    
+    const recordsCount = sessionData.records ? sessionData.records.length : (sessionData.rounds ? sessionData.rounds.length : 0);
+    
+    card.innerHTML = `
+        <div class="session-header">
+            <h4>${sessionData.name || '未命名场次'}</h4>
+            <span class="status-badge ${statusClass}">${statusText}</span>
+        </div>
+        <div>开始时间: <span data-utc-time="${sessionData.timestamp}">${sessionData.timestamp}</span></div>
+        ${endTimeHtml}
+        <div>玩家：${playerNames}</div>
+        <div>总记录数：${recordsCount}</div>
+        <h5>本场玩家得分</h5>
+        <div class="score-list">
+            ${playersScoreHtml}
+        </div>
+        <a href="/session_detail/${sessionId}" class="detail-btn">查看详情</a>
+    `;
+    
+    return card;
+}
 </script>
 </body>
 </html>
