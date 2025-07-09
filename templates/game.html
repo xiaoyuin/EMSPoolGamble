@@ -111,13 +111,15 @@
         .game-type-btn { background: #f0f0f0; color: #333; border: 2px solid #d9d9d9; transition: all 0.2s; min-height: 40px; padding: 0.7em; font-size: 1em; border-radius: 5px; cursor: pointer; }
         .game-type-btn:hover { background: #e6f7ff; border-color: #1890ff; }
         .game-type-btn.selected { background: #1890ff; color: white; border-color: #1890ff; }
-        .score-hint { margin-top: 0.5em; font-size: 0.9em; color: #666; text-align: center; }
+        .score-hint { margin-top: 0.5em; font-size: 0.8em; color: #666; text-align: center; }
         .players-table { margin: 1em 0; }
-        .player-rows { background: #f9f9f9; border-radius: 5px; padding: 0.5em; }
-        .player-row { display: flex; align-items: center; justify-content: space-between; padding: 0.7em; margin: 0.3em 0; background: white; border-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .player-rows { border-radius: 5px; padding: 0; }
+        .player-row { display: flex; align-items: stretch; margin: 0; border-bottom: 1px solid #f0f0f0; min-height: 3.2em; }
+        .player-row .player-name { flex: 1; }
+        .player-row .player-score-display { margin-left: auto; }
         .player-row:first-child { margin-top: 0; }
-        .player-row:last-child { margin-bottom: 0; }
-        .player-name { font-weight: bold; flex: 1; }
+        .player-row:last-child { margin-bottom: 0; border-bottom: none; }
+        .player-name { font-weight: bold; flex: 1; display: flex; align-items: center; padding: 0.4em 0; }
         .player-name a { color: #1890ff; text-decoration: none; }
         .player-name a:hover { text-decoration: underline; }
         /* 特殊胜利高亮样式 - 统一样式块 */
@@ -150,16 +152,17 @@
             color: #531dab !important;
             -webkit-text-fill-color: #531dab;
         }
-        .player-score { font-weight: bold; margin-right: 1em; min-width: 3em; text-align: right; }
-        .player-actions { display: flex; gap: 0.5em; }
-        .action-btn { padding: 0.4em 0.8em; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: all 0.2s; opacity: 0.7; transform: scale(1); }
+        .player-score-display { font-weight: bold; min-width: 2.5em; text-align: right; font-size: 0.95em; display: flex; align-items: center; justify-content: flex-end; padding: 0.4em 2em 0.4em 0; }
+        .player-actions { display: none; gap: 0.4em; align-items: stretch; min-width: 100px; justify-content: flex-end; padding: 0.2em 0; }
+        .player-actions.show { display: flex; }
+        .action-btn { padding: 0.2em 1em; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: all 0.2s; opacity: 0.7; transform: scale(1); min-height: 36px; min-width: 42px; display: inline-flex; align-items: center; justify-content: center; font-size: 1em; }
         .plus-btn { background: #52c41a; color: white; }
         .plus-btn:hover { background: #73d13d; opacity: 1; }
         .plus-btn.selected { background: #389e0d; opacity: 1; transform: scale(1.1); box-shadow: 0 0 0 3px #b7eb8f, inset 0 0 0 2px white; }
         .minus-btn { background: #ff4d4f; color: white; }
         .minus-btn:hover { background: #ff7875; opacity: 1; }
         .minus-btn.selected { background: #cf1322; opacity: 1; transform: scale(1.1); box-shadow: 0 0 0 3px #ffccc7, inset 0 0 0 2px white; }
-        .action-score { margin-left: 0.2em; }
+        .action-score { margin-left: 0.1em; font-size: 0.95em; }
         #record-btn { margin-top: 1em; }
         #record-btn:disabled { background: #d9d9d9; color: #8c8c8c; cursor: not-allowed; }
         #record-btn:disabled:hover { background: #d9d9d9; }
@@ -167,7 +170,6 @@
         .player-link:hover { text-decoration: underline; }
         .hint-warning { margin-top: 1em; padding: 0.8em; background: #fff7e6; border: 1px solid #ffd591; border-radius: 5px; color: #ad6800; }
         .hint-success { margin-top: 1em; padding: 0.8em; background: #f6ffed; border: 1px solid #b7eb8f; border-radius: 5px; color: #389e0d; }
-        .player-actions { display: none; }
         .current-players { margin-bottom: 1em; }
         .btn-link { display: block; text-align: center; text-decoration: none; margin: 0.3em; padding: 0.7em; font-size: 1em; border-radius: 5px; border: none; cursor: pointer; }
     </style>    <script>
@@ -294,7 +296,7 @@
 
             // 显示玩家操作按钮并更新分数显示
             document.querySelectorAll('.player-actions').forEach(actions => {
-                actions.style.display = 'flex';
+                actions.classList.add('show');
             });
 
             // 更新分数显示
@@ -331,9 +333,9 @@
             if (!hintElement) return;
 
             if (config.losersCount === 2) {
-                hintElement.textContent = `已选择 ${config.name} ${score} 分，请选择一个玩家获得 +${score} 分，两个玩家各获得 -${score/2} 分`;
+                hintElement.textContent = `已选择 ${config.name} ${score} 分，一个玩家 +${score} 分，两个玩家各 -${score/2} 分`;
             } else {
-                hintElement.textContent = `已选择 ${config.name} ${score} 分，请选择一个玩家获得 +${score} 分，一个玩家获得 -${score} 分`;
+                hintElement.textContent = `已选择 ${config.name} ${score} 分，一个玩家 +${score} 分，一个玩家 -${score} 分`;
             }
         }
 
@@ -353,7 +355,7 @@
 
             // 隐藏玩家操作按钮
             document.querySelectorAll('.player-actions').forEach(actions => {
-                actions.style.display = 'none';
+                actions.classList.remove('show');
             });
 
             // 如果已选择游戏种类，恢复对应的提示文字
@@ -722,7 +724,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             // 初始化时隐藏所有玩家操作按钮
             document.querySelectorAll('.player-actions').forEach(actions => {
-                actions.style.display = 'none';
+                actions.classList.remove('show');
             });
 
             // 默认选择普胜
@@ -890,7 +892,7 @@
                         {{ player.name }}
                         {% endif %}
                     </span>
-                    <span class="player-score {% if player.score > 0 %}positive{% elif player.score < 0 %}negative{% else %}neutral{% endif %}">{{ player.score }}</span>
+                    <span class="player-score-display {% if player.score > 0 %}positive{% elif player.score < 0 %}negative{% else %}neutral{% endif %}">{{ player.score }}</span>
                     <div class="player-actions">
                         <button type="button" class="action-btn plus-btn" onclick="selectPlayerAction('{{ player.name }}', 'plus')">+<span class="action-score"></span></button>
                         <button type="button" class="action-btn minus-btn" onclick="selectPlayerAction('{{ player.name }}', 'minus')">-<span class="action-score"></span></button>
