@@ -77,13 +77,14 @@
         .btn-secondary:disabled { background: #f5f5f5; color: #bfbfbf; border-color: #d9d9d9; cursor: not-allowed; }
         .new-player-section { margin: 1em 0; }
         .new-player-title { font-size: 0.9em; color: #666; margin-bottom: 0.6em; }
-        .record-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #f0f0f0; }
+        .record-item { display: flex; justify-content: space-between; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
         .record-item:last-child { border-bottom: none; }
-        .record-content { flex: 1; }
-        .delete-record-btn { background: #ff4d4f; color: white; border: none; padding: 4px 8px; border-radius: 3px; font-size: 0.8em; cursor: pointer; }
+        .record-content { flex: 1; min-width: 0; }
+        .delete-record-btn { background: #ff4d4f; color: white; border: none; padding: 2px 6px; border-radius: 3px; font-size: 0.75em; cursor: pointer; margin-left: 8px; }
         .delete-record-btn:hover { background: #ff7875; }
         .delete-form { display: inline; }
         .timestamp { font-size: 0.8em; color: #999; }
+        .timestamp-row { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
         .special-score-tag { 
             font-size: 0.7em; 
             color: #fa8c16; 
@@ -93,9 +94,11 @@
             padding: 2px 6px; 
             margin-left: 8px; 
             font-weight: normal; 
+            white-space: nowrap;
+            display: inline-block;
         }
         .record-player-link { 
-            color: inherit; 
+            color: #1890ff; 
             text-decoration: none; 
         }
         .record-player-link:hover { 
@@ -117,15 +120,17 @@
         .player-name { font-weight: bold; flex: 1; }
         .player-name a { color: #1890ff; text-decoration: none; }
         .player-name a:hover { text-decoration: underline; }
-        /* 特殊胜利高亮样式 */
+        /* 特殊胜利高亮样式 - 统一样式块 */
+        .player-name.has-small-gold,
         .player-name.has-small-gold a,
-        .player-name.has-small-gold {
+        .has-small-gold {
             color: #fa8c16 !important;
             text-shadow: 0 0 3px rgba(250, 140, 22, 0.3);
             font-weight: 700;
         }
+        .player-name.has-big-gold,
         .player-name.has-big-gold a,
-        .player-name.has-big-gold {
+        .has-big-gold {
             color: #722ed1 !important;
             text-shadow: 0 0 4px rgba(114, 46, 209, 0.4);
             font-weight: 700;
@@ -134,12 +139,14 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
+        .player-name.has-small-gold:hover,
         .player-name.has-small-gold:hover a,
-        .player-name.has-small-gold:hover {
+        .has-small-gold:hover {
             color: #d48806 !important;
         }
+        .player-name.has-big-gold:hover,
         .player-name.has-big-gold:hover a,
-        .player-name.has-big-gold:hover {
+        .has-big-gold:hover {
             color: #531dab !important;
             -webkit-text-fill-color: #531dab;
         }
@@ -158,28 +165,6 @@
         #record-btn:disabled:hover { background: #d9d9d9; }
         .player-link { color: #1890ff; text-decoration: none; }
         .player-link:hover { text-decoration: underline; }
-        /* 特殊胜利高亮样式 */
-        .has-small-gold {
-            color: #ff8c00 !important;
-            font-weight: bold;
-        }
-        .has-big-gold {
-            background: linear-gradient(45deg, #ffd700, #daa520, #b8860b);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            font-weight: bold;
-        }
-        .has-big-gold a {
-            background: linear-gradient(45deg, #ffd700, #daa520, #b8860b);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-decoration: none;
-        }
-        .has-big-gold a:hover {
-            text-decoration: underline;
-        }
         .hint-warning { margin-top: 1em; padding: 0.8em; background: #fff7e6; border: 1px solid #ffd591; border-radius: 5px; color: #ad6800; }
         .hint-success { margin-top: 1em; padding: 0.8em; background: #f6ffed; border: 1px solid #b7eb8f; border-radius: 5px; color: #389e0d; }
         .player-actions { display: none; }
@@ -197,7 +182,7 @@
         const gameTypeConfig = {
             normal: {
                 name: '普胜',
-                scores: [1, 2, 3, 4, 5],
+                scores: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
                 losersCount: 1,
                 specialScore: null
             },
@@ -729,7 +714,11 @@
 
             document.body.appendChild(form);
             form.submit();
-        }        // 页面加载完成后的初始化
+        }
+
+
+
+        // 页面加载完成后的初始化
         document.addEventListener('DOMContentLoaded', function() {
             // 初始化时隐藏所有玩家操作按钮
             document.querySelectorAll('.player-actions').forEach(actions => {
@@ -985,7 +974,8 @@
                 {% for r in session.get('records', session.get('rounds', [])) %}
                 <div class="record-item">
                     <div class="record-content">
-                        <div>胜者: <b>{{ r.winner }}</b>，败者: <b>
+                        <div>
+                            <b><a href="/player/{{ r.winner_id }}" class="record-player-link">{{ r.winner }}</a></b> 胜 <b>
                             {% if r.is_multi_loser %}
                                 {% for loser in r.losers %}
                                     <a href="/player/{{ loser.id }}" class="record-player-link">{{ loser.name }}</a>{% if not loop.last %} + {% endif %}
@@ -993,18 +983,19 @@
                             {% else %}
                                 <a href="/player/{{ r.loser_id }}" class="record-player-link">{{ r.loser }}</a>
                             {% endif %}
-                        </b>，分数:
-                            <span class="{% if r.score > 0 %}positive{% elif r.score < 0 %}negative{% else %}neutral{% endif %}">{{ r.score }}</span>
+                            </b>，<span class="{% if r.score > 0 %}positive{% elif r.score < 0 %}negative{% else %}neutral{% endif %}">{{ r.score }}</span> 分
                             {% if r.special_score %}
                             <span class="special-score-tag">{{ r.special_score }}</span>
                             {% endif %}
                         </div>
-                        <div class="timestamp" data-utc-time="{{ r.timestamp }}">{{ r.timestamp }}</div>
+                        <div class="timestamp-row">
+                            <span class="timestamp" data-utc-time="{{ r.timestamp }}">{{ r.timestamp }}</span>
+                            <form action="/delete_record/{{ session_id }}/{{ loop.index0 }}" method="post" class="delete-form">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="delete-record-btn" onclick="return confirm('确定要删除这条记录吗？这会恢复相应的分数变化。')">删除</button>
+                            </form>
+                        </div>
                     </div>
-                    <form action="/delete_record/{{ session_id }}/{{ loop.index0 }}" method="post" class="delete-form">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="delete-record-btn" onclick="return confirm('确定要删除这条记录吗？这会恢复相应的分数变化。')">删除</button>
-                    </form>
                 </div>
                 {% endfor %}
             {% else %}

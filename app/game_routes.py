@@ -63,6 +63,13 @@ def register_game_routes(app):
             else:
                 player.update({'has_small_gold': False, 'has_big_gold': False})
 
+        # 为游戏记录添加必要的ID信息（用于链接跳转）
+        if 'records' in game_session:
+            for record in game_session['records']:
+                # 确保记录中有winner_id（用于链接）
+                if 'winner_id' not in record and 'winner' in record:
+                    record['winner_id'] = get_player_by_name(record['winner'])
+
         # 准备可用玩家的信息（用于显示）
         available_player_data = get_available_players(exclude_session_id=session_id)
 
