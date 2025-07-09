@@ -179,6 +179,7 @@
         let isSpecialScore = false;  // 是否是特殊分数
         let selectedGameType = null;  // 当前选择的游戏种类
         let currentSpecialScore = null;  // 当前特殊分数类型（如"双吃"、"小金"、"大金"）
+        let currentLosersCount = 1;  // 当前分数对应的败者数量
 
         // 游戏种类配置
         const gameTypeConfig = {
@@ -202,8 +203,10 @@
             },
             big: {
                 name: '大金',
-                scores: [20],
-                losersCount: 2,
+                scores: [
+                    { value: 10, losersCount: 1 },
+                    { value: 20, losersCount: 2 }
+                ],
                 specialScore: '大金'
             }
         };
@@ -242,7 +245,9 @@
             const hintElement = document.getElementById('score-hint');
             if (!hintElement) return;
 
-            if (config.losersCount === 2) {
+            if (selectedGameType === 'big') {
+                hintElement.textContent = `${config.name}：请选择分数（10分：1胜1败，20分：1胜2败），然后选择对应的胜者和败者`;
+            } else if (config.losersCount === 2) {
                 hintElement.textContent = `${config.name}：请选择分数，然后选择一个胜者和两个败者`;
             } else {
                 hintElement.textContent = `${config.name}：请选择分数，然后选择一个胜者和一个败者`;
@@ -261,7 +266,9 @@
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.className = 'score-btn';
-                button.textContent = score;
+                // 处理新的分数格式（可能是数字或对象）
+                const scoreValue = typeof score === 'object' ? score.value : score;
+                button.textContent = scoreValue;
                 button.onclick = () => selectScore(score);
                 container.appendChild(button);
             });
@@ -275,6 +282,10 @@
                 return;
             }
 
+            // 处理新的分数格式
+            const scoreValue = typeof score === 'object' ? score.value : score;
+            const losersCount = typeof score === 'object' ? score.losersCount : gameTypeConfig[selectedGameType].losersCount;
+
             // 移除所有分数按钮的选中状态
             document.querySelectorAll('.score-btn').forEach(btn => {
                 btn.classList.remove('selected');
@@ -283,16 +294,17 @@
             // 选中当前按钮
             const scoreButtons = document.querySelectorAll('.score-btn');
             scoreButtons.forEach(btn => {
-                if (btn.textContent.trim() === score.toString()) {
+                if (btn.textContent.trim() === scoreValue.toString()) {
                     btn.classList.add('selected');
                 }
             });
 
-            selectedScore = score;
+            selectedScore = scoreValue;
+            currentLosersCount = losersCount;
             const config = gameTypeConfig[selectedGameType];
-            isSpecialScore = config.losersCount === 2;
+            isSpecialScore = losersCount === 2;
 
-            console.log('Selected score:', selectedScore, 'isSpecial:', isSpecialScore, 'type:', selectedGameType);
+            console.log('Selected score:', selectedScore, 'losersCount:', losersCount, 'isSpecial:', isSpecialScore, 'type:', selectedGameType);
 
             // 显示玩家操作按钮并更新分数显示
             document.querySelectorAll('.player-actions').forEach(actions => {
@@ -300,17 +312,18 @@
             });
 
             // 更新分数显示
-            updatePlayerActionScores(config);
+            updatePlayerActionScores(config, losersCount);
 
             // 更新提示文字
-            updateScoreHint(config, score);
+            updateScoreHint(config, scoreValue, losersCount);
 
             // 重置玩家选择
             resetPlayerSelection();
         }
 
-        function updatePlayerActionScores(config) {
-            if (config.losersCount === 2) {
+        function updatePlayerActionScores(config, losersCount = null) {
+            const actualLosersCount = losersCount || config.losersCount || 1;
+            if (actualLosersCount === 2) {
                 // 多败者情况：胜者得全分，败者各得一半负分
                 const halfScore = selectedScore / 2;
                 document.querySelectorAll('.action-score').forEach(span => {
@@ -328,11 +341,12 @@
             }
         }
 
-        function updateScoreHint(config, score) {
+        function updateScoreHint(config, score, losersCount = null) {
             const hintElement = document.getElementById('score-hint');
             if (!hintElement) return;
 
-            if (config.losersCount === 2) {
+            const actualLosersCount = losersCount || config.losersCount || 1;
+            if (actualLosersCount === 2) {
                 hintElement.textContent = `已选择 ${config.name} ${score} 分，一个玩家 +${score} 分，两个玩家各 -${score/2} 分`;
             } else {
                 hintElement.textContent = `已选择 ${config.name} ${score} 分，一个玩家 +${score} 分，一个玩家 -${score} 分`;
@@ -344,6 +358,7 @@
             selectedWinner = null;
             selectedLosers = [];
             isSpecialScore = false;
+            currentLosersCount = 1;
 
             // 重置所有按钮状态
             document.querySelectorAll('.score-btn').forEach(btn => {
@@ -430,14 +445,14 @@
                 }
             } else {
                 // 处理减分按钮
-                if (config.losersCount === 2) {
+                if (currentLosersCount === 2) {
                     // 多败者：允许最多选择指定数量的败者
                     if (selectedLosers.includes(playerName)) {
                         // 如果已选择，则取消选择
                         console.log('取消选中败者:', playerName);
                         selectedLosers = selectedLosers.filter(loser => loser !== playerName);
                         targetButton.classList.remove('selected');
-                    } else if (selectedLosers.length < config.losersCount) {
+                    } else if (selectedLosers.length < currentLosersCount) {
                         // 如果未选择且未达到上限，则添加
                         console.log('选中败者:', playerName);
                         selectedLosers.push(playerName);
@@ -453,7 +468,7 @@
                         }
                     } else {
                         // 已达到上限，不允许选择更多
-                        alert(`${config.name}只能选择${config.losersCount}个败者`);
+                        alert(`${config.name}只能选择${currentLosersCount}个败者`);
                         return;
                     }
                 } else {
@@ -501,7 +516,7 @@
             checkCanSubmit();
         }        function checkCanSubmit() {
             const config = gameTypeConfig[selectedGameType];
-            const requiredLosers = config ? config.losersCount : 1;
+            const requiredLosers = currentLosersCount || 1;
             const recordBtn = document.getElementById('record-btn');
             const scoreForm = document.getElementById('score-form');
 
@@ -516,7 +531,7 @@
                     // 启用按钮
                     if (recordBtn) {
                         recordBtn.disabled = false;
-                        if (config && config.losersCount === 2) {
+                        if (currentLosersCount === 2) {
                             recordBtn.textContent = `记录${config.name}：${selectedWinner} +${selectedScore}，${selectedLosers.join('、')} 各 -${selectedScore/2}`;
                         } else {
                             recordBtn.textContent = `记录${config ? config.name : ''}：${selectedWinner} +${selectedScore}，${selectedLosers[0]} -${selectedScore}`;
@@ -782,7 +797,7 @@
 
                     const config = gameTypeConfig[selectedGameType];
 
-                    if (config.losersCount === 2) {
+                    if (currentLosersCount === 2) {
                         // 多败者情况：使用特殊分数接口
                         e.preventDefault();
 
