@@ -18,7 +18,7 @@
         .flash-success { background-color: #f6ffed; border: 1px solid #b7eb8f; color: #52c41a; }
         .flash-error { background-color: #fff2f0; border: 1px solid #ffccc7; color: #ff4d4f; }
         .rename-form { display: flex; gap: 0.5em; align-items: stretch; margin-top: 1em; }
-        .rename-form input { 
+        .rename-form input[type="text"] { 
             flex: 1; 
             padding: 0.8em 1em; 
             border: 1px solid #d9d9d9; 
@@ -26,6 +26,12 @@
             font-size: 1em;
             height: auto;
             box-sizing: border-box;
+            min-width: 0; /* 确保输入框可以缩小 */
+        }
+        .rename-form .btn { 
+            flex-shrink: 0; /* 防止按钮被压缩 */
+            width: auto;
+            min-width: 60px; /* 确保按钮有最小宽度 */
         }
         .btn { 
             padding: 0.8em 1em; 
@@ -227,7 +233,7 @@
             <input type="text" name="new_name" value="{{ player.name }}" placeholder="输入新名字" title="玩家新名字" required>
             <input type="hidden" id="rename_timezone_offset" name="timezone_offset" value="">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-primary">更改名字</button>
+            <button type="submit" class="btn btn-primary">更改</button>
         </form>
         <div class="rename-note">
             注意：更改名字会影响所有历史记录中的显示
