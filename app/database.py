@@ -1085,5 +1085,165 @@ class DatabaseManager:
 
             return result
 
+    def get_achievement_players(self, achievement_type: str) -> List[Dict]:
+        """获取达成指定成就的玩家列表"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            # 根据成就类型确定查询条件
+            if achievement_type == 'small_gold':
+                special_score = '小金'
+            elif achievement_type == 'big_gold':
+                special_score = '大金'
+            else:
+                return []
+
+            # 查询达成该成就的玩家及其首次和总次数
+            cursor.execute('''
+                SELECT
+                    p.player_id,
+                    p.name,
+                    COUNT(gr.record_id) as achievement_count,
+                    MIN(gr.created_at) as first_achievement_date,
+                    MAX(gr.created_at) as latest_achievement_date
+                FROM players p
+                INNER JOIN game_records gr ON p.player_id = gr.winner_id
+                WHERE gr.special_score = ?
+                GROUP BY p.player_id, p.name
+                ORDER BY achievement_count DESC, first_achievement_date ASC
+            ''', (special_score,))
+
+            players = cursor.fetchall()
+
+            return [dict(player) for player in players]
+
+    def get_achievement_records(self, achievement_type: str, player_id: str = None) -> List[Dict]:
+        """获取成就达成记录详情"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            # 根据成就类型确定查询条件
+            if achievement_type == 'small_gold':
+                special_score = '小金'
+            elif achievement_type == 'big_gold':
+                special_score = '大金'
+            else:
+                return []
+
+            # 构建查询
+            base_query = '''
+                SELECT
+                    gr.record_id,
+                    gr.session_id,
+                    gr.created_at,
+                    gr.score,
+                    winner.name as winner_name,
+                    loser.name as loser_name,
+                    s.name as session_name
+                FROM game_records gr
+                INNER JOIN players winner ON gr.winner_id = winner.player_id
+                INNER JOIN players loser ON gr.loser_id = loser.player_id
+                INNER JOIN sessions s ON gr.session_id = s.session_id
+                WHERE gr.special_score = ?
+            '''
+
+            params = [special_score]
+
+            if player_id:
+                base_query += ' AND gr.winner_id = ?'
+                params.append(player_id)
+
+            base_query += ' ORDER BY gr.created_at DESC'
+
+            cursor.execute(base_query, params)
+            records = cursor.fetchall()
+
+            return [dict(record) for record in records]
+
+    def get_achievement_stats(self) -> Dict:
+        """获取成就系统统计信息"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            stats = {}
+
+            # 小金玩家统计
+            cursor.execute('''
+                SELECT COUNT(DISTINCT winner_id) as player_count
+                FROM game_records
+                WHERE special_score = '小金'
+            ''')
+            stats['small_gold_players'] = cursor.fetchone()['player_count']
+
+            # 大金玩家统计
+            cursor.execute('''
+                SELECT COUNT(DISTINCT winner_id) as player_count
+                FROM game_records
+                WHERE special_score = '大金'
+            ''')
+            stats['big_gold_players'] = cursor.fetchone()['player_count']
+
+            # 小金达人统计（小金次数 >= 10）
+            cursor.execute('''
+                SELECT COUNT(*) as player_count
+                FROM (
+                    SELECT winner_id, COUNT(*) as achievement_count
+                    FROM game_records
+                    WHERE special_score = '小金'
+                    GROUP BY winner_id
+                    HAVING COUNT(*) >= 10
+                ) as small_gold_masters
+            ''')
+            stats['small_gold_masters'] = cursor.fetchone()['player_count']
+
+            # 大金达人统计（大金次数 >= 5）
+            cursor.execute('''
+                SELECT COUNT(*) as player_count
+                FROM (
+                    SELECT winner_id, COUNT(*) as achievement_count
+                    FROM game_records
+                    WHERE special_score = '大金'
+                    GROUP BY winner_id
+                    HAVING COUNT(*) >= 5
+                ) as big_gold_masters
+            ''')
+            stats['big_gold_masters'] = cursor.fetchone()['player_count']
+
+            return stats
+
+    def get_achievement_master_players(self, achievement_type: str) -> List[Dict]:
+        """获取达人成就的玩家列表"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            if achievement_type == 'small_gold_master':
+                special_score = '小金'
+                min_count = 10
+            elif achievement_type == 'big_gold_master':
+                special_score = '大金'
+                min_count = 5
+            else:
+                return []
+
+            # 查询达成达人成就的玩家
+            cursor.execute('''
+                SELECT
+                    p.player_id,
+                    p.name,
+                    COUNT(gr.record_id) as achievement_count,
+                    MIN(gr.created_at) as first_achievement_date,
+                    MAX(gr.created_at) as latest_achievement_date
+                FROM players p
+                INNER JOIN game_records gr ON p.player_id = gr.winner_id
+                WHERE gr.special_score = ?
+                GROUP BY p.player_id, p.name
+                HAVING COUNT(gr.record_id) >= ?
+                ORDER BY achievement_count DESC, first_achievement_date ASC
+            ''', (special_score, min_count))
+
+            players = cursor.fetchall()
+
+            return [dict(player) for player in players]
+
 # 全局数据库实例
 db = DatabaseManager()

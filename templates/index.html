@@ -60,7 +60,7 @@
             <span class="version-badge">{{ app_version }}</span>
             <span class="build-date">{{ version_date }}</span>
         </div>
-        
+
         <!-- 管理员状态显示 -->
         {% if is_admin_authenticated() %}
         <div class="login-status">
@@ -148,7 +148,8 @@
     {% endif %}
 
     <div class="links">
-        <a href="/history">查看历史记录</a>
+        <a href="/history">查看历史记录</a> |
+        <a href="/achievements">成就</a>
     </div>
 
     <div class="footer">
@@ -182,7 +183,7 @@
     // 更新建议的场次名称
     const suggestedNameElement = document.getElementById('suggested-session-name');
     const sessionNameInput = document.getElementById('session-name-input');
-    
+
     if (suggestedNameElement && sessionNameInput) {
         const userSessionName = generateSessionName();
         suggestedNameElement.textContent = userSessionName;
@@ -202,7 +203,7 @@ function convertUtcToLocal() {
             try {
                 // 统一时间格式处理，兼容iOS Chrome
                 let dateString = utcTime.trim();
-                
+
                 // 如果不是ISO格式且不包含时区信息，则添加Z表示UTC
                 if (!dateString.includes('T') && !dateString.endsWith('Z') && !dateString.includes('+') && !dateString.includes(' UTC')) {
                     // 将 "YYYY-MM-DD HH:MM:SS" 格式转换为 ISO 格式
@@ -217,7 +218,7 @@ function convertUtcToLocal() {
 
                 // 创建Date对象
                 const utcDate = new Date(dateString);
-                
+
                 // 检查日期是否有效
                 if (!isNaN(utcDate.getTime())) {
                     const localTimeStr = utcDate.toLocaleString('zh-CN', {

@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ achievement.name }} - 成就详情</title>
+    <style>
+        body { font-family: sans-serif; max-width: 700px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
+        .card { background: #ffffff; border-radius: 10px; padding: 1.2em; margin-top: 1.5em; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { text-align: center; color: #333; margin-bottom: 1.5em; }
+        .links { margin-top: 1em; text-align: center; }
+        .links a { color: #1890ff; text-decoration: none; margin: 0 0.5em; }
+        .links a:hover { text-decoration: underline; }
+        .footer { margin-top: 2em; text-align: center; font-size: 0.8em; color: #888; }
+
+        .achievement-header {
+            text-align: center;
+            padding: 2.5em 1em;
+            background: linear-gradient(135deg, #ffd700 0%, #ffb347 100%);
+            color: #8b4513;
+            border-radius: 15px;
+            margin-bottom: 2em;
+            box-shadow: 0 4px 20px rgba(255, 215, 0, 0.3);
+        }
+
+        .achievement-icon {
+            font-size: 4em;
+            margin-bottom: 0.5em;
+            display: block;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .achievement-name {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 0.5em;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .achievement-description {
+            font-size: 1.1em;
+            opacity: 0.95;
+            margin-bottom: 1em;
+            line-height: 1.5;
+        }
+
+        .achievement-rule {
+            background: rgba(139, 69, 19, 0.15);
+            padding: 0.8em;
+            border-radius: 10px;
+            font-size: 1em;
+            margin-bottom: 0.5em;
+            border: 1px solid rgba(139, 69, 19, 0.2);
+        }
+
+
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1em;
+            margin-bottom: 2em;
+        }
+
+        .stat-card {
+            background: #fff8dc;
+            padding: 1.5em;
+            border-radius: 10px;
+            text-align: center;
+            border-left: 4px solid #ffd700;
+            box-shadow: 0 2px 8px rgba(255, 215, 0, 0.2);
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #daa520;
+            margin-bottom: 0.2em;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .stat-label {
+            color: #8b4513;
+            font-size: 1em;
+            font-weight: 500;
+        }
+
+        .achievers-list {
+            background: #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .achiever-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1em 1.2em;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background-color 0.2s;
+        }
+
+        .achiever-item:last-child {
+            border-bottom: none;
+        }
+
+        .achiever-item:hover {
+            background: linear-gradient(90deg, #fff8dc 0%, #ffffff 100%);
+        }
+
+        .achiever-info {
+            display: flex;
+            align-items: center;
+            gap: 1em;
+        }
+
+        .achiever-rank {
+            background: linear-gradient(135deg, #ffd700 0%, #daa520 100%);
+            color: #8b4513;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9em;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .achiever-rank.rank-1 {
+            background: linear-gradient(135deg, #ffd700 0%, #ffb347 100%);
+            transform: scale(1.1);
+        }
+
+        .achiever-name {
+            font-weight: bold;
+            color: #333;
+            font-size: 1.1em;
+        }
+
+        .achiever-stats {
+            text-align: right;
+            color: #666;
+        }
+
+        .achievement-count {
+            font-weight: bold;
+            color: #daa520;
+            font-size: 1.1em;
+        }
+
+        .first-time {
+            font-size: 0.85em;
+            margin-top: 0.2em;
+        }
+
+        .recent-records {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .record-item {
+            background: linear-gradient(90deg, #fff8dc 0%, #ffffff 100%);
+            border-radius: 8px;
+            padding: 1em;
+            margin-bottom: 0.8em;
+            border-left: 4px solid #ffd700;
+            box-shadow: 0 1px 4px rgba(255, 215, 0, 0.2);
+        }
+
+        .record-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5em;
+        }
+
+        .record-player {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .record-date {
+            color: #999;
+            font-size: 0.85em;
+        }
+
+        .record-details {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .session-link {
+            color: #daa520;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .session-link:hover {
+            text-decoration: underline;
+        }
+
+        .special-score-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: bold;
+            background: #dda0dd;
+            color: #663399;
+            margin-left: 0.5em;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .no-data {
+            text-align: center;
+            color: #999;
+            font-style: italic;
+            padding: 2em;
+        }
+
+        .legendary-badge {
+            background: linear-gradient(45deg, #ffd700, #ff6b6b, #4ecdc4, #45b7d1);
+            background-size: 400% 400%;
+            animation: gradientShift 3s ease infinite;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: bold;
+            font-size: 0.9em;
+            margin-left: 0.5em;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .flash-message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .flash-success {
+            background-color: #f6ffed;
+            border: 1px solid #b7eb8f;
+            color: #52c41a;
+        }
+        .flash-error {
+            background-color: #fff2f0;
+            border: 1px solid #ffccc7;
+            color: #ff4d4f;
+        }
+    </style>
+</head>
+<body>
+    <!-- 显示消息通知 -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-message flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- 成就信息头部 -->
+    <div class="achievement-header">
+        <span class="achievement-icon">{{ achievement.icon }}</span>
+        <div class="achievement-name">{{ achievement.name }}</div>
+        <div class="achievement-description">{{ achievement.description }}</div>
+        <div class="achievement-rule">🎯 达成条件：{{ achievement.rule }}</div>
+    </div>
+
+    <!-- 统计信息 -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-number">{{ achievement_players|length }}</div>
+            <div class="stat-label">大金传奇</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ achievement_records|length }}</div>
+            <div class="stat-label">传奇时刻</div>
+        </div>
+    </div>
+
+    <!-- 达成玩家排行榜 -->
+    {% if achievement_players %}
+    <div class="card">
+        <h3>👑 大金传奇榜</h3>
+        <div class="achievers-list">
+            {% for player in achievement_players %}
+            <div class="achiever-item">
+                <div class="achiever-info">
+                    <div class="achiever-rank {% if loop.index == 1 %}rank-1{% endif %}">{{ loop.index }}</div>
+                    <div>
+                        <div class="achiever-name">
+                            {{ player.name }}
+                            {% if player.achievement_count >= 3 %}
+                                <span class="legendary-badge">传奇玩家</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="achiever-stats">
+                    <div class="achievement-count">{{ player.achievement_count }} 次大金</div>
+                    <div class="first-time" data-utc-time="{{ player.first_achievement_date }}">
+                        首次：{{ player.first_achievement_date }}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 最近达成记录 -->
+    <div class="card">
+        <h3>⚡ 传奇时刻记录</h3>
+        {% if achievement_records %}
+            <div class="recent-records">
+                {% for record in achievement_records %}
+                <div class="record-item">
+                    <div class="record-header">
+                        <div>
+                            <span class="record-player">{{ record.winner_name }}</span>
+                            <span class="special-score-badge">{{ record.special_score }}</span>
+                        </div>
+                        <div class="record-date" data-utc-time="{{ record.created_at }}">{{ record.created_at }}</div>
+                    </div>
+                    <div class="record-details">
+                        在 <a href="/session_detail/{{ record.session_id }}" class="session-link">{{ record.session_name }}</a>
+                        中战胜 {{ record.loser_name }} 获得 {{ record.score }} 分
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="no-data">
+                暂无大金传奇记录<br>
+                <small>等待第一位传奇玩家的诞生...</small>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="links">
+        <a href="/achievements">返回成就列表</a> |
+        <a href="/">返回首页</a> |
+        <a href="/history">历史记录</a>
+    </div>
+
+    <div class="footer">
+        <p>© 2025 EMS Pool Gamble | {{ achievement.name }} v{{ app_version }}</p>
+    </div>
+
+    <script>
+        // 将UTC时间转换为本地时间显示 - 兼容iOS Chrome
+        function convertUtcToLocal() {
+            // 转换所有带有 data-utc-time 属性的元素
+            document.querySelectorAll('[data-utc-time]').forEach(function(element) {
+                const utcTime = element.getAttribute('data-utc-time');
+                if (utcTime && utcTime.trim() !== '' && utcTime !== '未知') {
+                    try {
+                        // 统一时间格式处理，兼容iOS Chrome
+                        let dateString = utcTime.trim();
+
+                        // 如果不是ISO格式且不包含时区信息，则添加Z表示UTC
+                        if (!dateString.includes('T') && !dateString.endsWith('Z') && !dateString.includes('+') && !dateString.includes(' UTC')) {
+                            // 将 "YYYY-MM-DD HH:MM:SS" 格式转换为 ISO 格式
+                            dateString = dateString.replace(' ', 'T') + 'Z';
+                        } else if (dateString.includes(' UTC')) {
+                            // 移除 ' UTC' 并替换为 'Z'
+                            dateString = dateString.replace(' UTC', 'Z').replace(' ', 'T');
+                        } else if (!dateString.endsWith('Z') && !dateString.includes('+') && !dateString.includes('-', 10)) {
+                            // 确保有时区标识
+                            dateString += 'Z';
+                        }
+
+                        // 创建Date对象
+                        const utcDate = new Date(dateString);
+
+                        // 检查日期是否有效
+                        if (!isNaN(utcDate.getTime())) {
+                            const localTimeStr = utcDate.toLocaleString('zh-CN', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit'
+                            });
+                            element.textContent = localTimeStr;
+                            console.log('成就页时间转换:', utcTime, '->', localTimeStr);
+                        } else {
+                            console.warn('成就页时间解析失败:', utcTime, '转换后:', dateString);
+                        }
+                    } catch (e) {
+                        console.warn('成就页时间转换失败:', utcTime, e);
+                    }
+                }
+            });
+        }
+
+        // 页面加载完成后执行时间转换
+        document.addEventListener('DOMContentLoaded', convertUtcToLocal);
+    </script>
+</body>
+</html>

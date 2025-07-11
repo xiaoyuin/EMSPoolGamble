@@ -1,5 +1,8 @@
 """
-主要路由模块 - 首页、历史、场次详情等
+主要from .models import (sessions, players, save_data, get_player_by_name, get_player_name,
+                     create_session, get_active_sessions, get_ended_sessions,
+                     get_all_sessions, delete_session, get_session,
+                     get_players_special_wins_batch, get_session_players) 首页、历史、场次详情等
 """
 import uuid
 from collections import defaultdict
@@ -7,7 +10,9 @@ from flask import render_template, request, redirect, url_for, flash, jsonify
 from .models import (sessions, players, save_data, get_player_by_name, get_player_name,
                      create_session, get_active_sessions, get_ended_sessions,
                      get_all_sessions, delete_session, get_session,
-                     get_players_special_wins_batch, get_session_players)
+                     get_players_special_wins_batch, get_session_players,
+                     get_achievement_players, get_achievement_records,
+                     get_achievement_stats, get_achievement_master_players)
 from .utils import get_utc_timestamp, generate_session_name
 from .security import require_admin_auth, require_csrf_protection
 from . import APP_VERSION, APP_NAME, VERSION_DATE

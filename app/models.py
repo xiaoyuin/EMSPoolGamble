@@ -207,6 +207,26 @@ def get_players_special_wins_batch(player_ids: List[str]) -> Dict:
     return db.get_players_special_wins_batch(player_ids)
 
 
+def get_achievement_players(achievement_type: str) -> List[Dict]:
+    """获取达成指定成就的玩家列表"""
+    return db.get_achievement_players(achievement_type)
+
+
+def get_achievement_records(achievement_type: str, player_id: str = None) -> List[Dict]:
+    """获取成就达成记录详情"""
+    return db.get_achievement_records(achievement_type, player_id)
+
+
+def get_achievement_stats() -> Dict:
+    """获取成就系统统计信息"""
+    return db.get_achievement_stats()
+
+
+def get_achievement_master_players(achievement_type: str) -> List[Dict]:
+    """获取达人成就的玩家列表"""
+    return db.get_achievement_master_players(achievement_type)
+
+
 # ===== 兼容性变量 - 用于保持与原有代码的兼容性 =====
 
 class SessionsProxy:

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EMS Pool Gamble - 成就系统</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
+        .card { background: #ffffff; border-radius: 10px; padding: 1.2em; margin-top: 1.5em; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { text-align: center; color: #333; margin-bottom: 1.5em; }
+        .links { margin-top: 1em; text-align: center; }
+        .links a { color: #1890ff; text-decoration: none; margin: 0 0.5em; }
+        .links a:hover { text-decoration: underline; }
+        .footer { margin-top: 2em; text-align: center; font-size: 0.8em; color: #888; }
+
+        .achievement-card {
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 1.2em;
+            margin-top: 1em;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border-left: 4px solid #1890ff;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .achievement-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .achievement-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5em;
+        }
+
+        .achievement-name {
+            font-weight: bold;
+            color: #1890ff;
+            font-size: 1.1em;
+        }
+
+        .achievement-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+
+        .badge-small-gold { background: #ffeaa7; color: #d35400; }
+        .badge-big-gold { background: #dda0dd; color: #663399; }
+        .badge-master { background: #74b9ff; color: #0984e3; }
+
+        .achievement-description {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 0.8em;
+        }
+
+        .achievement-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9em;
+        }
+
+        .achievers-count {
+            color: #52c41a;
+            font-weight: bold;
+        }
+
+        .view-details {
+            color: #1890ff;
+            text-decoration: none;
+            font-size: 0.85em;
+        }
+
+        .view-details:hover {
+            text-decoration: underline;
+        }
+
+        .no-achievers {
+            color: #999;
+            font-style: italic;
+        }
+
+        .achievement-icon {
+            font-size: 1.5em;
+            margin-right: 0.5em;
+        }
+
+        .flash-message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .flash-success {
+            background-color: #f6ffed;
+            border: 1px solid #b7eb8f;
+            color: #52c41a;
+        }
+        .flash-error {
+            background-color: #fff2f0;
+            border: 1px solid #ffccc7;
+            color: #ff4d4f;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>EMS Pool Gamble - 成就系统</h2>
+        <p>挑战特殊成就，展示你的台球技巧！</p>
+    </div>
+
+    <!-- 显示消息通知 -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-message flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- 成就列表 -->
+    {% for achievement in achievements %}
+    <div class="achievement-card" onclick="location.href='/achievement/{{ achievement.id }}'">
+        <div class="achievement-header">
+            <div style="display: flex; align-items: center;">
+                <span class="achievement-icon">{{ achievement.icon }}</span>
+                <span class="achievement-name">{{ achievement.name }}</span>
+            </div>
+            <span class="achievement-badge badge-{{ 'small-gold' if achievement.id == 'small_gold' else 'big-gold' if achievement.id == 'big_gold' else 'master' }}">
+                {% if achievement.id == 'small_gold' %}小金{% elif achievement.id == 'big_gold' %}大金{% else %}达人{% endif %}
+            </span>
+        </div>
+
+        <div class="achievement-description">
+            {{ achievement.description }}
+        </div>
+
+        <div class="achievement-stats">
+            <div>
+                {% if achievement.count > 0 %}
+                    <span class="achievers-count">{{ achievement.count }} 位玩家达成</span>
+                {% else %}
+                    <span class="no-achievers">暂无玩家达成</span>
+                {% endif %}
+            </div>
+            <a href="/achievement/{{ achievement.id }}" class="view-details" onclick="event.stopPropagation();">查看详情 →</a>
+        </div>
+    </div>
+    {% endfor %}
+
+    <div class="links">
+        <a href="/">返回首页</a>
+        <a href="/history">历史记录</a>
+    </div>
+
+    <div class="footer">
+        <p>© 2025 EMS Pool Gamble | 成就系统</p>
+    </div>
+</body>
+</html>
