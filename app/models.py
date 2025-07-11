@@ -14,12 +14,12 @@ from .utils import get_utc_timestamp
 def init_data():
     """初始化数据，检查是否需要从JSON迁移"""
     print("初始化数据库...")
-    
+
     # 检查是否存在旧的JSON数据需要迁移
     json_file = get_data_file_path()
     if os.path.exists(json_file):
         print(f"发现JSON数据文件: {json_file}")
-        
+
         # 检查数据库是否为空（首次迁移）
         players = db.get_all_players()
         if not players:
@@ -27,14 +27,14 @@ def init_data():
                 with open(json_file, 'r', encoding='utf-8') as f:
                     json_data = json.load(f)
                     db.migrate_from_json(json_data)
-                    
+
                 # 迁移完成后备份JSON文件
                 backup_file = json_file + '.backup'
                 os.rename(json_file, backup_file)
                 print(f"JSON数据已迁移，原文件备份为: {backup_file}")
             except Exception as e:
                 print(f"JSON数据迁移失败: {e}")
-    
+
     # 统计数据
     players = db.get_all_players()
     sessions = db.get_all_sessions()
@@ -146,13 +146,13 @@ def get_session_players(session_id: str) -> List[Dict]:
 
 # ===== 计分记录管理 =====
 
-def add_game_record(session_id: str, winner_id: str, loser_id: str, 
+def add_game_record(session_id: str, winner_id: str, loser_id: str,
                    score: int, special_score: str = None, loser_id2: str = None) -> int:
     """添加计分记录，支持单败者和多败者"""
     return db.add_game_record(session_id, winner_id, loser_id, score, special_score, loser_id2)
 
 
-def add_multi_loser_record(session_id: str, winner_id: str, loser_id1: str, 
+def add_multi_loser_record(session_id: str, winner_id: str, loser_id1: str,
                           loser_id2: str, total_score: int, special_score: str = None) -> int:
     """添加一对二的计分记录（兼容性保留，实际调用add_game_record）"""
     return db.add_game_record(session_id, winner_id, loser_id1, total_score, special_score, loser_id2)
@@ -211,46 +211,46 @@ def get_players_special_wins_batch(player_ids: List[str]) -> Dict:
 
 class SessionsProxy:
     """场次代理类，提供类似字典的接口"""
-    
+
     def __contains__(self, session_id: str) -> bool:
         """检查场次是否存在"""
         return db.get_session_by_id(session_id) is not None
-    
+
     def __getitem__(self, session_id: str) -> Dict:
         """获取场次信息"""
         session = db.get_session_with_players(session_id)
         if session is None:
             raise KeyError(f"Session {session_id} not found")
         return session
-    
+
     def __setitem__(self, session_id: str, session_data: Dict):
         """设置场次信息（用于兼容性，不建议使用）"""
         # 这个方法主要用于兼容性，实际应该使用数据库接口
         pass
-    
+
     def __delitem__(self, session_id: str):
         """删除场次"""
         db.delete_session(session_id)
-    
+
     def get(self, session_id: str, default=None):
         """获取场次信息，不存在时返回默认值"""
         session = db.get_session_with_players(session_id)
         return session if session is not None else default
-    
+
     def items(self):
         """获取所有场次的迭代器"""
         sessions = db.get_all_sessions()
         for session in sessions:
             full_session = db.get_session_with_players(session['session_id'])
             yield session['session_id'], full_session
-    
+
     def values(self):
         """获取所有场次的值"""
         sessions = db.get_all_sessions()
         for session in sessions:
             full_session = db.get_session_with_players(session['session_id'])
             yield full_session
-    
+
     def keys(self):
         """获取所有场次的键"""
         sessions = db.get_all_sessions()
@@ -260,35 +260,35 @@ class SessionsProxy:
 
 class PlayersProxy:
     """玩家代理类，提供类似字典的接口"""
-    
+
     def __contains__(self, player_id: str) -> bool:
         """检查玩家是否存在"""
         return db.get_player_by_id(player_id) is not None
-    
+
     def __getitem__(self, player_id: str) -> Dict:
         """获取玩家信息"""
         player = db.get_player_by_id(player_id)
         if player is None:
             raise KeyError(f"Player {player_id} not found")
         return player
-    
+
     def get(self, player_id: str, default=None):
         """获取玩家信息，不存在时返回默认值"""
         player = db.get_player_by_id(player_id)
         return player if player is not None else default
-    
+
     def items(self):
         """获取所有玩家的迭代器"""
         players = db.get_all_players()
         for player in players:
             yield player['player_id'], player
-    
+
     def values(self):
         """获取所有玩家的值"""
         players = db.get_all_players()
         for player in players:
             yield player
-    
+
     def keys(self):
         """获取所有玩家的键"""
         players = db.get_all_players()

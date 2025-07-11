@@ -59,23 +59,23 @@
         /* 搜索框样式 */
         .search-container { margin-top: 1em; }
         .search-form { display: flex; gap: 0.5em; align-items: stretch; }
-        .search-form input[type="text"] { 
-            flex: 1; 
-            padding: 0.8em 1em; 
-            border: 1px solid #d9d9d9; 
-            border-radius: 5px; 
+        .search-form input[type="text"] {
+            flex: 1;
+            padding: 0.8em 1em;
+            border: 1px solid #d9d9d9;
+            border-radius: 5px;
             font-size: 1em;
             height: auto;
             box-sizing: border-box;
             min-width: 0;
         }
-        .search-form .btn { 
+        .search-form .btn {
             flex-shrink: 0;
-            padding: 0.8em 1em; 
-            border: none; 
-            border-radius: 5px; 
-            cursor: pointer; 
-            font-size: 1em; 
+            padding: 0.8em 1em;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
             height: auto;
             box-sizing: border-box;
             white-space: nowrap;
@@ -86,7 +86,7 @@
         .btn-secondary:hover { background: #e6f7ff; text-decoration: none; }
         /* 加载更多按钮样式 */
         .load-more-container { text-align: center; margin: 1em 0 2.5em 0; }
-        .load-more-btn { 
+        .load-more-btn {
             background: none;
             border: none;
             color: #1890ff;
@@ -96,11 +96,11 @@
             padding: 0;
             margin: 0 0.5em;
         }
-        .load-more-btn:hover { 
+        .load-more-btn:hover {
             text-decoration: underline;
         }
-        .load-more-btn:disabled { 
-            color: #ccc; 
+        .load-more-btn:disabled {
+            color: #ccc;
             cursor: not-allowed;
         }
         .load-more-btn:disabled:hover {
@@ -151,7 +151,7 @@
                 {{ month.name }} - {{ month.count }}场
             </option>
             {% endfor %}
-            <option value="all" {% if selected_month == 'all' %}selected{% endif %}>全时段</option>
+            <option value="all" {% if selected_month == 'all' %}selected{% endif %}>全时段 - {{ all_sessions_total }}场</option>
         </select>
     </div>
 
@@ -166,7 +166,7 @@
                 {% endif %}
             </span>
         </div>
-        
+
         <table class="total-score-table">
             <tr>
                 <th>排名</th>
@@ -284,11 +284,11 @@ function convertUTCToLocal(utcTimeString) {
     if (!utcTimeString || utcTimeString === '未知') {
         return utcTimeString;
     }
-    
+
     try {
         // 统一时间格式处理，兼容iOS Chrome
         let dateString = utcTimeString.trim();
-        
+
         // 如果不是ISO格式且不包含时区信息，则添加Z表示UTC
         if (!dateString.includes('T') && !dateString.endsWith('Z') && !dateString.includes('+') && !dateString.includes(' UTC')) {
             // 将 "YYYY-MM-DD HH:MM:SS" 格式转换为 ISO 格式
@@ -303,13 +303,13 @@ function convertUTCToLocal(utcTimeString) {
 
         // 创建Date对象
         const date = new Date(dateString);
-        
+
         // 检查日期是否有效
         if (isNaN(date.getTime())) {
             console.warn('历史页面时间解析失败:', utcTimeString, '转换后:', dateString);
             return utcTimeString;
         }
-        
+
         // 转换为用户本地时间
         return date.toLocaleString('zh-CN', {
             year: 'numeric',
@@ -337,7 +337,7 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('时间转换:', utcTime, '->', localTime);
         }
     });
-    
+
     console.log('历史记录页面时间转换完成');
 });
 
@@ -350,20 +350,20 @@ function changeMonth() {
     const selector = document.getElementById('month-selector');
     const selectedMonth = selector.value;
     const currentUrl = new URL(window.location);
-    
+
     // 更新URL参数
     if (selectedMonth) {
         currentUrl.searchParams.set('month', selectedMonth);
     } else {
         currentUrl.searchParams.delete('month');
     }
-    
+
     // 保留搜索参数
     const searchParam = currentUrl.searchParams.get('search');
     if (searchParam) {
         currentUrl.searchParams.set('search', searchParam);
     }
-    
+
     // 跳转到新URL
     window.location.href = currentUrl.toString();
 }
@@ -376,12 +376,12 @@ function handleSearch(event) {
 function loadMoreSessions() {
     const loadMoreBtn = document.getElementById('load-more-btn');
     const loadingText = document.getElementById('loading-text');
-    
+
     // 显示加载状态
     loadMoreBtn.disabled = true;
     loadMoreBtn.textContent = '加载中...';
     loadingText.style.display = 'block';
-    
+
     // 构建请求URL
     let url = `/api/load_more_sessions?offset=${currentOffset}`;
     if (searchQuery) {
@@ -390,22 +390,22 @@ function loadMoreSessions() {
     if (selectedMonth) {
         url += `&month=${encodeURIComponent(selectedMonth)}`;
     }
-    
+
     fetch(url)
         .then(response => response.json())
         .then(data => {
             if (data.sessions && data.sessions.length > 0) {
                 // 渲染新的场次
                 const container = document.getElementById('sessions-container');
-                
+
                 data.sessions.forEach(sessionInfo => {
                     const sessionCard = createSessionCard(sessionInfo.session_id, sessionInfo.session_data);
                     container.appendChild(sessionCard);
                 });
-                
+
                 // 更新偏移量
                 currentOffset += data.sessions.length;
-                
+
                 // 转换新添加的时间元素
                 document.querySelectorAll('[data-utc-time]').forEach(function(element) {
                     const utcTime = element.getAttribute('data-utc-time');
@@ -414,7 +414,7 @@ function loadMoreSessions() {
                         element.textContent = localTime;
                     }
                 });
-                
+
                 // 检查是否还有更多数据
                 if (!data.has_more) {
                     document.querySelector('.load-more-container').style.display = 'none';
@@ -441,24 +441,24 @@ function loadMoreSessions() {
 function createSessionCard(sessionId, sessionData) {
     const card = document.createElement('div');
     card.className = 'card session-card';
-    
+
     // 构建状态徽章
     const statusClass = sessionData.active ? 'status-active' : 'status-ended';
     const statusText = sessionData.active ? '进行中' : '已结束';
-    
+
     // 构建玩家列表
     const playerNames = sessionData.players ? sessionData.players.join(', ') : '';
-    
+
     // 构建玩家得分列表
     let playersScoreHtml = '';
     if (sessionData.players_with_ids) {
         sessionData.players_with_ids.forEach(player => {
             const scoreClass = player.score > 0 ? 'positive' : (player.score < 0 ? 'negative' : 'neutral');
             const playerLinkClass = player.has_big_gold ? ' has-big-gold' : (player.has_small_gold ? ' has-small-gold' : '');
-            const playerLink = player.id ? 
-                `<a href="/player/${player.id}" class="player-link${playerLinkClass}">${player.name}</a>` : 
+            const playerLink = player.id ?
+                `<a href="/player/${player.id}" class="player-link${playerLinkClass}">${player.name}</a>` :
                 player.name;
-            
+
             playersScoreHtml += `
                 <div class="score-item">
                     <span>${playerLink}：</span>
@@ -467,15 +467,15 @@ function createSessionCard(sessionId, sessionData) {
             `;
         });
     }
-    
+
     // 构建结束时间行
     let endTimeHtml = '';
     if (!sessionData.active && sessionData.end_time) {
         endTimeHtml = `<div>结束时间: <span data-utc-time="${sessionData.end_time}">${sessionData.end_time}</span></div>`;
     }
-    
+
     const recordsCount = sessionData.records ? sessionData.records.length : (sessionData.rounds ? sessionData.rounds.length : 0);
-    
+
     card.innerHTML = `
         <div class="session-header">
             <h4>${sessionData.name || '未命名场次'}</h4>
@@ -491,7 +491,7 @@ function createSessionCard(sessionId, sessionData) {
         </div>
         <a href="/session_detail/${sessionId}" class="detail-btn">查看详情</a>
     `;
-    
+
     return card;
 }
 </script>

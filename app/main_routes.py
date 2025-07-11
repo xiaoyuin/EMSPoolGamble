@@ -5,7 +5,7 @@ import uuid
 from collections import defaultdict
 from flask import render_template, request, redirect, url_for, flash, jsonify
 from .models import (sessions, players, save_data, get_player_by_name, get_player_name,
-                     create_session, get_active_sessions, get_ended_sessions, 
+                     create_session, get_active_sessions, get_ended_sessions,
                      get_all_sessions, delete_session, get_session,
                      get_players_special_wins_batch, get_session_players)
 from .utils import get_utc_timestamp, generate_session_name
@@ -15,7 +15,7 @@ from . import APP_VERSION, APP_NAME, VERSION_DATE
 
 def register_main_routes(app):
     """注册主要路由"""
-    
+
     @app.route('/', methods=['GET', 'POST'])
     def index():
         # 进入首页，显示当前进行中的场次列表
@@ -25,7 +25,7 @@ def register_main_routes(app):
             if action == 'create_session':
                 # 从前端接收房间名称
                 session_name = request.form.get('session_name', '').strip()
-                
+
                 # 如果前端没有提供房间名称，使用服务器时间生成（降级处理）
                 if not session_name:
                     session_name = generate_session_name()
@@ -91,15 +91,18 @@ def register_main_routes(app):
         # 初始只加载前3个场次
         search_query = request.args.get('search', '').strip()
         selected_month = request.args.get('month', '').strip()  # 新增：月份参数
-        
+
         # 获取可用月份列表
-        from .models import get_available_months
+        from .models import get_available_months, get_all_sessions
         available_months = get_available_months()
-        
+
+        # 计算全时段总场次数
+        all_sessions_total = len(get_all_sessions())
+
         # 默认选择第一个可用月份（最新月份）
         if not selected_month and available_months:
             selected_month = available_months[0]['key']
-        
+
         # 计算全局玩家总分，支持月份筛选
         from .models import get_global_leaderboard
         if selected_month == 'all':
@@ -114,12 +117,12 @@ def register_main_routes(app):
                 end_date = f"{year + 1}-01-01"
             else:
                 end_date = f"{year}-{month + 1:02d}-01"
-            
+
             # 使用 SQLite 的 date 函数来处理月末
             import calendar
             last_day = calendar.monthrange(year, month)[1]
             end_date = f"{selected_month}-{last_day:02d}"
-            
+
             sorted_total_scores = get_global_leaderboard(start_date, end_date)
 
         # 收集所有玩家ID用于批量查询特殊胜利记录
@@ -130,7 +133,7 @@ def register_main_routes(app):
 
         # 获取所有场次用于计算总数
         all_sessions_list = get_all_sessions()
-        
+
         # 按月份筛选场次
         if selected_month and selected_month != 'all':
             filtered_sessions_by_month = []
@@ -142,7 +145,7 @@ def register_main_routes(app):
                     if session_month == selected_month:
                         filtered_sessions_by_month.append(session_data)
             all_sessions_list = filtered_sessions_by_month
-        
+
         # 如果有搜索查询，进一步过滤场次
         if search_query:
             filtered_sessions = []
@@ -152,7 +155,7 @@ def register_main_routes(app):
                 if search_query.lower() in session_name:
                     filtered_sessions.append(session_data)
                     continue
-                
+
                 # 搜索玩家名称 - 需要查询数据库获取玩家信息
                 session_id = session_data.get('session_id')
                 if session_id:
@@ -210,7 +213,8 @@ def register_main_routes(app):
                               total_sessions=total_sessions,
                               has_more=has_more,
                               available_months=available_months,
-                              selected_month=selected_month)
+                              selected_month=selected_month,
+                              all_sessions_total=all_sessions_total)
 
     @app.route('/api/load_more_sessions')
     def load_more_sessions():
@@ -219,10 +223,10 @@ def register_main_routes(app):
         selected_month = request.args.get('month', '').strip()  # 新增：月份参数
         offset = int(request.args.get('offset', 0))
         limit = 3  # 每次加载3个
-        
+
         # 获取所有场次
         all_sessions_list = get_all_sessions()
-        
+
         # 按月份筛选场次
         if selected_month and selected_month != 'all':
             filtered_sessions_by_month = []
@@ -234,7 +238,7 @@ def register_main_routes(app):
                     if session_month == selected_month:
                         filtered_sessions_by_month.append(session_data)
             all_sessions_list = filtered_sessions_by_month
-        
+
         # 如果有搜索查询，进一步过滤场次
         if search_query:
             filtered_sessions = []
@@ -244,7 +248,7 @@ def register_main_routes(app):
                 if search_query.lower() in session_name:
                     filtered_sessions.append(session_data)
                     continue
-                
+
                 # 搜索玩家名称 - 需要查询数据库获取玩家信息
                 session_id = session_data.get('session_id')
                 if session_id:
@@ -263,7 +267,7 @@ def register_main_routes(app):
 
         # 收集玩家ID
         all_player_ids = set()
-        
+
         # 获取场次的完整信息
         sessions_data = []
         for session_data in sessions_for_page:
@@ -360,17 +364,17 @@ def register_main_routes(app):
         # 获取场次名称用于提示
         session_data = get_session(session_id)
         session_name = session_data['name'] if session_data else '未知场次'
-        
+
         # 删除场次
         success = delete_session(session_id)
-        
+
         if success:
             # 保存数据（数据库自动保存）
             save_data()
             flash(f'场次 "{session_name}" 已删除', 'success')
         else:
             flash('删除场次失败', 'error')
-            
+
         return redirect(url_for('history'))
 
     @app.route('/api/scores')
