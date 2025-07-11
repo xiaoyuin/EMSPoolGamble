@@ -109,6 +109,24 @@
         .loading-text { color: #666; font-size: 0.9em; margin-top: 0.5em; display: none; }
         /* 搜索结果提示 */
         .search-result-info { color: #666; font-size: 0.9em; margin-top: 0.5em; }
+        /* 月份选择器样式 */
+        .month-selector { margin-bottom: 1em; }
+        .month-selector select {
+            width: 100%;
+            padding: 0.8em;
+            border: 1px solid #d9d9d9;
+            border-radius: 5px;
+            font-size: 1em;
+            background-color: white;
+            cursor: pointer;
+        }
+        .month-selector select:focus {
+            border-color: #1890ff;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+        }
+        .ranking-title { display: flex; align-items: center; gap: 0.5em; margin-bottom: 1em; }
+        .ranking-period { color: #666; font-size: 0.9em; font-weight: normal; }
     </style>
 </head>
 <body>
@@ -125,8 +143,30 @@
         {% endif %}
     {% endwith %}
 
+    <!-- 全页面月份筛选器 -->
+    <div class="month-selector">
+        <select id="month-selector" onchange="changeMonth()" title="选择时间范围">
+            {% for month in available_months %}
+            <option value="{{ month.key }}" {% if selected_month == month.key or (not selected_month and loop.first) %}selected{% endif %}>
+                {{ month.name }} - {{ month.count }}场
+            </option>
+            {% endfor %}
+            <option value="all" {% if selected_month == 'all' %}selected{% endif %}>全时段</option>
+        </select>
+    </div>
+
     <div class="card">
-        <h3>所有玩家累计分数排名</h3>
+        <div class="ranking-title">
+            <h3>玩家累计分数排名</h3>
+            <span class="ranking-period">
+                {% if selected_month == 'all' %}
+                (全时段)
+                {% else %}
+                ({{ selected_month.replace('-', '年') }}月)
+                {% endif %}
+            </span>
+        </div>
+        
         <table class="total-score-table">
             <tr>
                 <th>排名</th>
@@ -156,9 +196,12 @@
         <h3>搜索场次</h3>
         <form class="search-form" method="GET" action="/history" onsubmit="handleSearch(event)">
             <input type="text" name="search" value="{{ search_query or '' }}" placeholder="搜索场次名称或玩家名称..." title="搜索场次名称或玩家名称">
+            {% if selected_month %}
+            <input type="hidden" name="month" value="{{ selected_month }}">
+            {% endif %}
             <button type="submit" class="btn btn-primary">搜索</button>
             {% if search_query %}
-            <a href="/history" class="btn btn-secondary">清除</a>
+            <a href="/history{% if selected_month %}?month={{ selected_month }}{% endif %}" class="btn btn-secondary">清除</a>
             {% endif %}
         </form>
         {% if search_query %}
@@ -301,9 +344,32 @@ document.addEventListener('DOMContentLoaded', function() {
 // Ajax加载更多场次
 let currentOffset = {{ sessions|length }};
 const searchQuery = {{ (search_query or '')|tojson }};
+const selectedMonth = {{ (selected_month or '')|tojson }};
+
+function changeMonth() {
+    const selector = document.getElementById('month-selector');
+    const selectedMonth = selector.value;
+    const currentUrl = new URL(window.location);
+    
+    // 更新URL参数
+    if (selectedMonth) {
+        currentUrl.searchParams.set('month', selectedMonth);
+    } else {
+        currentUrl.searchParams.delete('month');
+    }
+    
+    // 保留搜索参数
+    const searchParam = currentUrl.searchParams.get('search');
+    if (searchParam) {
+        currentUrl.searchParams.set('search', searchParam);
+    }
+    
+    // 跳转到新URL
+    window.location.href = currentUrl.toString();
+}
 
 function handleSearch(event) {
-    // 让表单正常提交，页面会刷新并显示搜索结果
+    // 表单已包含必要的月份参数，直接提交
     return true;
 }
 
@@ -320,6 +386,9 @@ function loadMoreSessions() {
     let url = `/api/load_more_sessions?offset=${currentOffset}`;
     if (searchQuery) {
         url += `&search=${encodeURIComponent(searchQuery)}`;
+    }
+    if (selectedMonth) {
+        url += `&month=${encodeURIComponent(selectedMonth)}`;
     }
     
     fetch(url)

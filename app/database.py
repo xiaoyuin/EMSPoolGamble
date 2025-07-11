@@ -783,8 +783,13 @@ class DatabaseManager:
                 'total_score': total_score
             }
     
-    def get_global_leaderboard(self) -> List[Dict]:
-        """获取全局排行榜（正确处理多败者记录，使用有效胜率）"""
+    def get_global_leaderboard(self, start_date: str = None, end_date: str = None) -> List[Dict]:
+        """获取全局排行榜（正确处理多败者记录，使用有效胜率）
+        
+        Args:
+            start_date: 开始日期 (YYYY-MM-DD)，None表示不限制
+            end_date: 结束日期 (YYYY-MM-DD)，None表示不限制
+        """
         with self.get_connection() as conn:
             cursor = conn.cursor()
             
@@ -797,12 +802,26 @@ class DatabaseManager:
                 player_id = player['player_id']
                 player_name = player['name']
                 
-                # 获取玩家的所有相关记录
-                cursor.execute('''
+                # 构建查询条件
+                date_filter = ""
+                params = [player_id, player_id, player_id]
+                
+                if start_date and end_date:
+                    date_filter = "AND DATE(gr.created_at) >= ? AND DATE(gr.created_at) <= ?"
+                    params.extend([start_date, end_date])
+                elif start_date:
+                    date_filter = "AND DATE(gr.created_at) >= ?"
+                    params.append(start_date)
+                elif end_date:
+                    date_filter = "AND DATE(gr.created_at) <= ?"
+                    params.append(end_date)
+                
+                # 获取玩家的相关记录（支持日期过滤）
+                cursor.execute(f'''
                     SELECT winner_id, loser_id, loser_id2, score
-                    FROM game_records
-                    WHERE winner_id = ? OR loser_id = ? OR loser_id2 = ?
-                ''', (player_id, player_id, player_id))
+                    FROM game_records gr
+                    WHERE (winner_id = ? OR loser_id = ? OR loser_id2 = ?) {date_filter}
+                ''', params)
                 
                 total_games = 0
                 wins = 0
@@ -862,6 +881,34 @@ class DatabaseManager:
             # 按总分排序
             leaderboard.sort(key=lambda x: x['total_score'], reverse=True)
             return leaderboard
+    
+    def get_available_months(self) -> List[Dict]:
+        """获取有场次记录的月份列表，统计每月的场次数量"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT 
+                    strftime('%Y-%m', created_at) as month_key,
+                    CAST(strftime('%Y', created_at) AS INTEGER) as year,
+                    CAST(strftime('%m', created_at) AS INTEGER) as month,
+                    COUNT(DISTINCT session_id) as session_count
+                FROM sessions 
+                GROUP BY strftime('%Y-%m', created_at)
+                ORDER BY month_key DESC
+            ''')
+            
+            months = []
+            for row in cursor.fetchall():
+                # 格式化月份名称为 "XXXX年X月"（去掉前导零）
+                month_name = f"{row['year']}年{row['month']}月"
+                months.append({
+                    'key': row['month_key'],
+                    'name': month_name, 
+                    'count': row['session_count']
+                })
+            
+            return months
     
     def get_player_effective_win_rate(self, player_id: str) -> Optional[float]:
         """计算玩家的有效胜率（排除1分的对局，正确处理多败者）"""

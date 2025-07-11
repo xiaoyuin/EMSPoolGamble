@@ -180,9 +180,14 @@ def get_player_stats(player_id: str) -> Dict:
     return db.get_player_stats(player_id)
 
 
-def get_global_leaderboard() -> List[Dict]:
+def get_global_leaderboard(start_date: str = None, end_date: str = None) -> List[Dict]:
     """获取全局排行榜"""
-    return db.get_global_leaderboard()
+    return db.get_global_leaderboard(start_date, end_date)
+
+
+def get_available_months() -> List[Dict]:
+    """获取有游戏记录的月份列表"""
+    return db.get_available_months()
 
 
 def get_player_by_id(player_id: str) -> Optional[Dict]:

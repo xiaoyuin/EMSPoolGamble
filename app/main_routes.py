@@ -90,10 +90,37 @@ def register_main_routes(app):
         # 展示所有场次和分数历史
         # 初始只加载前3个场次
         search_query = request.args.get('search', '').strip()
+        selected_month = request.args.get('month', '').strip()  # 新增：月份参数
         
-        # 计算全局玩家总分，包含player_id
+        # 获取可用月份列表
+        from .models import get_available_months
+        available_months = get_available_months()
+        
+        # 默认选择第一个可用月份（最新月份）
+        if not selected_month and available_months:
+            selected_month = available_months[0]['key']
+        
+        # 计算全局玩家总分，支持月份筛选
         from .models import get_global_leaderboard
-        sorted_total_scores = get_global_leaderboard()
+        if selected_month == 'all':
+            # 全时段
+            sorted_total_scores = get_global_leaderboard()
+        else:
+            # 按月份筛选
+            start_date = f"{selected_month}-01"
+            # 计算月末日期
+            year, month = map(int, selected_month.split('-'))
+            if month == 12:
+                end_date = f"{year + 1}-01-01"
+            else:
+                end_date = f"{year}-{month + 1:02d}-01"
+            
+            # 使用 SQLite 的 date 函数来处理月末
+            import calendar
+            last_day = calendar.monthrange(year, month)[1]
+            end_date = f"{selected_month}-{last_day:02d}"
+            
+            sorted_total_scores = get_global_leaderboard(start_date, end_date)
 
         # 收集所有玩家ID用于批量查询特殊胜利记录
         all_player_ids = set()
@@ -104,7 +131,19 @@ def register_main_routes(app):
         # 获取所有场次用于计算总数
         all_sessions_list = get_all_sessions()
         
-        # 如果有搜索查询，过滤场次
+        # 按月份筛选场次
+        if selected_month and selected_month != 'all':
+            filtered_sessions_by_month = []
+            for session_data in all_sessions_list:
+                session_date = session_data.get('created_at', '')
+                if session_date:
+                    # 提取日期的年月部分 (YYYY-MM)
+                    session_month = session_date[:7]  # 取前7个字符，如 "2024-07"
+                    if session_month == selected_month:
+                        filtered_sessions_by_month.append(session_data)
+            all_sessions_list = filtered_sessions_by_month
+        
+        # 如果有搜索查询，进一步过滤场次
         if search_query:
             filtered_sessions = []
             for session_data in all_sessions_list:
@@ -169,19 +208,34 @@ def register_main_routes(app):
                               app_version=APP_VERSION,
                               search_query=search_query,
                               total_sessions=total_sessions,
-                              has_more=has_more)
+                              has_more=has_more,
+                              available_months=available_months,
+                              selected_month=selected_month)
 
     @app.route('/api/load_more_sessions')
     def load_more_sessions():
         """API接口：加载更多场次"""
         search_query = request.args.get('search', '').strip()
+        selected_month = request.args.get('month', '').strip()  # 新增：月份参数
         offset = int(request.args.get('offset', 0))
         limit = 3  # 每次加载3个
         
         # 获取所有场次
         all_sessions_list = get_all_sessions()
         
-        # 如果有搜索查询，过滤场次
+        # 按月份筛选场次
+        if selected_month and selected_month != 'all':
+            filtered_sessions_by_month = []
+            for session_data in all_sessions_list:
+                session_date = session_data.get('created_at', '')
+                if session_date:
+                    # 提取日期的年月部分 (YYYY-MM)
+                    session_month = session_date[:7]  # 取前7个字符，如 "2024-07"
+                    if session_month == selected_month:
+                        filtered_sessions_by_month.append(session_data)
+            all_sessions_list = filtered_sessions_by_month
+        
+        # 如果有搜索查询，进一步过滤场次
         if search_query:
             filtered_sessions = []
             for session_data in all_sessions_list:
