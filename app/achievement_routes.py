@@ -49,6 +49,14 @@ def register_achievement_routes(app):
                 'icon': '👑',
                 'count': stats['big_gold_masters'],
                 'category': 'master'
+            },
+            {
+                'id': 'big_gold_legend',
+                'name': '大金传奇',
+                'description': '获得10次或以上大金胜利的玩家',
+                'icon': '🏛️',
+                'count': stats['big_gold_legends'],
+                'category': 'legend'
             }
         ]
 
@@ -157,6 +165,32 @@ def register_achievement_routes(app):
         }
 
         return render_template('achievements/big_gold_master.html',
+                             achievement=achievement_config,
+                             achievement_players=achievement_players,
+                             all_records=all_big_gold_records,
+                             app_version=APP_VERSION)
+
+    @app.route('/achievement/big_gold_legend')
+    def achievement_big_gold_legend():
+        """大金传奇成就详情"""
+        # 获取大金传奇玩家
+        achievement_players = get_achievement_master_players('big_gold_legend')
+
+        # 获取大金记录（用于展示总记录）
+        all_big_gold_records = get_achievement_records('big_gold')
+
+        # 成就配置
+        achievement_config = {
+            'id': 'big_gold_legend',
+            'name': '大金传奇',
+            'description': '获得10次或以上大金胜利的玩家。真正的台球传奇，技术和经验的完美结合。',
+            'icon': '🏛️',
+            'rule': '累计获得10次或以上大金胜利',
+            'color_theme': 'legend',
+            'requirement_count': 10
+        }
+
+        return render_template('achievements/big_gold_legend.html',
                              achievement=achievement_config,
                              achievement_players=achievement_players,
                              all_records=all_big_gold_records,

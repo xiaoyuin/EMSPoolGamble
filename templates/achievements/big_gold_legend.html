@@ -7,7 +7,6 @@
     <style>
         body { font-family: sans-serif; max-width: 700px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
         .card { background: #ffffff; border-radius: 10px; padding: 1.2em; margin-top: 1.5em; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { text-align: center; color: #333; margin-bottom: 1.5em; }
         .links { margin-top: 1em; text-align: center; }
         .links a { color: #1890ff; text-decoration: none; margin: 0 0.5em; }
         .links a:hover { text-decoration: underline; }
@@ -16,24 +15,24 @@
         .achievement-header {
             text-align: center;
             padding: 2.5em 1em;
-            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+            background: linear-gradient(135deg, #8B4513 0%, #DAA520 50%, #FFD700 100%);
             color: white;
             border-radius: 15px;
             margin-bottom: 2em;
-            box-shadow: 0 4px 20px rgba(116, 185, 255, 0.3);
+            box-shadow: 0 4px 20px rgba(218, 165, 32, 0.4);
+            border: 2px solid #DAA520;
         }
 
         .achievement-icon {
             font-size: 4em;
             margin-bottom: 0.5em;
             display: block;
-            animation: pulse 2s infinite;
+            animation: glow 2s ease-in-out infinite alternate;
         }
 
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
+        @keyframes glow {
+            from { text-shadow: 0 0 10px rgba(255, 255, 255, 0.5); }
+            to { text-shadow: 0 0 20px rgba(255, 255, 255, 0.8); }
         }
 
         .achievement-name {
@@ -57,169 +56,148 @@
             margin-bottom: 0.5em;
         }
 
-
-
         .stats-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 1em;
             margin-bottom: 2em;
         }
 
         .stat-card {
-            background: #e6f7ff;
+            background: #FFF8DC;
             padding: 1.5em;
             border-radius: 10px;
             text-align: center;
-            border-left: 4px solid #74b9ff;
+            border-left: 4px solid #DAA520;
         }
 
         .stat-number {
-            font-size: 2.5em;
+            font-size: 2em;
             font-weight: bold;
-            color: #0984e3;
+            color: #DAA520;
             margin-bottom: 0.2em;
         }
 
         .stat-label {
             color: #666;
-            font-size: 1em;
+            font-size: 0.9em;
             font-weight: 500;
         }
 
-        .achievers-list {
+        .legends-list {
             background: #fff;
             border-radius: 10px;
             overflow: hidden;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
-        .achiever-item {
+        .legend-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 1em 1.2em;
+            padding: 1.5em;
             border-bottom: 1px solid #f0f0f0;
-            transition: background-color 0.2s;
+            transition: all 0.3s ease;
         }
 
-        .achiever-item:last-child {
+        .legend-item:last-child {
             border-bottom: none;
         }
 
-        .achiever-item:hover {
-            background-color: #fafafa;
+        .legend-item:hover {
+            background: linear-gradient(90deg, #FFF8DC 0%, #ffffff 100%);
+            transform: translateX(5px);
         }
 
-        .achiever-info {
+        .legend-info {
             display: flex;
             align-items: center;
             gap: 1em;
         }
 
-        .achiever-rank {
-            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+        .legend-rank {
+            background: linear-gradient(135deg, #DAA520 0%, #FFD700 100%);
             color: white;
-            width: 35px;
-            height: 35px;
+            width: 45px;
+            height: 45px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: bold;
-            font-size: 0.9em;
+            font-size: 1.1em;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+        }
+
+        .legend-rank.supreme {
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            transform: scale(1.2);
+            box-shadow: 0 4px 8px rgba(255, 215, 0, 0.6);
+        }
+
+        .legend-name {
+            font-weight: bold;
+            color: #333;
+            font-size: 1.3em;
+        }
+
+        .legend-title {
+            background: linear-gradient(45deg, #DAA520, #FFD700);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            margin-left: 0.5em;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
 
-        .achiever-rank.rank-1 {
-            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
-            transform: scale(1.1);
-        }
-
-        .achiever-name {
-            font-weight: bold;
-            color: #333;
-            font-size: 1.1em;
-        }
-
-        .achiever-stats {
+        .legend-stats {
             text-align: right;
             color: #666;
         }
 
         .achievement-count {
             font-weight: bold;
-            color: #0984e3;
-            font-size: 1.1em;
+            color: #DAA520;
+            font-size: 1.4em;
         }
 
         .first-time {
-            font-size: 0.85em;
-            margin-top: 0.2em;
+            font-size: 0.8em;
+            margin-top: 0.3em;
         }
 
-        .recent-records {
-            max-height: 400px;
-            overflow-y: auto;
+        .requirement-info {
+            background: linear-gradient(135deg, #FFF8DC 0%, #FFFACD 100%);
+            border-radius: 10px;
+            padding: 1.5em;
+            margin-bottom: 2em;
+            border-left: 4px solid #DAA520;
         }
 
-        .record-item {
-            background: linear-gradient(90deg, #e6f7ff 0%, #ffffff 100%);
-            border-radius: 8px;
-            padding: 1em;
-            margin-bottom: 0.8em;
-            border-left: 4px solid #74b9ff;
-            box-shadow: 0 1px 4px rgba(116, 185, 255, 0.2);
-        }
-
-        .record-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .requirement-title {
+            font-weight: bold;
+            color: #DAA520;
             margin-bottom: 0.5em;
+            font-size: 1.1em;
         }
 
-        .record-player {
-            font-weight: bold;
-            color: #333;
-        }
-
-        .record-date {
-            color: #999;
-            font-size: 0.85em;
-        }
-
-        .record-details {
-            font-size: 0.9em;
+        .requirement-text {
             color: #666;
-        }
-
-        .session-link {
-            color: #0984e3;
-            text-decoration: none;
-            font-weight: 500;
-        }
-
-        .session-link:hover {
-            text-decoration: underline;
-        }
-
-        .special-score-badge {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 0.75em;
-            font-weight: bold;
-            background: #ffeaa7;
-            color: #d35400;
-            margin-left: 0.5em;
+            line-height: 1.5;
         }
 
         .no-data {
             text-align: center;
             color: #999;
             font-style: italic;
-            padding: 2em;
+            padding: 4em;
+        }
+
+        .no-data-icon {
+            font-size: 4em;
+            margin-bottom: 0.5em;
+            opacity: 0.5;
         }
 
         .flash-message {
@@ -259,7 +237,7 @@
             }
 
             .stats-grid {
-                grid-template-columns: 1fr 1fr;
+                grid-template-columns: 1fr;
                 gap: 0.8em;
             }
 
@@ -267,27 +245,33 @@
                 padding: 1.2em;
             }
 
-            .records-list .record-item {
+            .legend-item {
                 padding: 1.2em;
                 flex-direction: column;
                 align-items: flex-start;
             }
 
-            .record-info {
+            .legend-info {
                 margin-bottom: 0.8em;
                 width: 100%;
             }
 
-            .record-time {
+            .legend-stats {
                 text-align: left;
                 width: 100%;
             }
 
-            .record-player {
+            .legend-rank {
+                width: 40px;
+                height: 40px;
+                font-size: 1em;
+            }
+
+            .legend-name {
                 font-size: 1.1em;
             }
 
-            .record-score {
+            .achievement-count {
                 font-size: 1.2em;
             }
         }
@@ -311,68 +295,42 @@
         <div class="achievement-rule">🎯 达成条件：{{ achievement.rule }}</div>
     </div>
 
-    <!-- 统计信息 -->
-    <div class="stats-grid">
-        <div class="stat-card">
-            <div class="stat-number">{{ achievement_players|length }}</div>
-            <div class="stat-label">达成玩家</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-number">{{ achievement_records|length }}</div>
-            <div class="stat-label">总达成次数</div>
-        </div>
-    </div>
-
-    <!-- 达成玩家排行榜 -->
+    <!-- 传奇排行榜 -->
     {% if achievement_players %}
     <div class="card">
-        <h3>🏆 小金玩家排行榜</h3>
-        <div class="achievers-list">
+        <h3>🏛️ 大金传奇殿堂</h3>
+        <div class="legends-list">
             {% for player in achievement_players %}
-            <div class="achiever-item">
-                <div class="achiever-info">
-                    <div class="achiever-rank">{{ loop.index }}</div>
-                    <div class="achiever-name">{{ player.name }}</div>
+            <div class="legend-item">
+                <div class="legend-info">
+                    <div class="legend-rank {% if loop.index == 1 %}supreme{% endif %}">{{ loop.index }}</div>
+                    <div>
+                        <div class="legend-name">
+                            {{ player.name }}
+                            <span class="legend-title">传奇</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="achiever-stats">
-                    <div class="achievement-count">{{ player.achievement_count }} 次小金</div>
+                <div class="legend-stats">
+                    <div class="achievement-count">{{ player.achievement_count }} 次</div>
                     <div class="first-time" data-utc-time="{{ player.first_achievement_date }}">
-                        首次：{{ player.first_achievement_date }}
+                        封神：{{ player.first_achievement_date }}
                     </div>
                 </div>
             </div>
             {% endfor %}
         </div>
     </div>
-    {% endif %}
-
-    <!-- 最近达成记录 -->
+    {% else %}
     <div class="card">
-        <h3>📝 最近达成记录</h3>
-        {% if achievement_records %}
-            <div class="recent-records">
-                {% for record in achievement_records %}
-                <div class="record-item">
-                    <div class="record-header">
-                        <div>
-                            <span class="record-player">{{ record.winner_name }}</span>
-                            <span class="special-score-badge">{{ record.special_score }}</span>
-                        </div>
-                        <div class="record-date" data-utc-time="{{ record.created_at }}">{{ record.created_at }}</div>
-                    </div>
-                    <div class="record-details">
-                        在 <a href="/session_detail/{{ record.session_id }}" class="session-link">{{ record.session_name }}</a>
-                        中战胜 {{ record.loser_name }} 获得 {{ record.score }} 分
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <div class="no-data">
-                暂无小金达成记录
-            </div>
-        {% endif %}
+        <h3>🏛️ 大金传奇殿堂</h3>
+        <div class="no-data">
+            <div class="no-data-icon">🏛️</div>
+            <div>传奇殿堂空无一人</div>
+            <small>等待第一位传奇的诞生...<br>成为达成 {{ achievement.requirement_count }} 次大金的至尊传奇！</small>
+        </div>
     </div>
+    {% endif %}
 
     <div class="links">
         <a href="/achievements">返回成就列表</a> |
@@ -382,7 +340,9 @@
 
     <div class="footer">
         <p>© 2025 EMS Pool Gamble</p>
-    </div>    <script>
+    </div>
+
+    <script>
         // 将UTC时间转换为本地时间显示 - 兼容iOS Chrome
         function convertUtcToLocal() {
             // 转换所有带有 data-utc-time 属性的元素

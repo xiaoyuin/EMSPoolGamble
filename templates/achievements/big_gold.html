@@ -16,18 +16,23 @@
         .achievement-header {
             text-align: center;
             padding: 2.5em 1em;
-            background: linear-gradient(135deg, #ffd700 0%, #ffb347 100%);
-            color: #8b4513;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
             border-radius: 15px;
             margin-bottom: 2em;
-            box-shadow: 0 4px 20px rgba(255, 215, 0, 0.3);
+            box-shadow: 0 4px 20px rgba(255, 107, 107, 0.3);
         }
 
         .achievement-icon {
             font-size: 4em;
             margin-bottom: 0.5em;
             display: block;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { text-shadow: 0 0 10px rgba(255, 255, 255, 0.5); }
+            to { text-shadow: 0 0 20px rgba(255, 255, 255, 0.8); }
         }
 
         .achievement-name {
@@ -45,12 +50,11 @@
         }
 
         .achievement-rule {
-            background: rgba(139, 69, 19, 0.15);
+            background: rgba(255, 255, 255, 0.15);
             padding: 0.8em;
             border-radius: 10px;
             font-size: 1em;
             margin-bottom: 0.5em;
-            border: 1px solid rgba(139, 69, 19, 0.2);
         }
 
 
@@ -63,24 +67,22 @@
         }
 
         .stat-card {
-            background: #fff8dc;
+            background: #ffe0e0;
             padding: 1.5em;
             border-radius: 10px;
             text-align: center;
-            border-left: 4px solid #ffd700;
-            box-shadow: 0 2px 8px rgba(255, 215, 0, 0.2);
+            border-left: 4px solid #ff6b6b;
         }
 
         .stat-number {
             font-size: 2.5em;
             font-weight: bold;
-            color: #daa520;
+            color: #ee5a24;
             margin-bottom: 0.2em;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
         }
 
         .stat-label {
-            color: #8b4513;
+            color: #666;
             font-size: 1em;
             font-weight: 500;
         }
@@ -106,7 +108,7 @@
         }
 
         .achiever-item:hover {
-            background: linear-gradient(90deg, #fff8dc 0%, #ffffff 100%);
+            background: linear-gradient(90deg, #ffe0e0 0%, #ffffff 100%);
         }
 
         .achiever-info {
@@ -116,8 +118,8 @@
         }
 
         .achiever-rank {
-            background: linear-gradient(135deg, #ffd700 0%, #daa520 100%);
-            color: #8b4513;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
             width: 35px;
             height: 35px;
             border-radius: 50%;
@@ -130,7 +132,7 @@
         }
 
         .achiever-rank.rank-1 {
-            background: linear-gradient(135deg, #ffd700 0%, #ffb347 100%);
+            background: linear-gradient(135deg, #ffd700 0%, #ff6b6b 100%);
             transform: scale(1.1);
         }
 
@@ -147,7 +149,7 @@
 
         .achievement-count {
             font-weight: bold;
-            color: #daa520;
+            color: #ee5a24;
             font-size: 1.1em;
         }
 
@@ -162,12 +164,12 @@
         }
 
         .record-item {
-            background: linear-gradient(90deg, #fff8dc 0%, #ffffff 100%);
+            background: linear-gradient(90deg, #ffe0e0 0%, #ffffff 100%);
             border-radius: 8px;
             padding: 1em;
             margin-bottom: 0.8em;
-            border-left: 4px solid #ffd700;
-            box-shadow: 0 1px 4px rgba(255, 215, 0, 0.2);
+            border-left: 4px solid #ff6b6b;
+            box-shadow: 0 1px 4px rgba(255, 107, 107, 0.2);
         }
 
         .record-header {
@@ -193,7 +195,7 @@
         }
 
         .session-link {
-            color: #daa520;
+            color: #ee5a24;
             text-decoration: none;
             font-weight: 500;
         }
@@ -254,6 +256,60 @@
             border: 1px solid #ffccc7;
             color: #ff4d4f;
         }
+
+        /* 移动端样式优化 */
+        @media (max-width: 768px) {
+            body { padding: 0.8em; }
+
+            .achievement-header {
+                padding: 2em 1em;
+            }
+
+            .achievement-icon {
+                font-size: 3em;
+            }
+
+            .achievement-name {
+                font-size: 1.5em;
+            }
+
+            .achievement-description {
+                font-size: 1em;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 0.8em;
+            }
+
+            .stat-card {
+                padding: 1.2em;
+            }
+
+            .records-list .record-item {
+                padding: 1.2em;
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .record-info {
+                margin-bottom: 0.8em;
+                width: 100%;
+            }
+
+            .record-time {
+                text-align: left;
+                width: 100%;
+            }
+
+            .record-player {
+                font-size: 1.1em;
+            }
+
+            .record-score {
+                font-size: 1.2em;
+            }
+        }
     </style>
 </head>
 <body>
@@ -278,18 +334,18 @@
     <div class="stats-grid">
         <div class="stat-card">
             <div class="stat-number">{{ achievement_players|length }}</div>
-            <div class="stat-label">大金传奇</div>
+            <div class="stat-label">达成玩家</div>
         </div>
         <div class="stat-card">
             <div class="stat-number">{{ achievement_records|length }}</div>
-            <div class="stat-label">传奇时刻</div>
+            <div class="stat-label">总达成次数</div>
         </div>
     </div>
 
     <!-- 达成玩家排行榜 -->
     {% if achievement_players %}
     <div class="card">
-        <h3>👑 大金传奇榜</h3>
+        <h3>🏆 大金玩家排行榜</h3>
         <div class="achievers-list">
             {% for player in achievement_players %}
             <div class="achiever-item">
@@ -298,9 +354,6 @@
                     <div>
                         <div class="achiever-name">
                             {{ player.name }}
-                            {% if player.achievement_count >= 3 %}
-                                <span class="legendary-badge">传奇玩家</span>
-                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -318,7 +371,7 @@
 
     <!-- 最近达成记录 -->
     <div class="card">
-        <h3>⚡ 传奇时刻记录</h3>
+        <h3>📋 最近达成记录</h3>
         {% if achievement_records %}
             <div class="recent-records">
                 {% for record in achievement_records %}
@@ -332,15 +385,15 @@
                     </div>
                     <div class="record-details">
                         在 <a href="/session_detail/{{ record.session_id }}" class="session-link">{{ record.session_name }}</a>
-                        中战胜 {{ record.loser_name }} 获得 {{ record.score }} 分
+                        中战胜 {{ record.loser_display }} 获得 {{ record.score }} 分
                     </div>
                 </div>
                 {% endfor %}
             </div>
         {% else %}
             <div class="no-data">
-                暂无大金传奇记录<br>
-                <small>等待第一位传奇玩家的诞生...</small>
+                暂无大金记录<br>
+                <small>等待第一次大金的诞生...</small>
             </div>
         {% endif %}
     </div>
@@ -352,7 +405,7 @@
     </div>
 
     <div class="footer">
-        <p>© 2025 EMS Pool Gamble | {{ achievement.name }} v{{ app_version }}</p>
+        <p>© 2025 EMS Pool Gamble</p>
     </div>
 
     <script>

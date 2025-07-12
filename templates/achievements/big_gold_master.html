@@ -15,23 +15,18 @@
         .achievement-header {
             text-align: center;
             padding: 2.5em 1em;
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-            color: white;
+            background: linear-gradient(135deg, #ffd700 0%, #ffb347 100%);
+            color: #8b4513;
             border-radius: 15px;
             margin-bottom: 2em;
-            box-shadow: 0 4px 20px rgba(255, 107, 107, 0.3);
+            box-shadow: 0 4px 20px rgba(255, 215, 0, 0.3);
         }
 
         .achievement-icon {
             font-size: 4em;
             margin-bottom: 0.5em;
             display: block;
-            animation: glow 2s ease-in-out infinite alternate;
-        }
-
-        @keyframes glow {
-            from { text-shadow: 0 0 10px rgba(255, 255, 255, 0.5); }
-            to { text-shadow: 0 0 20px rgba(255, 255, 255, 0.8); }
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
         }
 
         .achievement-name {
@@ -48,11 +43,12 @@
         }
 
         .achievement-rule {
-            background: rgba(255, 255, 255, 0.15);
+            background: rgba(139, 69, 19, 0.15);
             padding: 0.8em;
             border-radius: 10px;
             font-size: 1em;
             margin-bottom: 0.5em;
+            border: 1px solid rgba(139, 69, 19, 0.2);
         }
 
 
@@ -65,122 +61,137 @@
         }
 
         .stat-card {
-            background: #ffe0e0;
+            background: #fff8dc;
             padding: 1.5em;
             border-radius: 10px;
             text-align: center;
-            border-left: 4px solid #ff6b6b;
+            border-left: 4px solid #ffd700;
+            box-shadow: 0 2px 8px rgba(255, 215, 0, 0.2);
         }
 
         .stat-number {
             font-size: 2em;
             font-weight: bold;
-            color: #ee5a24;
+            color: #daa520;
             margin-bottom: 0.2em;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
         }
 
         .stat-label {
-            color: #666;
+            color: #8b4513;
             font-size: 0.9em;
             font-weight: 500;
         }
 
-        .legends-list {
+        .masters-list {
             background: #fff;
             border-radius: 10px;
             overflow: hidden;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
-        .legend-item {
+        .master-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 1.5em;
+            padding: 1.2em;
             border-bottom: 1px solid #f0f0f0;
             transition: all 0.3s ease;
         }
 
-        .legend-item:last-child {
+        .master-item:last-child {
             border-bottom: none;
         }
 
-        .legend-item:hover {
-            background: linear-gradient(90deg, #ffe0e0 0%, #ffffff 100%);
+        .master-item:hover {
+            background: linear-gradient(90deg, #fff8dc 0%, #ffffff 100%);
             transform: translateX(5px);
         }
 
-        .legend-info {
+        .master-info {
             display: flex;
             align-items: center;
             gap: 1em;
         }
 
-        .legend-rank {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-            color: white;
-            width: 45px;
-            height: 45px;
+        .master-rank {
+            background: linear-gradient(135deg, #ffd700 0%, #daa520 100%);
+            color: #8b4513;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: bold;
-            font-size: 1.1em;
-            box-shadow: 0 3px 6px rgba(0,0,0,0.3);
-        }
-
-        .legend-rank.supreme {
-            background: linear-gradient(135deg, #ffd700 0%, #ff6b6b 100%);
-            transform: scale(1.2);
-            box-shadow: 0 4px 8px rgba(255, 215, 0, 0.4);
-        }
-
-        .legend-name {
-            font-weight: bold;
-            color: #333;
-            font-size: 1.3em;
-        }
-
-        .legend-title {
-            background: linear-gradient(45deg, #ff6b6b, #ffd700);
-            color: white;
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-size: 0.8em;
-            margin-left: 0.5em;
+            font-size: 1em;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
 
-        .legend-stats {
+        .master-rank.top-3 {
+            background: linear-gradient(135deg, #ffd700 0%, #ff8c00 100%);
+            transform: scale(1.1);
+        }
+
+        .master-name {
+            font-weight: bold;
+            color: #333;
+            font-size: 1.2em;
+        }
+
+        .master-title {
+            background: #ffd700;
+            color: #8b4513;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.75em;
+            margin-left: 0.5em;
+        }
+
+        .master-stats {
             text-align: right;
             color: #666;
         }
 
         .achievement-count {
             font-weight: bold;
-            color: #ee5a24;
-            font-size: 1.4em;
+            color: #daa520;
+            font-size: 1.3em;
+        }
+
+        .progress-bar {
+            width: 100px;
+            height: 6px;
+            background: #f0f0f0;
+            border-radius: 3px;
+            margin: 0.5em 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ffd700 0%, #daa520 100%);
+            border-radius: 3px;
+            transition: width 0.3s ease;
         }
 
         .first-time {
             font-size: 0.8em;
-            margin-top: 0.3em;
+            margin-top: 0.2em;
         }
 
         .requirement-info {
-            background: linear-gradient(135deg, #ffe0e0 0%, #fff5f5 100%);
+            background: #f8f9fa;
             border-radius: 10px;
             padding: 1.5em;
             margin-bottom: 2em;
-            border-left: 4px solid #ff6b6b;
+            border-left: 4px solid #ffd700;
         }
 
         .requirement-title {
             font-weight: bold;
-            color: #ee5a24;
+            color: #daa520;
             margin-bottom: 0.5em;
-            font-size: 1.1em;
         }
 
         .requirement-text {
@@ -192,13 +203,24 @@
             text-align: center;
             color: #999;
             font-style: italic;
-            padding: 4em;
+            padding: 3em;
         }
 
         .no-data-icon {
-            font-size: 4em;
+            font-size: 3em;
             margin-bottom: 0.5em;
             opacity: 0.5;
+        }
+
+        .stats-overview {
+            margin-top: 1em;
+        }
+
+        .near-master {
+            margin: 0.5em 0;
+            padding: 0.5em;
+            background: #f8f9fa;
+            border-radius: 5px;
         }
 
         .flash-message {
@@ -215,6 +237,66 @@
             background-color: #fff2f0;
             border: 1px solid #ffccc7;
             color: #ff4d4f;
+        }
+
+        /* 移动端样式优化 */
+        @media (max-width: 768px) {
+            body { padding: 0.8em; }
+
+            .achievement-header {
+                padding: 2em 1em;
+            }
+
+            .achievement-icon {
+                font-size: 3em;
+            }
+
+            .achievement-name {
+                font-size: 1.5em;
+            }
+
+            .achievement-description {
+                font-size: 1em;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 0.8em;
+            }
+
+            .stat-card {
+                padding: 1.2em;
+            }
+
+            .master-item {
+                padding: 1.2em;
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .master-info {
+                margin-bottom: 0.8em;
+                width: 100%;
+            }
+
+            .master-stats {
+                text-align: left;
+                width: 100%;
+            }
+
+            .master-rank {
+                width: 40px;
+                height: 40px;
+                font-size: 1em;
+            }
+
+            .master-name {
+                font-size: 1.1em;
+            }
+
+            .achievement-count {
+                font-size: 1.2em;
+            }
         }
     </style>
 </head>
@@ -236,71 +318,64 @@
         <div class="achievement-rule">🎯 达成条件：{{ achievement.rule }}</div>
     </div>
 
-    <!-- 成就要求说明 -->
-    <div class="requirement-info">
-        <div class="requirement-title">👑 传奇成就详解</div>
-        <div class="requirement-text">
-            大金达人需要累计获得 <strong>{{ achievement.requirement_count }}</strong> 次大金胜利。
-            这是台球游戏中的最高荣誉，代表着绝对的技术统治力和无可争议的王者地位。
-            只有真正的传奇玩家才能问鼎这一至高成就！
-        </div>
-    </div>
-
-    <!-- 统计信息 -->
-    <div class="stats-grid">
-        <div class="stat-card">
-            <div class="stat-number">{{ achievement_players|length }}</div>
-            <div class="stat-label">传奇数量</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-number">
-                {% set total_count = 0 %}
-                {% for player in achievement_players %}
-                    {% set total_count = total_count + player.achievement_count %}
-                {% endfor %}
-                {{ total_count }}
-            </div>
-            <div class="stat-label">传奇时刻</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-number">{{ achievement.requirement_count }}</div>
-            <div class="stat-label">传奇门槛</div>
-        </div>
-    </div>
-
-    <!-- 传奇排行榜 -->
+    <!-- 达人排行榜 -->
     {% if achievement_players %}
     <div class="card">
-        <h3>👑 大金传奇殿堂</h3>
-        <div class="legends-list">
+        <h3>🏆 大金达人排行榜</h3>
+        <div class="masters-list">
             {% for player in achievement_players %}
-            <div class="legend-item">
-                <div class="legend-info">
-                    <div class="legend-rank {% if loop.index == 1 %}supreme{% endif %}">{{ loop.index }}</div>
+            <div class="master-item">
+                <div class="master-info">
+                    <div class="master-rank {% if loop.index <= 3 %}top-3{% endif %}">{{ loop.index }}</div>
                     <div>
-                        <div class="legend-name">
+                        <div class="master-name">
                             {{ player.name }}
-                            <span class="legend-title">传奇</span>
+                            <span class="master-title">达人</span>
                         </div>
                     </div>
                 </div>
-                <div class="legend-stats">
-                    <div class="achievement-count">{{ player.achievement_count }} 次</div>
-                    <div class="first-time" data-utc-time="{{ player.first_achievement_date }}">
-                        封神：{{ player.first_achievement_date }}
+                    <div class="master-stats">
+                        <div class="achievement-count">{{ player.achievement_count }} 次</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill"></div>
+                        </div>
+                        <div class="first-time" data-utc-time="{{ player.first_achievement_date }}">
+                            达成：{{ player.first_achievement_date }}
+                        </div>
                     </div>
-                </div>
             </div>
             {% endfor %}
         </div>
     </div>
     {% else %}
     <div class="card">
-        <h3>👑 大金传奇殿堂</h3>
+        <h3>🏆 大金达人排行榜</h3>
         <div class="no-data">
-            <div class="no-data-icon">👑</div>
-            <div>传奇殿堂空无一人</div>
-            <small>等待第一位传奇的诞生...<br>成为达成 {{ achievement.requirement_count }} 次大金的至尊王者！</small>
+            <div class="no-data-icon">🏆</div>
+            <div>暂无大金达人</div>
+            <small>成为第一位达成 {{ achievement.requirement_count }} 次大金的达人吧！</small>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 所有大金记录统计 -->
+    {% if all_records %}
+    <div class="card">
+        <h3>📊 大金记录总览</h3>
+        <p>全站共有 <strong>{{ all_records|length }}</strong> 次大金记录</p>
+
+        {% set player_counts = {} %}
+        {% for record in all_records %}
+            {% if record.winner_name in player_counts %}
+                {% set _ = player_counts.update({record.winner_name: player_counts[record.winner_name] + 1}) %}
+            {% else %}
+                {% set _ = player_counts.update({record.winner_name: 1}) %}
+            {% endif %}
+        {% endfor %}
+
+        <div class="stats-overview">
+            <strong>距离达人最近的玩家：</strong>
+            <div class="near-master">暂无玩家接近达人门槛</div>
         </div>
     </div>
     {% endif %}
@@ -312,7 +387,7 @@
     </div>
 
     <div class="footer">
-        <p>© 2025 EMS Pool Gamble | {{ achievement.name }} v{{ app_version }}</p>
+        <p>© 2025 EMS Pool Gamble</p>
     </div>
 
     <script>

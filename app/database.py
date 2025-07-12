@@ -1137,12 +1137,17 @@ class DatabaseManager:
                     gr.session_id,
                     gr.created_at,
                     gr.score,
+                    gr.special_score,
                     winner.name as winner_name,
                     loser.name as loser_name,
+                    loser2.name as loser2_name,
+                    gr.loser_id,
+                    gr.loser_id2,
                     s.name as session_name
                 FROM game_records gr
                 INNER JOIN players winner ON gr.winner_id = winner.player_id
                 INNER JOIN players loser ON gr.loser_id = loser.player_id
+                LEFT JOIN players loser2 ON gr.loser_id2 = loser2.player_id
                 INNER JOIN sessions s ON gr.session_id = s.session_id
                 WHERE gr.special_score = ?
             '''
@@ -1158,7 +1163,32 @@ class DatabaseManager:
             cursor.execute(base_query, params)
             records = cursor.fetchall()
 
-            return [dict(record) for record in records]
+            # 处理败者信息
+            processed_records = []
+            for row in records:
+                record = dict(row)
+
+                # 构建败者显示文本
+                if record['loser2_name']:
+                    # 有两个败者的情况
+                    record['loser_display'] = f"{record['loser_name']} + {record['loser2_name']}"
+                    record['is_multi_loser'] = True
+                    # 为模板提供败者信息列表
+                    record['losers'] = [
+                        {'id': record['loser_id'], 'name': record['loser_name']},
+                        {'id': record['loser_id2'], 'name': record['loser2_name']}
+                    ]
+                else:
+                    # 单个败者的情况
+                    record['loser_display'] = record['loser_name']
+                    record['is_multi_loser'] = False
+                    record['losers'] = [
+                        {'id': record['loser_id'], 'name': record['loser_name']}
+                    ]
+
+                processed_records.append(record)
+
+            return processed_records
 
     def get_achievement_stats(self) -> Dict:
         """获取成就系统统计信息"""
@@ -1209,6 +1239,19 @@ class DatabaseManager:
             ''')
             stats['big_gold_masters'] = cursor.fetchone()['player_count']
 
+            # 大金传奇统计（大金次数 >= 10）
+            cursor.execute('''
+                SELECT COUNT(*) as player_count
+                FROM (
+                    SELECT winner_id, COUNT(*) as achievement_count
+                    FROM game_records
+                    WHERE special_score = '大金'
+                    GROUP BY winner_id
+                    HAVING COUNT(*) >= 10
+                ) as big_gold_legends
+            ''')
+            stats['big_gold_legends'] = cursor.fetchone()['player_count']
+
             return stats
 
     def get_achievement_master_players(self, achievement_type: str) -> List[Dict]:
@@ -1222,6 +1265,9 @@ class DatabaseManager:
             elif achievement_type == 'big_gold_master':
                 special_score = '大金'
                 min_count = 5
+            elif achievement_type == 'big_gold_legend':
+                special_score = '大金'
+                min_count = 10
             else:
                 return []
 
