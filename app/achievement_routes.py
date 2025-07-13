@@ -3,7 +3,8 @@
 """
 from flask import render_template, request, redirect, url_for, flash
 from .models import (get_achievement_players, get_achievement_records,
-                     get_achievement_stats, get_achievement_master_players)
+                     get_achievement_stats, get_achievement_master_players,
+                     get_negative_achievement_players, get_negative_achievement_records)
 from . import APP_VERSION
 
 
@@ -57,6 +58,14 @@ def register_achievement_routes(app):
                 'icon': '🏛️',
                 'count': stats['big_gold_legends'],
                 'category': 'legend'
+            },
+            {
+                'id': 'gold_loser',
+                'name': '大吃一金',
+                'description': '被大小金痛击过的玩家',
+                'icon': '🙈',
+                'count': stats['gold_loser_players'],
+                'category': 'negative'
             }
         ]
 
@@ -194,6 +203,32 @@ def register_achievement_routes(app):
                              achievement=achievement_config,
                              achievement_players=achievement_players,
                              all_records=all_big_gold_records,
+                             app_version=APP_VERSION)
+
+    @app.route('/achievement/gold_loser')
+    def achievement_gold_loser():
+        """大吃一金负面成就详情"""
+        # 获取大吃一金玩家
+        achievement_players = get_negative_achievement_players('gold_loser')
+
+        # 获取被大小金痛击的记录（最近50条）
+        achievement_records = get_negative_achievement_records('gold_loser')[:50]
+
+        # 成就配置
+        achievement_config = {
+            'id': 'gold_loser',
+            'name': '大吃一金',
+            'description': '被大小金痛击过的玩家。虽然失败，但这也是成长的一部分。',
+            'icon': '🙈',
+            'rule': '在任意场次中被大金或小金击败',
+            'difficulty': '经历',
+            'color_theme': 'negative'
+        }
+
+        return render_template('achievements/gold_loser.html',
+                             achievement=achievement_config,
+                             achievement_players=achievement_players,
+                             achievement_records=achievement_records,
                              app_version=APP_VERSION)
 
     @app.route('/achievement/<achievement_id>')

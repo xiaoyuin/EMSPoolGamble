@@ -227,6 +227,46 @@ def get_achievement_master_players(achievement_type: str) -> List[Dict]:
     return db.get_achievement_master_players(achievement_type)
 
 
+def get_negative_achievement_players(achievement_type: str) -> List[Dict]:
+    """获取负面成就的玩家列表"""
+    # 获取基础数据
+    players = db.get_negative_achievement_players(achievement_type)
+
+    if achievement_type == 'gold_loser':
+        # 为每个玩家计算被谁痛击最多
+        for player in players:
+            player_id = player['player_id']
+
+            # 获取该玩家的所有被痛击记录
+            records = db.get_negative_achievement_records(achievement_type)
+
+            # 统计被不同对手痛击的次数
+            opponent_counts = {}
+            for record in records:
+                # 检查是否是这个玩家被痛击
+                if (record.get('loser_name') == player['name'] or
+                    record.get('loser2_name') == player['name']):
+
+                    winner = record['winner_name']
+                    opponent_counts[winner] = opponent_counts.get(winner, 0) + 1
+
+            # 找出痛击次数最多的对手
+            if opponent_counts:
+                most_defeated_by = max(opponent_counts.items(), key=lambda x: x[1])
+                player['most_defeated_by'] = most_defeated_by[0]
+                player['most_defeated_count'] = most_defeated_by[1]
+            else:
+                player['most_defeated_by'] = None
+                player['most_defeated_count'] = 0
+
+    return players
+
+
+def get_negative_achievement_records(achievement_type: str, player_id: str = None) -> List[Dict]:
+    """获取负面成就记录详情"""
+    return db.get_negative_achievement_records(achievement_type, player_id)
+
+
 # ===== 兼容性变量 - 用于保持与原有代码的兼容性 =====
 
 class SessionsProxy:

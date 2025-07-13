@@ -70,7 +70,7 @@
    $env:ADMIN_PASSWORD="your_secure_password"
    $env:CSRF_SECRET_KEY="your_csrf_key"
    $env:SECRET_KEY="your_flask_secret"
-   
+
    # Linux/macOS
    export ADMIN_PASSWORD="your_secure_password"
    export CSRF_SECRET_KEY="your_csrf_key"

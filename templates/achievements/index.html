@@ -83,6 +83,17 @@
             border-left-color: #1890ff;
         }
 
+        /* 负面成就样式 */
+        .achievement-card.negative {
+            border-left-color: #ff4d4f;
+        }
+        .achievement-card.negative .achievement-name {
+            color: #ff4d4f;
+        }
+        .achievement-card.negative:hover {
+            box-shadow: 0 4px 12px rgba(255, 77, 79, 0.2);
+        }
+
         .achievement-header {
             display: flex;
             justify-content: space-between;
@@ -196,7 +207,7 @@
     <!-- 成就列表 -->
     <div class="achievements-grid">
         {% for achievement in achievements %}
-        <div class="achievement-card" onclick="location.href='/achievement/{{ achievement.id }}'">
+        <div class="achievement-card {{ 'negative' if achievement.category == 'negative' else '' }}" onclick="location.href='/achievement/{{ achievement.id }}'">
             <div class="achievement-header">
                 <div class="achievement-title-flex">
                     <span class="achievement-icon">{{ achievement.icon }}</span>

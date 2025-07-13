@@ -1252,6 +1252,20 @@ class DatabaseManager:
             ''')
             stats['big_gold_legends'] = cursor.fetchone()['player_count']
 
+            # 大吃一金统计（被大小金痛击过的玩家）
+            cursor.execute('''
+                SELECT COUNT(DISTINCT
+                    CASE
+                        WHEN loser_id IS NOT NULL THEN loser_id
+                        WHEN loser_id2 IS NOT NULL THEN loser_id2
+                    END
+                ) as player_count
+                FROM game_records
+                WHERE special_score IN ('小金', '大金')
+                AND (loser_id IS NOT NULL OR loser_id2 IS NOT NULL)
+            ''')
+            stats['gold_loser_players'] = cursor.fetchone()['player_count']
+
             return stats
 
     def get_achievement_master_players(self, achievement_type: str) -> List[Dict]:
@@ -1259,6 +1273,7 @@ class DatabaseManager:
         with self.get_connection() as conn:
             cursor = conn.cursor()
 
+            # 根据成就类型确定查询条件
             if achievement_type == 'small_gold_master':
                 special_score = '小金'
                 min_count = 10
@@ -1271,7 +1286,7 @@ class DatabaseManager:
             else:
                 return []
 
-            # 查询达成达人成就的玩家
+            # 查询达成该成就的玩家及其首次和总次数
             cursor.execute('''
                 SELECT
                     p.player_id,
@@ -1290,6 +1305,73 @@ class DatabaseManager:
             players = cursor.fetchall()
 
             return [dict(player) for player in players]
+
+    def get_negative_achievement_players(self, achievement_type: str) -> List[Dict]:
+        """获取负面成就的玩家列表"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            if achievement_type == 'gold_loser':
+                # 大吃一金：被大小金痛击过的玩家，按次数排名
+                cursor.execute('''
+                    SELECT
+                        p.player_id,
+                        p.name,
+                        COUNT(gr.record_id) as defeat_count,
+                        MIN(gr.created_at) as first_defeat_date,
+                        MAX(gr.created_at) as latest_defeat_date
+                    FROM players p
+                    INNER JOIN game_records gr ON (p.player_id = gr.loser_id OR p.player_id = gr.loser_id2)
+                    WHERE gr.special_score IN ('小金', '大金')
+                    GROUP BY p.player_id, p.name
+                    ORDER BY defeat_count DESC, first_defeat_date ASC
+                ''')
+
+                players = cursor.fetchall()
+                return [dict(player) for player in players]
+
+            return []
+
+    def get_negative_achievement_records(self, achievement_type: str, player_id: str = None) -> List[Dict]:
+        """获取负面成就记录详情"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            if achievement_type == 'gold_loser':
+                # 构建查询
+                base_query = '''
+                    SELECT
+                        gr.record_id,
+                        gr.session_id,
+                        gr.created_at,
+                        gr.score,
+                        gr.special_score,
+                        winner.name as winner_name,
+                        loser.name as loser_name,
+                        loser2.name as loser2_name,
+                        gr.loser_id,
+                        gr.loser_id2,
+                        s.name as session_name
+                    FROM game_records gr
+                    INNER JOIN players winner ON gr.winner_id = winner.player_id
+                    INNER JOIN players loser ON gr.loser_id = loser.player_id
+                    LEFT JOIN players loser2 ON gr.loser_id2 = loser2.player_id
+                    INNER JOIN sessions s ON gr.session_id = s.session_id
+                    WHERE gr.special_score IN ('小金', '大金')
+                '''
+
+                params = []
+                if player_id:
+                    base_query += ' AND (gr.loser_id = ? OR gr.loser_id2 = ?)'
+                    params.extend([player_id, player_id])
+
+                base_query += ' ORDER BY gr.created_at DESC'
+
+                cursor.execute(base_query, params)
+                records = cursor.fetchall()
+                return [dict(record) for record in records]
+
+            return []
 
 # 全局数据库实例
 db = DatabaseManager()
