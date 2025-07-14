@@ -181,6 +181,80 @@
         let currentSpecialScore = null;  // 当前特殊分数类型（如"双吃"、"小金"、"大金"）
         let currentLosersCount = 1;  // 当前分数对应的败者数量
 
+        // 刷新游戏数据函数
+        function refreshGameData() {
+            console.log('刷新游戏数据...');
+            
+            // 显示刷新提示
+            const refreshBtn = event.target;
+            const originalText = refreshBtn.textContent;
+            refreshBtn.textContent = '刷新中...';
+            refreshBtn.disabled = true;
+            
+            // 使用fetch API获取最新数据
+            fetch(window.location.href, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('网络请求失败');
+                }
+                return response.text();
+            })
+            .then(html => {
+                // 解析返回的HTML
+                const parser = new DOMParser();
+                const newDoc = parser.parseFromString(html, 'text/html');
+                
+                // 更新玩家分数排名
+                const currentPlayerRows = document.querySelector('.player-rows');
+                const newPlayerRows = newDoc.querySelector('.player-rows');
+                if (currentPlayerRows && newPlayerRows) {
+                    currentPlayerRows.innerHTML = newPlayerRows.innerHTML;
+                }
+                
+                // 更新游戏记录
+                const currentRoundsList = document.querySelector('.rounds-list');
+                const newRoundsList = newDoc.querySelector('.rounds-list');
+                if (currentRoundsList && newRoundsList) {
+                    currentRoundsList.innerHTML = newRoundsList.innerHTML;
+                }
+                
+                // 更新当前玩家列表
+                const currentPlayers = document.querySelector('.current-players');
+                const newPlayers = newDoc.querySelector('.current-players');
+                if (currentPlayers && newPlayers) {
+                    currentPlayers.innerHTML = newPlayers.innerHTML;
+                }
+                
+                // 重新绑定事件监听器
+                document.querySelectorAll('.player-actions').forEach(actions => {
+                    actions.classList.remove('show');
+                });
+                
+                // 重置选择状态
+                resetAllSelections();
+                
+                // 重新转换时间显示
+                convertUtcToLocal();
+                
+                console.log('游戏数据刷新完成');
+            })
+            .catch(error => {
+                console.error('刷新失败:', error);
+                // 如果AJAX失败，回退到页面刷新
+                window.location.reload();
+            })
+            .finally(() => {
+                // 恢复按钮状态
+                refreshBtn.textContent = originalText;
+                refreshBtn.disabled = false;
+            });
+        }
+
         // 游戏种类配置
         const gameTypeConfig = {
             normal: {
@@ -872,7 +946,10 @@
     <!-- 主计分卡片 - 只有玩家数量大于等于2时才显示 -->
     {% if sorted_players|length >= 2 %}
     <div class="card">
-        <h4>计分面板</h4>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1em;">
+            <h4 style="margin: 0;">计分面板</h4>
+            <button type="button" class="btn-secondary" onclick="refreshGameData()" style="padding: 0.5em 1em; font-size: 0.9em;">刷新</button>
+        </div>
         
         <!-- 种类选择区域 -->
         <div class="game-type-selection">
