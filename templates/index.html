@@ -40,7 +40,7 @@
         .no-sessions-message { text-align: center; color: #666; }
         .detail-btn { display: block; padding: 8px 16px; background: #1890ff; color: white; border-radius: 5px; text-decoration: none; margin-top: 0.5em; text-align: center; width: 100%; box-sizing: border-box; }
         .detail-btn:hover { background: #40a9ff; color: white; text-decoration: none; }
-        .login-status { background: #e6f7ff; border: 1px solid #91d5ff; border-radius: 8px; padding: 12px; margin-bottom: 1em; }
+        .login-status { background: #e6f7ff; border: 1px solid #91d5ff; border-radius: 8px; padding: 12px; margin-bottom: 1em; margin-top: 1em;}
         .login-status .user-info { font-weight: bold; color: #1890ff; }
         .login-status .session-info { font-size: 0.9em; color: #666; margin-top: 4px; }
         .logout-btn { display: inline-block; padding: 4px 8px; background: #ff4d4f; color: white; border-radius: 4px; text-decoration: none; font-size: 0.8em; margin-left: 8px; }
@@ -60,6 +60,17 @@
             <span class="version-badge">{{ app_version }}</span>
             <span class="build-date">{{ version_date }}</span>
         </div>
+
+        <!-- 管理员状态显示 -->
+        {% if is_admin_authenticated() %}
+        <div class="login-status">
+            <div class="user-info">
+                🔓 管理员模式已启用
+                <a href="/admin_logout" class="logout-btn">退出管理员模式</a>
+            </div>
+            <div class="session-info">可以执行删除、结束场次等关键操作</div>
+        </div>
+        {% endif %}
     </div>
 
     <!-- 显示消息通知 -->
@@ -90,7 +101,6 @@
             </div>
             <div class="session-info">
                 <div>玩家：{{ session_data.players|join(', ') if session_data.players else '暂无玩家' }}</div>
-                <div>观战者：{{ session_data.viewers|join(', ') if session_data.viewers else '暂无观战者' }}</div>
                 <div>记录数：{{ session_data.get('records', session_data.get('rounds', []))|length }} | 开始时间：<span data-utc-time="{{ session_data.timestamp }}">{{ session_data.timestamp }}</span></div>
             </div>
 
@@ -138,7 +148,8 @@
     {% endif %}
 
     <div class="links">
-        <a href="/history">查看历史记录</a>
+        <a href="/history">查看历史记录</a> |
+        <a href="/achievements">成就</a>
     </div>
 
     <div class="footer">
@@ -172,7 +183,7 @@
     // 更新建议的场次名称
     const suggestedNameElement = document.getElementById('suggested-session-name');
     const sessionNameInput = document.getElementById('session-name-input');
-    
+
     if (suggestedNameElement && sessionNameInput) {
         const userSessionName = generateSessionName();
         suggestedNameElement.textContent = userSessionName;
@@ -192,7 +203,7 @@ function convertUtcToLocal() {
             try {
                 // 统一时间格式处理，兼容iOS Chrome
                 let dateString = utcTime.trim();
-                
+
                 // 如果不是ISO格式且不包含时区信息，则添加Z表示UTC
                 if (!dateString.includes('T') && !dateString.endsWith('Z') && !dateString.includes('+') && !dateString.includes(' UTC')) {
                     // 将 "YYYY-MM-DD HH:MM:SS" 格式转换为 ISO 格式
@@ -207,7 +218,7 @@ function convertUtcToLocal() {
 
                 // 创建Date对象
                 const utcDate = new Date(dateString);
-                
+
                 // 检查日期是否有效
                 if (!isNaN(utcDate.getTime())) {
                     const localTimeStr = utcDate.toLocaleString('zh-CN', {

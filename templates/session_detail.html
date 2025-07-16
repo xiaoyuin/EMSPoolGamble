@@ -3,14 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EMS Pool Gamble - 场次详情</title>
+    <title>{{ session_data.get('name', '未命名场次') }} - 场次详情</title>
     <style>
         body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
         .card { background: #ffffff; border-radius: 10px; padding: 1.2em; margin-top: 1.5em; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         table { width: 100%; border-collapse: collapse; margin-top: 1em; }
-        th, td { border: 1px solid #eee; padding: 0.7em; text-align: center; }
+        th, td { border: 1px solid #eee; padding: 0.7em; text-align: center; vertical-align: middle; }
         th { background: #fafafa; font-weight: 500; }
         tr:nth-child(even) { background-color: #fafafa; }
+        /* 确保分数列不会折行 */
+        td:nth-child(4) {
+            white-space: nowrap;
+        }
+        /* 序号列样式 */
+        td:nth-child(1) {
+            font-weight: 500;
+            color: #666;
+        }
         .header { text-align: center; color: #333; margin-bottom: 1.5em; }
         .links { margin-top: 1em; text-align: center; }
         .links a { color: #1890ff; text-decoration: none; margin: 0 0.5em; }
@@ -34,12 +43,58 @@
         .flash-message { padding: 10px; margin: 10px 0; border-radius: 5px; }
         .flash-success { background-color: #f6ffed; border: 1px solid #b7eb8f; color: #52c41a; }
         .flash-error { background-color: #fff2f0; border: 1px solid #ffccc7; color: #ff4d4f; }
-        .btn-danger { background: #ff4d4f; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; text-decoration: none; display: block; margin-top: 1em; width: 100%; box-sizing: border-box; text-align: center; }
+        .btn-danger { background: #ff4d4f; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; text-decoration: none; display: block; margin-top: 1em; width: 100%; box-sizing: border-box; text-align: center; font-size: 1em; }
         .btn-danger:hover { background: #ff7875; color: white; text-decoration: none; }
         .actions { margin-top: 1em; }
         .no-records-message { text-align: center; color: #666; }
         .player-link { color: #1890ff; text-decoration: none; }
         .player-link:hover { text-decoration: underline; }
+        .special-score-tag {
+            font-size: 0.7em;
+            color: #fa8c16;
+            background: #fff7e6;
+            border: 1px solid #ffec3d;
+            border-radius: 3px;
+            padding: 2px 6px;
+            margin-left: 8px;
+            font-weight: normal;
+            white-space: nowrap; /* 防止换行 */
+            display: inline-block; /* 确保不会被截断 */
+        }
+        /* 特殊胜利高亮样式 */
+        .player-link.has-small-gold {
+            color: #fa8c16 !important;
+            text-shadow: 0 0 3px rgba(250, 140, 22, 0.3);
+            font-weight: 700;
+        }
+        .player-link.has-big-gold {
+            color: #722ed1 !important;
+            text-shadow: 0 0 4px rgba(114, 46, 209, 0.4);
+            font-weight: 700;
+            background: linear-gradient(135deg, #722ed1, #9254de);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .player-link.has-small-gold:hover {
+            color: #d48806 !important;
+        }
+        .player-link.has-big-gold:hover {
+            color: #531dab !important;
+            -webkit-text-fill-color: #531dab;
+        }
+
+        /* 响应式优化：确保在小屏幕上也不会折行 */
+        @media (max-width: 600px) {
+            table {
+                font-size: 0.9em;
+            }
+            .special-score-tag {
+                font-size: 0.65em;
+                padding: 1px 4px;
+                margin-left: 6px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -70,7 +125,6 @@
             <div><strong>结束时间：</strong><span data-utc-time="{{ session_data.end_time }}">{{ session_data.end_time }}</span></div>
             {% endif %}
             <div><strong>玩家：</strong>{{ session_data.players|join(', ') if session_data.players else '暂无玩家' }}</div>
-            <div><strong>观战者：</strong>{{ session_data.viewers|join(', ') if session_data.viewers else '暂无观战者' }}</div>
             <div><strong>总记录数：</strong>{{ session_data.get('records', session_data.get('rounds', []))|length }}</div>
         </div>
     </div>
@@ -88,7 +142,7 @@
                 <td>{{ loop.index }}</td>
                 <td>
                     {% if player.id %}
-                    <a href="/player/{{ player.id }}" class="player-link">{{ player.name }}</a>
+                    <a href="/player/{{ player.id }}" class="player-link{% if player.has_big_gold %} has-big-gold{% elif player.has_small_gold %} has-small-gold{% endif %}">{{ player.name }}</a>
                     {% else %}
                     {{ player.name }}
                     {% endif %}
@@ -104,13 +158,14 @@
         {% if session_data.get('records', session_data.get('rounds', [])) %}
         <table>
             <tr>
+                <th>序号</th>
                 <th>胜者</th>
                 <th>败者</th>
                 <th>分数</th>
-                <th>时间</th>
             </tr>
             {% for r in records %}
             <tr>
+                <td>{{ records|length - loop.index0 }}</td>
                 <td>
                     {% if r.winner_id %}
                     <a href="/player/{{ r.winner_id }}" class="player-link">{{ r.winner }}</a>
@@ -119,14 +174,24 @@
                     {% endif %}
                 </td>
                 <td>
-                    {% if r.loser_id %}
-                    <a href="/player/{{ r.loser_id }}" class="player-link">{{ r.loser }}</a>
+                    {% if r.is_multi_loser %}
+                        {% for loser in r.losers %}
+                            <a href="/player/{{ loser.id }}" class="player-link">{{ loser.name }}</a>{% if not loop.last %} + {% endif %}
+                        {% endfor %}
+                    {% elif r.loser_id %}
+                        <a href="/player/{{ r.loser_id }}" class="player-link">{{ r.loser }}</a>
                     {% else %}
-                    {{ r.loser }}
+                        {{ r.loser }}
                     {% endif %}
                 </td>
-                <td class="{% if r.score > 0 %}positive{% elif r.score < 0 %}negative{% else %}neutral{% endif %}">{{ r.score }}</td>
-                <td class="timestamp" data-utc-time="{{ r.timestamp if r.timestamp else '' }}">{{ r.timestamp if r.timestamp else '' }}</td>
+                <td class="{% if r.score > 0 %}positive{% elif r.score < 0 %}negative{% else %}neutral{% endif %}" style="white-space: nowrap; vertical-align: middle; display: table-cell;">
+                    <div style="display: flex; align-items: center; justify-content: center;">
+                        <span>{{ r.score }}</span>
+                        {% if r.special_score %}
+                        <span class="special-score-tag">{{ r.special_score }}</span>
+                        {% endif %}
+                    </div>
+                </td>
             </tr>
             {% endfor %}
         </table>
@@ -139,7 +204,10 @@
     {% if not session_data.get('active', True) %}
     <div class="card">
         <div class="actions">
-            <a href="/delete_session/{{ session_id }}" class="btn-danger" onclick="return confirm('确定要删除这个场次吗？此操作无法撤销！')">删除场次</a>
+            <form action="/delete_session/{{ session_id }}" method="post" onsubmit="return confirm('确定要删除这个场次吗？此操作无法撤销！')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn-danger">删除场次</button>
+            </form>
         </div>
     </div>
     {% endif %}
@@ -166,7 +234,7 @@ function convertUTCToLocal(utcTimeString) {
     try {
         // 统一时间格式处理，兼容iOS Chrome
         let dateString = utcTimeString.trim();
-        
+
         // 如果不是ISO格式且不包含时区信息，则添加Z表示UTC
         if (!dateString.includes('T') && !dateString.endsWith('Z') && !dateString.includes('+') && !dateString.includes(' UTC')) {
             // 将 "YYYY-MM-DD HH:MM:SS" 格式转换为 ISO 格式

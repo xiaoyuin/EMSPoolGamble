@@ -43,8 +43,7 @@
         .score-btn:hover { background: #e6f7ff; border-color: #1890ff; }
         .score-btn.selected { background: #1890ff; color: white; border-color: #1890ff; }
         .session-name { font-weight: bold; color: #1890ff; margin-bottom: 0.5em; }
-        .add-player-section { border-top: 1px solid #f0f0f0; padding-top: 1em; margin-top: 1em; }
-        .add-player-form { display: flex; gap: 0.5em; align-items: end; }
+        .add-player-form { display: flex; gap: 0.5em; align-items: end; margin-bottom: 1em; }
         .add-player-form input { flex: 1; margin: 0; }
         .add-player-form button { width: auto; margin: 0; padding: 0.7em 1em; white-space: nowrap; }
         .player-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5em; margin: 1em 0; }
@@ -55,110 +54,422 @@
         .recent-players-title { font-size: 0.9em; color: #666; margin-bottom: 0.5em; }
         .recent-player-btn { display: inline-block; background: #f0f0f0; color: #666; border: 1px solid #d9d9d9; border-radius: 3px; padding: 0.3em 0.6em; margin: 0.2em; font-size: 0.8em; cursor: pointer; transition: all 0.2s; }
         .recent-player-btn:hover { background: #e6f7ff; border-color: #1890ff; color: #1890ff; }
-        .record-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #f0f0f0; }
+        .quick-add-section { margin: 1em 0; }
+        .quick-add-title { font-size: 0.9em; color: #666; margin-bottom: 0.6em; }
+        .quick-add-buttons { display: flex; flex-wrap: wrap; gap: 0.5em; margin-bottom: 1em; background: #f8f9fa; border-radius: 8px; padding: 1em; border: 1px solid #e9ecef; }
+        .quick-add-btn { background: #f0f0f0; color: #333; border: 2px solid #d9d9d9; border-radius: 5px; padding: 0.5em 0.8em; font-size: 0.9em; cursor: pointer; transition: all 0.2s; font-weight: 500; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.1em; min-height: 3.2em; text-align: center; box-sizing: border-box; }
+        .quick-add-btn:hover { background: #e6f7ff; border-color: #1890ff; color: #1890ff; }
+        .quick-add-btn.selected { background: #52c41a; color: white; border-color: #52c41a; transform: translateY(-1px); box-shadow: 0 2px 6px rgba(82, 196, 26, 0.3); }
+        .add-new-btn { background: #f9f9f9; color: #666; border: 2px dashed #d9d9d9; border-radius: 5px; padding: 0.5em 0.8em; font-size: 1.2em; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; min-height: 3.2em; box-sizing: border-box; }
+        .add-new-btn:hover { background: #e6f7ff; border-color: #1890ff; color: #1890ff; }
+        .player-name-text { font-weight: 500; line-height: 1.1; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+        .player-win-rate { font-size: 0.72em; color: #999; font-weight: normal; line-height: 1.1; display: block; }
+        .quick-add-btn:hover .player-win-rate { color: #1890ff; }
+        .quick-add-btn.selected .player-win-rate { color: rgba(255, 255, 255, 0.8); }
+        .new-player-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; }
+        .modal-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 2em; border-radius: 10px; min-width: 300px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3); }
+        .modal-header { margin-bottom: 1em; font-size: 1.2em; font-weight: bold; }
+        .modal-form { display: flex; flex-direction: column; gap: 1em; }
+        .modal-buttons { display: flex; gap: 0.5em; justify-content: flex-end; }
+        .quick-add-actions { display: flex; gap: 0.5em; }
+        .btn-secondary { background: #f5f5f5; color: #595959; border: 1px solid #d9d9d9; }
+        .btn-secondary:hover { background: #e6f7ff; border-color: #1890ff; color: #1890ff; }
+        .btn-secondary:disabled { background: #f5f5f5; color: #bfbfbf; border-color: #d9d9d9; cursor: not-allowed; }
+        .new-player-section { margin: 1em 0; }
+        .new-player-title { font-size: 0.9em; color: #666; margin-bottom: 0.6em; }
+        .record-item { display: flex; justify-content: space-between; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
         .record-item:last-child { border-bottom: none; }
-        .record-content { flex: 1; }
-        .delete-record-btn { background: #ff4d4f; color: white; border: none; padding: 4px 8px; border-radius: 3px; font-size: 0.8em; cursor: pointer; }
+        .record-content { flex: 1; min-width: 0; }
+        .delete-record-btn { background: #ff4d4f; color: white; border: none; padding: 2px 6px; border-radius: 3px; font-size: 0.75em; cursor: pointer; margin-left: 8px; }
         .delete-record-btn:hover { background: #ff7875; }
         .delete-form { display: inline; }
         .timestamp { font-size: 0.8em; color: #999; }
+        .timestamp-row { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+        .special-score-tag { 
+            font-size: 0.7em; 
+            color: #fa8c16; 
+            background: #fff7e6; 
+            border: 1px solid #ffec3d; 
+            border-radius: 3px; 
+            padding: 2px 6px; 
+            margin-left: 8px; 
+            font-weight: normal; 
+            white-space: nowrap;
+            display: inline-block;
+        }
+        .record-player-link { 
+            color: #1890ff; 
+            text-decoration: none; 
+        }
+        .record-player-link:hover { 
+            text-decoration: underline; 
+        }
         .score-selection { margin: 1em 0; }
-        .score-hint { margin-top: 0.5em; font-size: 0.9em; color: #666; text-align: center; }
+        .score-selection.hidden { display: none; }
+        .game-type-selection { margin: 1em 0; }
+        .game-type-buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5em; margin: 1em 0; }
+        .game-type-btn { background: #f0f0f0; color: #333; border: 2px solid #d9d9d9; transition: all 0.2s; min-height: 40px; padding: 0.7em; font-size: 1em; border-radius: 5px; cursor: pointer; }
+        .game-type-btn:hover { background: #e6f7ff; border-color: #1890ff; }
+        .game-type-btn.selected { background: #1890ff; color: white; border-color: #1890ff; }
+        .score-hint { margin-top: 0.5em; font-size: 0.8em; color: #666; text-align: center; }
         .players-table { margin: 1em 0; }
-        .player-rows { background: #f9f9f9; border-radius: 5px; padding: 0.5em; }
-        .player-row { display: flex; align-items: center; justify-content: space-between; padding: 0.7em; margin: 0.3em 0; background: white; border-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .player-rows { border-radius: 5px; padding: 0; }
+        .player-row { display: flex; align-items: stretch; margin: 0; border-bottom: 1px solid #f0f0f0; min-height: 3.2em; }
+        .player-row .player-name { flex: 1; }
+        .player-row .player-score-display { margin-left: auto; }
         .player-row:first-child { margin-top: 0; }
-        .player-row:last-child { margin-bottom: 0; }
-        .player-name { font-weight: bold; flex: 1; }
+        .player-row:last-child { margin-bottom: 0; border-bottom: none; }
+        .player-name { font-weight: bold; flex: 1; display: flex; align-items: center; padding: 0.4em 0; }
         .player-name a { color: #1890ff; text-decoration: none; }
         .player-name a:hover { text-decoration: underline; }
-        .player-score { font-weight: bold; margin-right: 1em; min-width: 3em; text-align: right; }
-        .player-actions { display: flex; gap: 0.5em; }
-        .action-btn { padding: 0.4em 0.8em; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: all 0.2s; opacity: 0.7; transform: scale(1); }
+        /* 特殊胜利高亮样式 - 统一样式块 */
+        .player-name.has-small-gold,
+        .player-name.has-small-gold a,
+        .has-small-gold {
+            color: #fa8c16 !important;
+            text-shadow: 0 0 3px rgba(250, 140, 22, 0.3);
+            font-weight: 700;
+        }
+        .player-name.has-big-gold,
+        .player-name.has-big-gold a,
+        .has-big-gold {
+            color: #722ed1 !important;
+            text-shadow: 0 0 4px rgba(114, 46, 209, 0.4);
+            font-weight: 700;
+            background: linear-gradient(135deg, #722ed1, #9254de);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .player-name.has-small-gold:hover,
+        .player-name.has-small-gold:hover a,
+        .has-small-gold:hover {
+            color: #d48806 !important;
+        }
+        .player-name.has-big-gold:hover,
+        .player-name.has-big-gold:hover a,
+        .has-big-gold:hover {
+            color: #531dab !important;
+            -webkit-text-fill-color: #531dab;
+        }
+        .player-score-display { font-weight: bold; min-width: 2.5em; text-align: right; font-size: 0.95em; display: flex; align-items: center; justify-content: flex-end; padding: 0.4em 2em 0.4em 0; }
+        .player-actions { display: none; gap: 0.4em; align-items: stretch; min-width: 100px; justify-content: flex-end; padding: 0.2em 0; }
+        .player-actions.show { display: flex; }
+        .action-btn { padding: 0.2em 1em; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: all 0.2s; opacity: 0.7; transform: scale(1); min-height: 36px; min-width: 42px; display: inline-flex; align-items: center; justify-content: center; font-size: 1em; }
         .plus-btn { background: #52c41a; color: white; }
         .plus-btn:hover { background: #73d13d; opacity: 1; }
         .plus-btn.selected { background: #389e0d; opacity: 1; transform: scale(1.1); box-shadow: 0 0 0 3px #b7eb8f, inset 0 0 0 2px white; }
         .minus-btn { background: #ff4d4f; color: white; }
         .minus-btn:hover { background: #ff7875; opacity: 1; }
         .minus-btn.selected { background: #cf1322; opacity: 1; transform: scale(1.1); box-shadow: 0 0 0 3px #ffccc7, inset 0 0 0 2px white; }
-        .action-score { margin-left: 0.2em; }
+        .action-score { margin-left: 0.1em; font-size: 0.95em; }
         #record-btn { margin-top: 1em; }
         #record-btn:disabled { background: #d9d9d9; color: #8c8c8c; cursor: not-allowed; }
         #record-btn:disabled:hover { background: #d9d9d9; }
         .player-link { color: #1890ff; text-decoration: none; }
         .player-link:hover { text-decoration: underline; }
+        .hint-warning { margin-top: 1em; padding: 0.8em; background: #fff7e6; border: 1px solid #ffd591; border-radius: 5px; color: #ad6800; }
+        .hint-success { margin-top: 1em; padding: 0.8em; background: #f6ffed; border: 1px solid #b7eb8f; border-radius: 5px; color: #389e0d; }
+        .current-players { margin-bottom: 1em; }
+        .btn-link { display: block; text-align: center; text-decoration: none; margin: 0.3em; padding: 0.7em; font-size: 1em; border-radius: 5px; border: none; cursor: pointer; }
     </style>    <script>
         let selectedScore = null;
         let selectedWinner = null;
         let selectedLosers = [];  // 支持多个败者
         let isSpecialScore = false;  // 是否是特殊分数
+        let selectedGameType = null;  // 当前选择的游戏种类
+        let currentSpecialScore = null;  // 当前特殊分数类型（如"双吃"、"小金"、"大金"）
+        let currentLosersCount = 1;  // 当前分数对应的败者数量
+
+        // 刷新游戏数据函数
+        function refreshGameData() {
+            console.log('刷新游戏数据...');
+            
+            // 显示刷新提示
+            const refreshBtn = event.target;
+            const originalText = refreshBtn.textContent;
+            refreshBtn.textContent = '刷新中...';
+            refreshBtn.disabled = true;
+            
+            // 使用fetch API获取最新数据
+            fetch(window.location.href, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('网络请求失败');
+                }
+                return response.text();
+            })
+            .then(html => {
+                // 解析返回的HTML
+                const parser = new DOMParser();
+                const newDoc = parser.parseFromString(html, 'text/html');
+                
+                // 更新玩家分数排名
+                const currentPlayerRows = document.querySelector('.player-rows');
+                const newPlayerRows = newDoc.querySelector('.player-rows');
+                if (currentPlayerRows && newPlayerRows) {
+                    currentPlayerRows.innerHTML = newPlayerRows.innerHTML;
+                }
+                
+                // 更新游戏记录
+                const currentRoundsList = document.querySelector('.rounds-list');
+                const newRoundsList = newDoc.querySelector('.rounds-list');
+                if (currentRoundsList && newRoundsList) {
+                    currentRoundsList.innerHTML = newRoundsList.innerHTML;
+                }
+                
+                // 更新当前玩家列表
+                const currentPlayers = document.querySelector('.current-players');
+                const newPlayers = newDoc.querySelector('.current-players');
+                if (currentPlayers && newPlayers) {
+                    currentPlayers.innerHTML = newPlayers.innerHTML;
+                }
+                
+                // 重新绑定事件监听器
+                document.querySelectorAll('.player-actions').forEach(actions => {
+                    actions.classList.remove('show');
+                });
+                
+                // 重置选择状态
+                resetAllSelections();
+                
+                // 重新转换时间显示
+                convertUtcToLocal();
+                
+                console.log('游戏数据刷新完成');
+            })
+            .catch(error => {
+                console.error('刷新失败:', error);
+                // 如果AJAX失败，回退到页面刷新
+                window.location.reload();
+            })
+            .finally(() => {
+                // 恢复按钮状态
+                refreshBtn.textContent = originalText;
+                refreshBtn.disabled = false;
+            });
+        }
+
+        // 游戏种类配置
+        const gameTypeConfig = {
+            normal: {
+                name: '普胜',
+                scores: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                losersCount: 1,
+                specialScore: null
+            },
+            double: {
+                name: '双吃',
+                scores: [8, 14],
+                losersCount: 2,
+                specialScore: '双吃'
+            },
+            small: {
+                name: '小金',
+                scores: [7, 8, 9, 10],
+                losersCount: 1,
+                specialScore: '小金'
+            },
+            big: {
+                name: '大金',
+                scores: [
+                    { value: 10, losersCount: 1 },
+                    { value: 20, losersCount: 2 }
+                ],
+                specialScore: '大金'
+            }
+        };
+
+        function selectGameType(gameType) {
+            console.log('selectGameType called with:', gameType);
+
+            // 移除所有种类按钮的选中状态
+            document.querySelectorAll('.game-type-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+
+            // 选中当前按钮
+            const currentButton = document.querySelector(`[data-type="${gameType}"]`);
+            if (currentButton) {
+                currentButton.classList.add('selected');
+            }
+
+            selectedGameType = gameType;
+            const config = gameTypeConfig[gameType];
+            currentSpecialScore = config.specialScore;
+
+            // 生成对应的分数按钮
+            generateScoreButtons(config.scores);
+
+            // 更新分数选择区域的提示文字
+            updateGameTypeHint(config);
+
+            // 重置选择状态
+            resetAllSelections();
+
+            console.log('Selected game type:', gameType, 'config:', config);
+        }
+
+        function updateGameTypeHint(config) {
+            const hintElement = document.getElementById('score-hint');
+            if (!hintElement) return;
+
+            if (selectedGameType === 'big') {
+                hintElement.textContent = `${config.name}：请选择分数（10分：1胜1败，20分：1胜2败），然后选择对应的胜者和败者`;
+            } else if (config.losersCount === 2) {
+                hintElement.textContent = `${config.name}：请选择分数，然后选择一个胜者和两个败者`;
+            } else {
+                hintElement.textContent = `${config.name}：请选择分数，然后选择一个胜者和一个败者`;
+            }
+        }
+
+        function generateScoreButtons(scores) {
+            const container = document.getElementById('score-buttons-container');
+            if (!container) return;
+
+            // 清空现有按钮
+            container.innerHTML = '';
+
+            // 生成新的分数按钮
+            scores.forEach(score => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'score-btn';
+                // 处理新的分数格式（可能是数字或对象）
+                const scoreValue = typeof score === 'object' ? score.value : score;
+                button.textContent = scoreValue;
+                button.onclick = () => selectScore(score);
+                container.appendChild(button);
+            });
+        }
 
         function selectScore(score) {
-            console.log('selectScore called with:', score); // 调试日志
+            console.log('selectScore called with:', score);
+
+            if (!selectedGameType) {
+                alert('请先选择游戏种类');
+                return;
+            }
+
+            // 处理新的分数格式
+            const scoreValue = typeof score === 'object' ? score.value : score;
+            const losersCount = typeof score === 'object' ? score.losersCount : gameTypeConfig[selectedGameType].losersCount;
 
             // 移除所有分数按钮的选中状态
             document.querySelectorAll('.score-btn').forEach(btn => {
                 btn.classList.remove('selected');
             });
 
-            // 选中当前按钮 - 需要找到正确的按钮
+            // 选中当前按钮
             const scoreButtons = document.querySelectorAll('.score-btn');
             scoreButtons.forEach(btn => {
-                if (btn.textContent.trim() === score.toString()) {
+                if (btn.textContent.trim() === scoreValue.toString()) {
                     btn.classList.add('selected');
                 }
             });
 
-            selectedScore = score;
-            isSpecialScore = (score === 14 || score === 20);
+            selectedScore = scoreValue;
+            currentLosersCount = losersCount;
+            const config = gameTypeConfig[selectedGameType];
+            isSpecialScore = losersCount === 2;
 
-            console.log('Selected score:', selectedScore, 'isSpecial:', isSpecialScore); // 调试日志
+            console.log('Selected score:', selectedScore, 'losersCount:', losersCount, 'isSpecial:', isSpecialScore, 'type:', selectedGameType);
 
             // 显示玩家操作按钮并更新分数显示
             document.querySelectorAll('.player-actions').forEach(actions => {
-                actions.style.display = 'flex';
-                console.log('Showing player actions for:', actions.parentElement.querySelector('.player-name').textContent); // 调试日志
+                actions.classList.add('show');
             });
 
             // 更新分数显示
-            if (isSpecialScore) {
-                const halfScore = score / 2;
-                document.querySelectorAll('.action-score').forEach(span => {
-                    if (span.parentElement.classList.contains('plus-btn')) {
-                        span.textContent = score;
-                    } else {
-                        span.textContent = halfScore;
-                    }
-                });
-            } else {
-                document.querySelectorAll('.action-score').forEach(span => {
-                    span.textContent = score;
-                });
-            }
+            updatePlayerActionScores(config, losersCount);
 
             // 更新提示文字
-            const hintElement = document.getElementById('score-hint');
-            if (hintElement) {
-                if (isSpecialScore) {
-                    hintElement.textContent = `已选择分数 ${score}，请选择一个玩家获得 +${score} 分，两个玩家各获得 -${score/2} 分`;
-                } else {
-                    hintElement.textContent = `已选择分数 ${score}，请选择一个玩家获得 +${score} 分，一个玩家获得 -${score} 分`;
-                }
-            }
+            updateScoreHint(config, scoreValue, losersCount);
 
             // 重置玩家选择
             resetPlayerSelection();
         }
 
-        function selectPlayerAction(playerName, action) {
-            console.log('selectPlayerAction called:', playerName, action); // 调试日志
+        function updatePlayerActionScores(config, losersCount = null) {
+            const actualLosersCount = losersCount || config.losersCount || 1;
+            if (actualLosersCount === 2) {
+                // 多败者情况：胜者得全分，败者各得一半负分
+                const halfScore = selectedScore / 2;
+                document.querySelectorAll('.action-score').forEach(span => {
+                    if (span.parentElement.classList.contains('plus-btn')) {
+                        span.textContent = selectedScore;
+                    } else {
+                        span.textContent = halfScore;
+                    }
+                });
+            } else {
+                // 单败者情况：都是全分
+                document.querySelectorAll('.action-score').forEach(span => {
+                    span.textContent = selectedScore;
+                });
+            }
+        }
 
-            // 找到对应的玩家行和按钮 - 不依赖event.target
+        function updateScoreHint(config, score, losersCount = null) {
+            const hintElement = document.getElementById('score-hint');
+            if (!hintElement) return;
+
+            const actualLosersCount = losersCount || config.losersCount || 1;
+            if (actualLosersCount === 2) {
+                hintElement.textContent = `已选择 ${config.name} ${score} 分，一个玩家 +${score} 分，两个玩家各 -${score/2} 分`;
+            } else {
+                hintElement.textContent = `已选择 ${config.name} ${score} 分，一个玩家 +${score} 分，一个玩家 -${score} 分`;
+            }
+        }
+
+        function resetAllSelections() {
+            selectedScore = null;
+            selectedWinner = null;
+            selectedLosers = [];
+            isSpecialScore = false;
+            currentLosersCount = 1;
+
+            // 重置所有按钮状态
+            document.querySelectorAll('.score-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            document.querySelectorAll('.action-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+
+            // 隐藏玩家操作按钮
+            document.querySelectorAll('.player-actions').forEach(actions => {
+                actions.classList.remove('show');
+            });
+
+            // 如果已选择游戏种类，恢复对应的提示文字
+            if (selectedGameType) {
+                const config = gameTypeConfig[selectedGameType];
+                updateGameTypeHint(config);
+            }
+
+            // 更新提交按钮状态
+            checkCanSubmit();
+        }
+
+        function selectPlayerAction(playerName, action) {
+            console.log('selectPlayerAction called:', playerName, action);
+
+            if (!selectedGameType || !selectedScore) {
+                alert('请先选择游戏种类和分数');
+                return;
+            }
+
+            // 找到对应的玩家行和按钮
             const playerRows = document.querySelectorAll('.player-row');
             let targetButton = null;
             let playerRow = null;
 
-            // 找到对应的玩家行和按钮
             playerRows.forEach(row => {
                 const nameElement = row.querySelector('.player-name');
                 if (nameElement && nameElement.textContent.trim() === playerName) {
@@ -175,6 +486,8 @@
                 console.error('Cannot find button or row for player:', playerName);
                 return;
             }
+
+            const config = gameTypeConfig[selectedGameType];
 
             if (action === 'plus') {
                 // 处理加分按钮
@@ -206,14 +519,14 @@
                 }
             } else {
                 // 处理减分按钮
-                if (isSpecialScore) {
-                    // 特殊分数：允许最多选择2个败者
+                if (currentLosersCount === 2) {
+                    // 多败者：允许最多选择指定数量的败者
                     if (selectedLosers.includes(playerName)) {
                         // 如果已选择，则取消选择
                         console.log('取消选中败者:', playerName);
                         selectedLosers = selectedLosers.filter(loser => loser !== playerName);
                         targetButton.classList.remove('selected');
-                    } else if (selectedLosers.length < 2) {
+                    } else if (selectedLosers.length < currentLosersCount) {
                         // 如果未选择且未达到上限，则添加
                         console.log('选中败者:', playerName);
                         selectedLosers.push(playerName);
@@ -229,11 +542,11 @@
                         }
                     } else {
                         // 已达到上限，不允许选择更多
-                        alert('特殊分数只能选择2个败者');
+                        alert(`${config.name}只能选择${currentLosersCount}个败者`);
                         return;
                     }
                 } else {
-                    // 普通分数：只允许一个败者
+                    // 单败者：只允许一个败者
                     if (selectedLosers.includes(playerName)) {
                         // 如果已选择，则取消选择
                         console.log('取消选中败者:', playerName);
@@ -276,7 +589,8 @@
             // 不再隐藏表单，而是调用checkCanSubmit来更新按钮状态
             checkCanSubmit();
         }        function checkCanSubmit() {
-            const requiredLosers = isSpecialScore ? 2 : 1;
+            const config = gameTypeConfig[selectedGameType];
+            const requiredLosers = currentLosersCount || 1;
             const recordBtn = document.getElementById('record-btn');
             const scoreForm = document.getElementById('score-form');
 
@@ -291,10 +605,10 @@
                     // 启用按钮
                     if (recordBtn) {
                         recordBtn.disabled = false;
-                        if (isSpecialScore) {
-                            recordBtn.textContent = `记录：${selectedWinner} +${selectedScore}，${selectedLosers.join('、')} 各 -${selectedScore/2}`;
+                        if (currentLosersCount === 2) {
+                            recordBtn.textContent = `记录${config.name}：${selectedWinner} +${selectedScore}，${selectedLosers.join('、')} 各 -${selectedScore/2}`;
                         } else {
-                            recordBtn.textContent = `记录：${selectedWinner} +${selectedScore}，${selectedLosers[0]} -${selectedScore}`;
+                            recordBtn.textContent = `记录${config ? config.name : ''}：${selectedWinner} +${selectedScore}，${selectedLosers[0]} -${selectedScore}`;
                         }
                     }
                     return;
@@ -309,9 +623,9 @@
                 } else if (!selectedWinner) {
                     recordBtn.textContent = '请选择胜者';
                 } else if (selectedLosers.length === 0) {
-                    recordBtn.textContent = isSpecialScore ? '请选择2个败者' : '请选择败者';
-                } else if (isSpecialScore && selectedLosers.length < 2) {
-                    recordBtn.textContent = `请再选择${2 - selectedLosers.length}个败者`;
+                    recordBtn.textContent = requiredLosers === 2 ? '请选择2个败者' : '请选择败者';
+                } else if (selectedLosers.length < requiredLosers) {
+                    recordBtn.textContent = `请再选择${requiredLosers - selectedLosers.length}个败者`;
                 } else if (selectedLosers.includes(selectedWinner)) {
                     recordBtn.textContent = '胜者和败者不能相同';
                 } else {
@@ -320,8 +634,149 @@
             }
         }
 
+        let selectedPlayers = []; // 存储选中的玩家
+
+        function togglePlayerSelection(playerName) {
+            const button = document.querySelector(`[data-player-name="${playerName}"]`);
+            
+            if (selectedPlayers.includes(playerName)) {
+                // 取消选择
+                selectedPlayers = selectedPlayers.filter(name => name !== playerName);
+                button.classList.remove('selected');
+            } else {
+                // 添加选择
+                selectedPlayers.push(playerName);
+                button.classList.add('selected');
+            }
+            
+            updateBatchAddButtons();
+        }
+
+        function updateBatchAddButtons() {
+            const batchAddBtn = document.getElementById('batch-add-btn');
+            const clearSelectionBtn = document.getElementById('clear-selection-btn');
+            
+            if (selectedPlayers.length > 0) {
+                batchAddBtn.disabled = false;
+                clearSelectionBtn.disabled = false;
+                batchAddBtn.textContent = `添加选中的玩家 (${selectedPlayers.length})`;
+            } else {
+                batchAddBtn.disabled = true;
+                clearSelectionBtn.disabled = true;
+                batchAddBtn.textContent = '添加选中的玩家';
+            }
+        }
+
+        function clearPlayerSelection() {
+            selectedPlayers = [];
+            document.querySelectorAll('.quick-add-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            updateBatchAddButtons();
+        }
+
+        function batchAddPlayers() {
+            if (selectedPlayers.length === 0) return;
+            
+            // 创建表单批量添加玩家
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/batch_add_players/{{ session_id }}`;
+
+            // 添加所有选中的玩家
+            selectedPlayers.forEach(playerName => {
+                const playerInput = document.createElement('input');
+                playerInput.type = 'hidden';
+                playerInput.name = 'player_names';
+                playerInput.value = playerName;
+                form.appendChild(playerInput);
+            });
+
+            // 添加时区偏移量
+            const timezoneInput = document.createElement('input');
+            timezoneInput.type = 'hidden';
+            timezoneInput.name = 'timezone_offset';
+            timezoneInput.value = -new Date().getTimezoneOffset();
+            form.appendChild(timezoneInput);
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        function showNewPlayerModal() {
+            const modal = document.getElementById('newPlayerModal');
+            const input = document.getElementById('modalPlayerName');
+            modal.style.display = 'block';
+            input.value = '';
+            input.focus();
+        }
+
+        function hideNewPlayerModal() {
+            const modal = document.getElementById('newPlayerModal');
+            modal.style.display = 'none';
+        }
+
+        function createNewPlayer() {
+            const input = document.getElementById('modalPlayerName');
+            const playerName = input.value.trim();
+            
+            if (!playerName) {
+                alert('请输入玩家名字');
+                return;
+            }
+
+            // 检查是否已存在同名玩家
+            const existingButtons = document.querySelectorAll('.quick-add-btn[data-player-name]');
+            for (let btn of existingButtons) {
+                if (btn.getAttribute('data-player-name') === playerName) {
+                    alert('该玩家已存在');
+                    return;
+                }
+            }
+
+            // 创建新玩家
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/create_and_select_player/{{ session_id }}`;
+
+            const playerNameInput = document.createElement('input');
+            playerNameInput.type = 'hidden';
+            playerNameInput.name = 'new_player_name';
+            playerNameInput.value = playerName;
+
+            const timezoneInput = document.createElement('input');
+            timezoneInput.type = 'hidden';
+            timezoneInput.name = 'timezone_offset';
+            timezoneInput.value = -new Date().getTimezoneOffset();
+
+            form.appendChild(playerNameInput);
+            form.appendChild(timezoneInput);
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+
         function quickAddPlayer(playerName) {
-            document.getElementById('new_player_name').value = playerName;
+            // 保留原有的单个添加功能作为备用
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/add_player/{{ session_id }}`;
+
+            const playerNameInput = document.createElement('input');
+            playerNameInput.type = 'hidden';
+            playerNameInput.name = 'new_player_name';
+            playerNameInput.value = playerName;
+
+            const timezoneInput = document.createElement('input');
+            timezoneInput.type = 'hidden';
+            timezoneInput.name = 'timezone_offset';
+            timezoneInput.value = -new Date().getTimezoneOffset();
+
+            form.appendChild(playerNameInput);
+            form.appendChild(timezoneInput);
+
+            document.body.appendChild(form);
+            form.submit();
         }
 
         function submitScoreRecord(winner, loser, score) {
@@ -350,15 +805,52 @@
 
             document.body.appendChild(form);
             form.submit();
-        }        // 页面加载完成后的初始化
+        }
+
+
+
+        // 页面加载完成后的初始化
         document.addEventListener('DOMContentLoaded', function() {
             // 初始化时隐藏所有玩家操作按钮
             document.querySelectorAll('.player-actions').forEach(actions => {
-                actions.style.display = 'none';
+                actions.classList.remove('show');
             });
+
+            // 默认选择普胜
+            selectGameType('normal');
 
             // 初始化按钮状态
             checkCanSubmit();
+            
+            // 初始化批量添加按钮状态
+            updateBatchAddButtons();
+
+            // 弹窗按ESC键关闭
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    hideNewPlayerModal();
+                }
+            });
+
+            // 弹窗输入框按Enter键创建
+            const modalInput = document.getElementById('modalPlayerName');
+            if (modalInput) {
+                modalInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        createNewPlayer();
+                    }
+                });
+            }
+
+            // 点击弹窗外部关闭
+            const modal = document.getElementById('newPlayerModal');
+            if (modal) {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        hideNewPlayerModal();
+                    }
+                });
+            }
 
             // 处理表单提交
             const scoreForm = document.getElementById('score-form');
@@ -371,8 +863,16 @@
                         return false;
                     }
 
-                    if (isSpecialScore && selectedLosers.length === 2) {
-                        // 对于特殊分数，使用新的接口
+                    if (!selectedGameType) {
+                        e.preventDefault();
+                        alert('请先选择游戏种类');
+                        return false;
+                    }
+
+                    const config = gameTypeConfig[selectedGameType];
+
+                    if (currentLosersCount === 2) {
+                        // 多败者情况：使用特殊分数接口
                         e.preventDefault();
 
                         const form = document.createElement('form');
@@ -400,17 +900,28 @@
                         scoreInput.value = selectedScore;
                         form.appendChild(scoreInput);
 
+                        // 添加特殊分数类型
+                        const specialScoreInput = document.createElement('input');
+                        specialScoreInput.type = 'hidden';
+                        specialScoreInput.name = 'special_score';
+                        specialScoreInput.value = currentSpecialScore || config.specialScore;
+                        form.appendChild(specialScoreInput);
+
                         document.body.appendChild(form);
                         form.submit();
                     } else {
-                        // 普通分数，正常提交
+                        // 单败者情况：使用普通接口，设置隐藏字段
                         const winnerInput = document.getElementById('selected_winner');
                         const loserInput = document.getElementById('selected_loser');
                         const scoreInput = document.getElementById('selected_score');
+                        const specialScoreInput = document.getElementById('selected_special_score');
 
                         if (winnerInput) winnerInput.value = selectedWinner || '';
                         if (loserInput) loserInput.value = selectedLosers[0] || '';
                         if (scoreInput) scoreInput.value = selectedScore || '';
+                        if (specialScoreInput) specialScoreInput.value = currentSpecialScore || config.specialScore || '';
+
+                        // 不需要阻止默认提交，让表单正常提交到 add_score 路由
                     }
                 });
             }
@@ -432,18 +943,32 @@
         {% endif %}
     {% endwith %}
 
+    <!-- 主计分卡片 - 只有玩家数量大于等于2时才显示 -->
+    {% if sorted_players|length >= 2 %}
     <div class="card">
-        <div>所有玩家：{{ session.players|join(', ') }}</div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1em;">
+            <h4 style="margin: 0;">计分面板</h4>
+            <button type="button" class="btn-secondary" onclick="refreshGameData()" style="padding: 0.5em 1em; font-size: 0.9em;">刷新</button>
+        </div>
+        
+        <!-- 种类选择区域 -->
+        <div class="game-type-selection">
+            <label>选择种类：</label>
+            <div class="game-type-buttons">
+                <button type="button" class="game-type-btn selected" data-type="normal" onclick="selectGameType('normal')">普胜</button>
+                <button type="button" class="game-type-btn" data-type="double" onclick="selectGameType('double')">双吃</button>
+                <button type="button" class="game-type-btn" data-type="small" onclick="selectGameType('small')">小金</button>
+                <button type="button" class="game-type-btn" data-type="big" onclick="selectGameType('big')">大金</button>
+            </div>
+        </div>
 
         <!-- 分数选择区域 -->
-        <div class="score-selection">
+        <div class="score-selection" id="score-selection">
             <label>选择分数：</label>
-            <div class="score-buttons">
-                {% for s in score_options %}
-                <button type="button" class="score-btn" onclick="selectScore({{ s }})">{{ s }}</button>
-                {% endfor %}
+            <div class="score-buttons" id="score-buttons-container">
+                <!-- 动态生成分数按钮 -->
             </div>
-            <div id="score-hint" class="score-hint">请先选择分数，然后点击玩家右侧的 + 或 - 按钮</div>
+            <div id="score-hint" class="score-hint">请选择分数，然后点击玩家右侧的 + 或 - 按钮</div>
         </div>
 
         <!-- 玩家分数表格 -->
@@ -452,15 +977,15 @@
             <div class="player-rows">
                 {% for player in sorted_players %}
                 <div class="player-row">
-                    <span class="player-name">
+                    <span class="player-name{% if player.has_big_gold %} has-big-gold{% elif player.has_small_gold %} has-small-gold{% endif %}">
                         {% if player.id %}
                         <a href="/player/{{ player.id }}">{{ player.name }}</a>
                         {% else %}
                         {{ player.name }}
                         {% endif %}
                     </span>
-                    <span class="player-score {% if player.score > 0 %}positive{% elif player.score < 0 %}negative{% else %}neutral{% endif %}">{{ player.score }}</span>
-                    <div class="player-actions" style="display: none;">
+                    <span class="player-score-display {% if player.score > 0 %}positive{% elif player.score < 0 %}negative{% else %}neutral{% endif %}">{{ player.score }}</span>
+                    <div class="player-actions">
                         <button type="button" class="action-btn plus-btn" onclick="selectPlayerAction('{{ player.name }}', 'plus')">+<span class="action-score"></span></button>
                         <button type="button" class="action-btn minus-btn" onclick="selectPlayerAction('{{ player.name }}', 'minus')">-<span class="action-score"></span></button>
                     </div>
@@ -474,35 +999,68 @@
             <input type="hidden" id="selected_winner" name="winner" value="">
             <input type="hidden" id="selected_loser" name="loser" value="">
             <input type="hidden" id="selected_score" name="score" value="">
+            <input type="hidden" id="selected_special_score" name="special_score" value="">
             <input type="hidden" id="timezone_offset" name="timezone_offset" value="">
-            <button type="submit" class="btn-primary btn-full" id="record-btn" disabled>请先选择分数</button>
+            <button type="submit" class="btn-primary btn-full" id="record-btn" disabled>请先选择游戏种类</button>
         </form>
+    </div>
+    {% endif %}
 
-        <form action="/end_session/{{ session_id }}" method="post">
-            <input type="hidden" id="end_session_timezone_offset" name="timezone_offset" value="">
-            <button type="submit" class="btn-danger btn-full">结束本场</button>
-        </form>
-
-        <!-- 添加玩家功能 -->
-        <div class="add-player-section">
-            <label>添加新玩家：</label>
-            <form action="/add_player/{{ session_id }}" method="post" class="add-player-form">
-                <input type="text" id="new_player_name" name="new_player_name" placeholder="输入玩家名字" required>
-                <input type="hidden" id="add_player_timezone_offset" name="timezone_offset" value="">
-                <button type="submit" class="btn-success">添加</button>
-            </form>
-
-            {% if recent_players %}
-            <div class="recent-players">
-                <div class="recent-players-title">最近添加的玩家：</div>
-                {% for player in recent_players %}
-                <span class="recent-player-btn" onclick="quickAddPlayer('{{ player.name }}')">{{ player.name }}</span>
-                {% endfor %}
-            </div>
-            {% endif %}
+    <!-- 玩家管理卡片 - 始终显示，在主计分卡片之后 -->
+    <div class="card">
+        <h4>玩家管理</h4>
+        
+        <!-- 显示所有玩家 -->
+        <div class="current-players">
+            <strong>当前玩家：</strong>{{ session.players|join('、') }}
         </div>
+        
+        <!-- 快速添加玩家 - 主要功能 -->
+        <div class="quick-add-section">
+            <div class="quick-add-title">快速添加玩家：</div>
+            <div class="quick-add-buttons">
+                {% for player in recent_players %}
+                <button type="button" class="quick-add-btn" data-player-name="{{ player.name }}" onclick="togglePlayerSelection('{{ player.name }}')">
+                    <span class="player-name-text">{{ player.name }}</span>
+                    {% if player.effective_win_rate is not none %}
+                    <span class="player-win-rate">{{ player.effective_win_rate }}%</span>
+                    {% else %}
+                    <span class="player-win-rate">新手</span>
+                    {% endif %}
+                </button>
+                {% endfor %}
+                <button type="button" class="add-new-btn" onclick="showNewPlayerModal()">+</button>
+            </div>
+            <div class="quick-add-actions">
+                <button type="button" id="batch-add-btn" class="btn-primary" onclick="batchAddPlayers()" disabled>添加选中的玩家</button>
+                <button type="button" id="clear-selection-btn" class="btn-secondary" onclick="clearPlayerSelection()" disabled>清空选择</button>
+            </div>
+        </div>
+        
+        {% if sorted_players|length < 2 %}
+        <div class="hint-warning">
+            <strong>提示：</strong> 至少需要2个玩家才能开始游戏，请先添加玩家。
+        </div>
+        {% endif %}
     </div>
 
+    <!-- 场次控制卡片 -->
+    <div class="card">
+        {% if sorted_players|length < 2 %}
+        <form action="/delete_session/{{ session_id }}" method="post" onsubmit="return confirm('确定要取消这个场次吗？所有数据将被删除。')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn-danger btn-full">取消场次</button>
+        </form>
+        {% else %}
+        <form action="/end_session/{{ session_id }}" method="post">
+            <input type="hidden" id="end_session_timezone_offset" name="timezone_offset" value="">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn-danger btn-full" onclick="return confirm('确定要结束本场游戏吗？')">结束本场</button>
+        </form>
+        {% endif %}
+    </div>
+
+    <!-- 游戏记录卡片 -->
     <div class="card">
         <h4>本场所有记录</h4>
         <div class="rounds-list">
@@ -510,14 +1068,28 @@
                 {% for r in session.get('records', session.get('rounds', [])) %}
                 <div class="record-item">
                     <div class="record-content">
-                        <div>胜者: <b>{{ r.winner }}</b>，败者: <b>{{ r.loser }}</b>，分数:
-                            <span class="{% if r.score > 0 %}positive{% elif r.score < 0 %}negative{% else %}neutral{% endif %}">{{ r.score }}</span>
+                        <div>
+                            <b><a href="/player/{{ r.winner_id }}" class="record-player-link">{{ r.winner }}</a></b> 胜 <b>
+                            {% if r.is_multi_loser %}
+                                {% for loser in r.losers %}
+                                    <a href="/player/{{ loser.id }}" class="record-player-link">{{ loser.name }}</a>{% if not loop.last %} + {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <a href="/player/{{ r.loser_id }}" class="record-player-link">{{ r.loser }}</a>
+                            {% endif %}
+                            </b>，<span class="{% if r.score > 0 %}positive{% elif r.score < 0 %}negative{% else %}neutral{% endif %}">{{ r.score }}</span> 分
+                            {% if r.special_score %}
+                            <span class="special-score-tag">{{ r.special_score }}</span>
+                            {% endif %}
                         </div>
-                        <div class="timestamp" data-utc-time="{{ r.timestamp }}">{{ r.timestamp }}</div>
+                        <div class="timestamp-row">
+                            <span class="timestamp" data-utc-time="{{ r.timestamp }}">{{ r.timestamp }}</span>
+                            <form action="/delete_record/{{ session_id }}/{{ loop.index0 }}" method="post" class="delete-form">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="delete-record-btn" onclick="return confirm('确定要删除这条记录吗？这会恢复相应的分数变化。')">删除</button>
+                            </form>
+                        </div>
                     </div>
-                    <form action="/delete_record/{{ session_id }}/{{ loop.index0 }}" method="post" class="delete-form">
-                        <button type="submit" class="delete-record-btn" onclick="return confirm('确定要删除这条记录吗？这会恢复相应的分数变化。')">删除</button>
-                    </form>
                 </div>
                 {% endfor %}
             {% else %}
@@ -536,6 +1108,20 @@
            <a href="https://github.com/xiaoyuin/EMSPoolGamble" target="_blank" rel="noopener">GitHub</a> |
            <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a>
         </p>
+    </div>
+
+    <!-- 新建玩家弹窗 -->
+    <div id="newPlayerModal" class="new-player-modal">
+        <div class="modal-content">
+            <div class="modal-header">创建新玩家</div>
+            <div class="modal-form">
+                <input type="text" id="modalPlayerName" placeholder="输入新玩家名字" maxlength="20">
+                <div class="modal-buttons">
+                    <button type="button" class="btn-secondary" onclick="hideNewPlayerModal()">取消</button>
+                    <button type="button" class="btn-success" onclick="createNewPlayer()">创建</button>
+                </div>
+            </div>
+        </div>
     </div>
 
 <script>

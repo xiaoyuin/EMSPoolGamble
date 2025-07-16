@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ achievement.name }} - 成就详情</title>
+    <style>
+        body { font-family: sans-serif; max-width: 700px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
+        .card { background: #ffffff; border-radius: 10px; padding: 1.2em; margin-top: 1.5em; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .links { margin-top: 1em; text-align: center; }
+        .links a { color: #1890ff; text-decoration: none; margin: 0 0.5em; }
+        .links a:hover { text-decoration: underline; }
+        .footer { margin-top: 2em; text-align: center; font-size: 0.8em; color: #888; }
+
+        .achievement-header {
+            text-align: center;
+            padding: 2.5em 1em;
+            background: linear-gradient(135deg, #cd7f32 0%, #b8860b 100%);
+            color: white;
+            border-radius: 15px;
+            margin-bottom: 2em;
+        }
+
+        .achievement-icon {
+            font-size: 4em;
+            margin-bottom: 0.5em;
+            display: block;
+        }
+
+        .achievement-name {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 0.5em;
+        }
+
+        .achievement-description {
+            font-size: 1.1em;
+            opacity: 0.95;
+            margin-bottom: 1em;
+            line-height: 1.5;
+        }
+
+        .achievement-rule {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 0.8em;
+            border-radius: 10px;
+            font-size: 1em;
+            margin-bottom: 0.5em;
+        }
+
+
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1em;
+            margin-bottom: 2em;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 1.5em;
+            border-radius: 10px;
+            text-align: center;
+            border-left: 4px solid #cd7f32;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #cd7f32;
+            margin-bottom: 0.2em;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        .masters-list {
+            background: #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .master-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.2em;
+            border-bottom: 1px solid #f0f0f0;
+            transition: all 0.3s ease;
+        }
+
+        .master-item:last-child {
+            border-bottom: none;
+        }
+
+        .master-item:hover {
+            background: linear-gradient(90deg, #e6f7ff 0%, #ffffff 100%);
+            transform: translateX(5px);
+        }
+
+        .master-info {
+            display: flex;
+            align-items: center;
+            gap: 1em;
+        }
+
+        .master-rank {
+            background: #cd7f32;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1em;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .master-rank.top-3 {
+            background: linear-gradient(135deg, #ffd700 0%, #ff8c00 100%);
+            transform: scale(1.1);
+        }
+
+        .master-name {
+            font-weight: bold;
+            color: #333;
+            font-size: 1.2em;
+        }
+
+        .master-title {
+            background: #cd7f32;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.75em;
+            margin-left: 0.5em;
+        }
+
+        .master-stats {
+            text-align: right;
+            color: #666;
+        }
+
+        .achievement-count {
+            font-weight: bold;
+            color: #cd7f32;
+            font-size: 1.3em;
+        }
+
+        .progress-bar {
+            width: 100px;
+            height: 6px;
+            background: #f0f0f0;
+            border-radius: 3px;
+            margin: 0.5em 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #cd7f32 0%, #b8860b 100%);
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        .first-time {
+            font-size: 0.8em;
+            margin-top: 0.2em;
+        }
+
+        .requirement-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5em;
+            margin-bottom: 2em;
+            border-left: 4px solid #cd7f32;
+        }
+
+        .requirement-title {
+            font-weight: bold;
+            color: #cd7f32;
+            margin-bottom: 0.5em;
+        }
+
+        .requirement-text {
+            color: #666;
+            line-height: 1.5;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #999;
+            font-style: italic;
+            padding: 3em;
+        }
+
+        .no-data-icon {
+            font-size: 3em;
+            margin-bottom: 0.5em;
+            opacity: 0.5;
+        }
+
+        .stats-overview {
+            margin-top: 1em;
+        }
+
+        .near-master {
+            margin: 0.5em 0;
+            padding: 0.5em;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+
+        .flash-message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .flash-success {
+            background-color: #f6ffed;
+            border: 1px solid #b7eb8f;
+            color: #52c41a;
+        }
+        .flash-error {
+            background-color: #fff2f0;
+            border: 1px solid #ffccc7;
+            color: #ff4d4f;
+        }
+    </style>
+</head>
+<body>
+    <!-- 显示消息通知 -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-message flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- 成就信息头部 -->
+    <div class="achievement-header">
+        <span class="achievement-icon">{{ achievement.icon }}</span>
+        <div class="achievement-name">{{ achievement.name }}</div>
+        <div class="achievement-description">{{ achievement.description }}</div>
+        <div class="achievement-rule">🎯 达成条件：{{ achievement.rule }}</div>
+    </div>
+
+    <!-- 达人排行榜 -->
+    {% if achievement_players %}
+    <div class="card">
+        <h3>🏆 小金达人排行榜</h3>
+        <div class="masters-list">
+            {% for player in achievement_players %}
+            <div class="master-item">
+                <div class="master-info">
+                    <div class="master-rank {% if loop.index <= 3 %}top-3{% endif %}">{{ loop.index }}</div>
+                    <div>
+                        <div class="master-name">
+                            {{ player.name }}
+                            <span class="master-title">达人</span>
+                        </div>
+                    </div>
+                </div>
+                    <div class="master-stats">
+                        <div class="achievement-count">{{ player.achievement_count }} 次</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill"></div>
+                        </div>
+                        <div class="first-time" data-utc-time="{{ player.first_achievement_date }}">
+                            达成：{{ player.first_achievement_date }}
+                        </div>
+                    </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="card">
+        <h3>🏆 小金达人排行榜</h3>
+        <div class="no-data">
+            <div class="no-data-icon">🏆</div>
+            <div>暂无小金达人</div>
+            <small>成为第一位达成 {{ achievement.requirement_count }} 次小金的达人吧！</small>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 所有小金记录统计 -->
+    {% if all_records %}
+    <div class="card">
+        <h3>📊 小金记录总览</h3>
+        <p>全站共有 <strong>{{ all_records|length }}</strong> 次小金记录</p>
+
+        {% set player_counts = {} %}
+        {% for record in all_records %}
+            {% if record.winner_name in player_counts %}
+                {% set _ = player_counts.update({record.winner_name: player_counts[record.winner_name] + 1}) %}
+            {% else %}
+                {% set _ = player_counts.update({record.winner_name: 1}) %}
+            {% endif %}
+        {% endfor %}
+
+        <div class="stats-overview">
+            <strong>距离达人最近的玩家：</strong>
+            <div class="near-master">暂无玩家接近达人门槛</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="links">
+        <a href="/achievements">返回成就列表</a> |
+        <a href="/">返回首页</a> |
+        <a href="/history">历史记录</a>
+    </div>
+
+    <div class="footer">
+        <p>© 2025 EMS Pool Gamble</p>
+    </div>
+
+    <script>
+        // 将UTC时间转换为本地时间显示 - 兼容iOS Chrome
+        function convertUtcToLocal() {
+            // 转换所有带有 data-utc-time 属性的元素
+            document.querySelectorAll('[data-utc-time]').forEach(function(element) {
+                const utcTime = element.getAttribute('data-utc-time');
+                if (utcTime && utcTime.trim() !== '' && utcTime !== '未知') {
+                    try {
+                        // 统一时间格式处理，兼容iOS Chrome
+                        let dateString = utcTime.trim();
+
+                        // 如果不是ISO格式且不包含时区信息，则添加Z表示UTC
+                        if (!dateString.includes('T') && !dateString.endsWith('Z') && !dateString.includes('+') && !dateString.includes(' UTC')) {
+                            // 将 "YYYY-MM-DD HH:MM:SS" 格式转换为 ISO 格式
+                            dateString = dateString.replace(' ', 'T') + 'Z';
+                        } else if (dateString.includes(' UTC')) {
+                            // 移除 ' UTC' 并替换为 'Z'
+                            dateString = dateString.replace(' UTC', 'Z').replace(' ', 'T');
+                        } else if (!dateString.endsWith('Z') && !dateString.includes('+') && !dateString.includes('-', 10)) {
+                            // 确保有时区标识
+                            dateString += 'Z';
+                        }
+
+                        // 创建Date对象
+                        const utcDate = new Date(dateString);
+
+                        // 检查日期是否有效
+                        if (!isNaN(utcDate.getTime())) {
+                            const localTimeStr = utcDate.toLocaleString('zh-CN', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit'
+                            });
+                            element.textContent = localTimeStr;
+                            console.log('成就页时间转换:', utcTime, '->', localTimeStr);
+                        } else {
+                            console.warn('成就页时间解析失败:', utcTime, '转换后:', dateString);
+                        }
+                    } catch (e) {
+                        console.warn('成就页时间转换失败:', utcTime, e);
+                    }
+                }
+            });
+        }
+
+        // 页面加载完成后执行时间转换
+        document.addEventListener('DOMContentLoaded', convertUtcToLocal);
+    </script>
+</body>
+</html>

@@ -1,5 +1,7 @@
 # 数据文件 - 运行时生成，不应提交到版本控制
 data.json
+data.json.backup
+ems_pool_gamble.db
 
 # Python 相关
 __pycache__/
