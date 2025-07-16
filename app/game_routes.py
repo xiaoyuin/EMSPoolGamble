@@ -1,7 +1,10 @@
 """
 游戏相关路由模块 - 游戏界面、计分、玩家管理等
 """
-from flask import render_template, request, redirect, url_for, session, flash
+from flask import render_template, request, redirect, url_for, session, flash, Response, jsonify
+import json
+import time
+import queue
 from .models import (sessions, players, save_data, 
                      get_player_by_name, get_player_name, get_or_create_player, create_player,
                      get_available_players, get_session,
@@ -119,8 +122,8 @@ def register_game_routes(app):
             flash('添加玩家失败，可能已存在', 'error')
             return redirect(url_for('game', session_id=session_id))
 
-        # 保存数据（数据库自动保存）
         save_data()
+        notify_session_update(session_id)
 
         flash(f'玩家 "{new_player_name}" 添加成功', 'success')
         return redirect(url_for('game', session_id=session_id))
@@ -178,9 +181,9 @@ def register_game_routes(app):
                 print(f"添加玩家 {player_name} 时出错: {e}")
                 failed_players.append(player_name)
 
-        # 保存数据（数据库自动保存）
         if added_players:
             save_data()
+            notify_session_update(session_id)
 
         # 生成反馈消息
         messages = []
@@ -257,8 +260,8 @@ def register_game_routes(app):
             # 添加计分记录（传递特殊分数类型）
             add_game_record(session_id, winner_id, loser_id, score, special_score)
 
-            # 保存数据（数据库自动保存）
             save_data()
+            notify_session_update(session_id)
             
             if special_score:
                 flash(f'成功记录{special_score}分数', 'success')
@@ -317,8 +320,8 @@ def register_game_routes(app):
         # 使用统一的计分记录方法（支持多败者）
         add_game_record(session_id, winner_id, loser_ids[0], total_score, special_score, loser_ids[1])
 
-        # 保存数据（数据库自动保存）
         save_data()
+        notify_session_update(session_id)
         
         type_name = special_score if special_score else '特殊分数'
         flash(f'成功记录{type_name}：{winner} 胜 {losers[0]}+{losers[1]} ({total_score}分)', 'success')
@@ -357,8 +360,8 @@ def register_game_routes(app):
         if record_id:
             deleted_record = delete_game_record(record_id)
             if deleted_record:
-                # 保存数据（数据库自动保存）
                 save_data()
+                notify_session_update(session_id)
                 
                 winner_name = get_player_name(deleted_record['winner_id'])
                 loser_name = get_player_name(deleted_record['loser_id'])
@@ -427,8 +430,151 @@ def register_game_routes(app):
         # 创建新玩家
         player_id = create_player(new_player_name)
 
-        # 保存数据（数据库自动保存）
         save_data()
+        notify_session_update(session_id)
 
         flash(f'玩家 "{new_player_name}" 创建成功，请在快速添加区域选择', 'success')
         return redirect(url_for('game', session_id=session_id))
+
+    # SSE连接管理
+    active_connections = {}  # session_id -> list of connection objects
+
+    def notify_session_update(session_id):
+        """数据变更时推送更新到所有连接的客户端"""
+        if session_id not in active_connections:
+            return
+            
+        game_data = get_game_data(session_id)
+        if not game_data:
+            return
+            
+        update_data = {
+            'type': 'update',
+            'players': game_data['sorted_players'],
+            'records': game_data['records'],
+            'current_players': game_data['current_players'],
+            'available_players': game_data['available_players'],
+            'timestamp': time.time()
+        }
+        
+        # 推送给所有活跃连接
+        disconnected = []
+        for connection in active_connections[session_id][:]:  # 复制列表避免修改时的问题
+            try:
+                connection['queue'].put_nowait(update_data)
+            except:
+                disconnected.append(connection)
+        
+        # 清理断开的连接
+        for connection in disconnected:
+            active_connections[session_id].remove(connection)
+        
+        if not active_connections[session_id]:
+            del active_connections[session_id]
+
+    def get_game_data(session_id):
+        """获取游戏数据"""
+        game_session = get_session(session_id)
+        if not game_session:
+            return None
+
+        players_with_ids = []
+        for player_name in game_session.get('players', set()):
+            player_id = get_player_by_name(player_name)
+            score = game_session.get('scores', {}).get(player_name, 0)
+            players_with_ids.append({
+                'name': player_name,
+                'id': player_id,
+                'score': score
+            })
+
+        current_player_ids = [p['id'] for p in players_with_ids if p['id']]
+        special_wins = get_players_special_wins_batch(current_player_ids) if current_player_ids else {}
+
+        for player in players_with_ids:
+            if player['id'] and player['id'] in special_wins:
+                player.update(special_wins[player['id']])
+            else:
+                player.update({'has_small_gold': False, 'has_big_gold': False})
+
+        sorted_players = sorted(players_with_ids, key=lambda x: x['score'], reverse=True)
+
+        records = []
+        for record in game_session.get('records', []):
+            record_data = {
+                'winner': record.get('winner'),
+                'winner_id': get_player_by_name(record.get('winner', '')),
+                'loser': record.get('loser'),
+                'loser_id': get_player_by_name(record.get('loser', '')) if record.get('loser') else None,
+                'score': record.get('score'),
+                'timestamp': record.get('timestamp'),
+                'special_score': record.get('special_score'),
+                'is_multi_loser': record.get('is_multi_loser', False),
+                'losers': record.get('losers', [])
+            }
+            records.append(record_data)
+
+        available_players = get_available_players(exclude_session_id=session_id)
+
+        return {
+            'session': game_session,
+            'sorted_players': sorted_players,
+            'records': records,
+            'current_players': ', '.join(game_session.get('players', [])),
+            'available_players': available_players
+        }
+
+    @app.route('/game/<session_id>/events')
+    def game_events(session_id):
+        """Server-Sent Events实时更新端点"""
+        def event_stream():
+            connection_queue = queue.Queue()
+            connection_obj = {'queue': connection_queue}
+            
+            if session_id not in active_connections:
+                active_connections[session_id] = []
+            active_connections[session_id].append(connection_obj)
+            
+            try:
+                # 发送初始数据
+                initial_data = get_game_data(session_id)
+                if initial_data:
+                    initial_update = {
+                        'type': 'initial',
+                        'players': initial_data['sorted_players'],
+                        'records': initial_data['records'],
+                        'current_players': initial_data['current_players'],
+                        'available_players': initial_data['available_players'],
+                        'timestamp': time.time()
+                    }
+                    yield f"data: {json.dumps(initial_update)}\n\n"
+                
+                # 保持连接并处理更新
+                while True:
+                    try:
+                        # 等待30秒，如果没有更新则发送心跳
+                        update_data = connection_queue.get(timeout=30)
+                        yield f"data: {json.dumps(update_data)}\n\n"
+                    except queue.Empty:
+                        # 发送心跳保持连接
+                        heartbeat = {'type': 'heartbeat', 'timestamp': time.time()}
+                        yield f"data: {json.dumps(heartbeat)}\n\n"
+                    except:
+                        break
+                        
+            finally:
+                # 清理连接
+                if session_id in active_connections:
+                    try:
+                        active_connections[session_id].remove(connection_obj)
+                        if not active_connections[session_id]:
+                            del active_connections[session_id]
+                    except ValueError:
+                        pass
+        
+        return Response(event_stream(), 
+                       mimetype='text/event-stream',
+                       headers={
+                           'Cache-Control': 'no-cache',
+                           'Connection': 'keep-alive'
+                       })

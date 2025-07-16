@@ -113,7 +113,7 @@
         .game-type-btn.selected { background: #1890ff; color: white; border-color: #1890ff; }
         .score-hint { margin-top: 0.5em; font-size: 0.8em; color: #666; text-align: center; }
         .players-table { margin: 1em 0; }
-        .player-rows { border-radius: 5px; padding: 0; }
+        .player-rows { border-radius: 5px; padding: 0; margin-top: 1em }
         .player-row { display: flex; align-items: stretch; margin: 0; border-bottom: 1px solid #f0f0f0; min-height: 3.2em; }
         .player-row .player-name { flex: 1; }
         .player-row .player-score-display { margin-left: auto; }
@@ -253,6 +253,256 @@
                 refreshBtn.textContent = originalText;
                 refreshBtn.disabled = false;
             });
+        }
+
+        // 实时同步功能
+        let eventSource = null;
+        let isRealtimeSyncEnabled = true;
+
+        function initRealtimeSync() {
+            if (!isRealtimeSyncEnabled) return;
+            
+            const sessionId = '{{ session_id }}';
+            if (!sessionId) return;
+
+            // 更新按钮状态
+            const refreshBtn = document.getElementById('refresh-btn');
+            if (refreshBtn) {
+                refreshBtn.textContent = '实时同步中';
+                refreshBtn.style.color = '#52c41a';
+            }
+
+            // 建立SSE连接
+            eventSource = new EventSource(`/game/${sessionId}/events`);
+            
+            eventSource.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    // 处理心跳消息
+                    if (data.type === 'heartbeat') {
+                        console.log('收到心跳');
+                        return;
+                    }
+                    
+                    updateGameUI(data);
+                    console.log('实时同步更新数据:', data);
+                } catch (error) {
+                    console.error('解析SSE数据失败:', error);
+                }
+            };
+
+            eventSource.onerror = function(event) {
+                console.warn('SSE连接错误:', event);
+                // 更新按钮状态显示错误
+                const refreshBtn = document.getElementById('refresh-btn');
+                if (refreshBtn) {
+                    refreshBtn.textContent = '连接断开';
+                    refreshBtn.style.color = '#ff4d4f';
+                }
+                
+                // 连接错误时自动重连
+                setTimeout(() => {
+                    if (isRealtimeSyncEnabled) {
+                        initRealtimeSync();
+                    }
+                }, 5000);
+            };
+
+            console.log('实时同步已启用');
+        }
+
+        function updateGameUI(data) {
+            // 更新玩家分数排名
+            updatePlayerRows(data.players);
+            
+            // 更新游戏记录
+            updateGameRecords(data.records);
+            
+            // 更新当前玩家列表
+            updateCurrentPlayers(data.current_players);
+            
+            // 更新快速添加玩家区域
+            updateAvailablePlayers(data.available_players);
+            
+            // 重新转换时间显示
+            convertUtcToLocal();
+        }
+
+        function updatePlayerRows(players) {
+            const playerRowsContainer = document.querySelector('.player-rows');
+            if (!playerRowsContainer || !players) return;
+
+            // 保存当前选择状态
+            const currentSelections = {
+                winner: selectedWinner,
+                losers: [...selectedLosers],
+                score: selectedScore,
+                gameType: selectedGameType
+            };
+
+            // 重新生成玩家行HTML
+            let html = '';
+            players.forEach(player => {
+                const scoreClass = player.score > 0 ? 'positive' : (player.score < 0 ? 'negative' : 'neutral');
+                const specialClass = player.has_big_gold ? ' has-big-gold' : (player.has_small_gold ? ' has-small-gold' : '');
+                
+                html += `
+                    <div class="player-row">
+                        <span class="player-name${specialClass}">
+                            ${player.id ? `<a href="/player/${player.id}">${player.name}</a>` : player.name}
+                        </span>
+                        <span class="player-score-display ${scoreClass}">${player.score}</span>
+                        <div class="player-actions">
+                            <button type="button" class="action-btn plus-btn" onclick="selectPlayerAction('${player.name}', 'plus')">+<span class="action-score"></span></button>
+                            <button type="button" class="action-btn minus-btn" onclick="selectPlayerAction('${player.name}', 'minus')">-<span class="action-score"></span></button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            playerRowsContainer.innerHTML = html;
+
+            // 恢复选择状态
+            if (currentSelections.score && currentSelections.gameType) {
+                selectedScore = currentSelections.score;
+                selectedGameType = currentSelections.gameType;
+                selectedWinner = currentSelections.winner;
+                selectedLosers = currentSelections.losers;
+
+                // 显示操作按钮
+                document.querySelectorAll('.player-actions').forEach(actions => {
+                    actions.classList.add('show');
+                });
+
+                // 更新分数显示
+                const config = gameTypeConfig[selectedGameType];
+                if (config) {
+                    updatePlayerActionScores(config);
+                }
+
+                // 恢复按钮选中状态
+                if (selectedWinner) {
+                    const winnerRow = Array.from(document.querySelectorAll('.player-row')).find(row => {
+                        const nameElement = row.querySelector('.player-name');
+                        return nameElement && nameElement.textContent.trim() === selectedWinner;
+                    });
+                    if (winnerRow) {
+                        const plusBtn = winnerRow.querySelector('.plus-btn');
+                        if (plusBtn) plusBtn.classList.add('selected');
+                    }
+                }
+
+                selectedLosers.forEach(loserName => {
+                    const loserRow = Array.from(document.querySelectorAll('.player-row')).find(row => {
+                        const nameElement = row.querySelector('.player-name');
+                        return nameElement && nameElement.textContent.trim() === loserName;
+                    });
+                    if (loserRow) {
+                        const minusBtn = loserRow.querySelector('.minus-btn');
+                        if (minusBtn) minusBtn.classList.add('selected');
+                    }
+                });
+
+                // 更新提交按钮状态
+                checkCanSubmit();
+            }
+        }
+
+        function updateGameRecords(records) {
+            const roundsList = document.querySelector('.rounds-list');
+            if (!roundsList || !records) return;
+
+            if (records.length === 0) {
+                roundsList.innerHTML = '<p>还没有计分记录</p>';
+                return;
+            }
+
+            let html = '';
+            records.forEach((record, index) => {
+                const scoreClass = record.score > 0 ? 'positive' : (record.score < 0 ? 'negative' : 'neutral');
+                const loserDisplay = record.is_multi_loser ? 
+                    record.losers.map(loser => `<a href="/player/${loser.id}" class="record-player-link">${loser.name}</a>`).join(' + ') :
+                    `<a href="/player/${record.loser_id}" class="record-player-link">${record.loser}</a>`;
+                
+                html += `
+                    <div class="record-item">
+                        <div class="record-content">
+                            <div>
+                                <b><a href="/player/${record.winner_id}" class="record-player-link">${record.winner}</a></b> 胜 <b>${loserDisplay}</b>，<span class="${scoreClass}">${record.score}</span> 分
+                                ${record.special_score ? `<span class="special-score-tag">${record.special_score}</span>` : ''}
+                            </div>
+                            <div class="timestamp-row">
+                                <span class="timestamp" data-utc-time="${record.timestamp}">${record.timestamp}</span>
+                                <form action="/delete_record/{{ session_id }}/${index}" method="post" class="delete-form">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="delete-record-btn" onclick="return confirm('确定要删除这条记录吗？这会恢复相应的分数变化。')">删除</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            roundsList.innerHTML = html;
+        }
+
+        function updateCurrentPlayers(currentPlayersText) {
+            const currentPlayersElement = document.querySelector('.current-players');
+            if (currentPlayersElement && currentPlayersText) {
+                currentPlayersElement.innerHTML = `<strong>当前玩家：</strong>${currentPlayersText}`;
+            }
+        }
+
+        function updateAvailablePlayers(availablePlayers) {
+            const quickAddButtons = document.querySelector('.quick-add-buttons');
+            if (!quickAddButtons || !availablePlayers) return;
+
+            // 保存当前选择状态
+            const currentlySelected = Array.from(document.querySelectorAll('.quick-add-btn.selected')).map(btn => 
+                btn.getAttribute('data-player-name')
+            );
+
+            // 重新生成快速添加按钮HTML
+            let html = '';
+            availablePlayers.forEach(player => {
+                const isSelected = currentlySelected.includes(player.name) ? ' selected' : '';
+                const winRate = player.effective_win_rate !== null ? `${player.effective_win_rate}%` : '新手';
+                
+                html += `
+                    <button type="button" class="quick-add-btn${isSelected}" data-player-name="${player.name}" onclick="togglePlayerSelection('${player.name}')">
+                        <span class="player-name-text">${player.name}</span>
+                        <span class="player-win-rate">${winRate}</span>
+                    </button>
+                `;
+            });
+            
+            // 添加"+"按钮
+            html += `
+                <button type="button" class="add-new-btn" onclick="showNewPlayerModal()">+</button>
+            `;
+            
+            quickAddButtons.innerHTML = html;
+
+            // 恢复选择状态到全局变量
+            selectedPlayers = currentlySelected;
+            updateBatchAddButtons();
+        }
+
+        function stopRealtimeSync() {
+            isRealtimeSyncEnabled = false;
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+                console.log('实时同步已停用');
+            }
+            
+            // 更新按钮状态
+            const refreshBtn = document.getElementById('refresh-btn');
+            if (refreshBtn) {
+                refreshBtn.textContent = '手动刷新';
+                refreshBtn.style.color = '';
+            }
         }
 
         // 游戏种类配置
@@ -825,6 +1075,9 @@
             // 初始化批量添加按钮状态
             updateBatchAddButtons();
 
+            // 启动实时同步
+            initRealtimeSync();
+
             // 弹窗按ESC键关闭
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape') {
@@ -926,6 +1179,11 @@
                 });
             }
         });
+
+        // 页面卸载时停止实时同步
+        window.addEventListener('beforeunload', function() {
+            stopRealtimeSync();
+        });
     </script>
 </head>
 <body>
@@ -948,7 +1206,7 @@
     <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1em;">
             <h4 style="margin: 0;">计分面板</h4>
-            <button type="button" class="btn-secondary" onclick="refreshGameData()" style="padding: 0.5em 1em; font-size: 0.9em;">刷新</button>
+            <button type="button" class="btn-secondary" onclick="refreshGameData()" style="padding: 0.5em 1em; font-size: 0.9em;" id="refresh-btn">实时同步中</button>
         </div>
         
         <!-- 种类选择区域 -->
