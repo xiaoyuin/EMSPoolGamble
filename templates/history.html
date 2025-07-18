@@ -106,7 +106,6 @@
         .load-more-btn:disabled:hover {
             text-decoration: none;
         }
-        .loading-text { color: #666; font-size: 0.9em; margin-top: 0.5em; display: none; }
         /* 搜索结果提示 */
         .search-result-info { color: #666; font-size: 0.9em; margin-top: 0.5em; }
         /* 月份选择器样式 */
@@ -124,6 +123,60 @@
             border-color: #1890ff;
             outline: none;
             box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+        }
+        /* 自定义时间范围样式 */
+        .custom-date-range {
+            display: none;
+            margin-top: 1em;
+            padding: 1em;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #e9ecef;
+        }
+        .custom-date-range.show {
+            display: block;
+        }
+        .date-input-group {
+            display: flex;
+            gap: 1em;
+            margin-bottom: 1em;
+        }
+        .date-input-container {
+            flex: 1;
+        }
+        .date-input-container label {
+            display: block;
+            margin-bottom: 0.5em;
+            color: #333;
+            font-weight: 500;
+        }
+        .date-input-container input {
+            width: 100%;
+            padding: 0.8em;
+            border: 1px solid #d9d9d9;
+            border-radius: 5px;
+            font-size: 1em;
+            box-sizing: border-box;
+        }
+        .date-input-container input:focus {
+            border-color: #1890ff;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+        }
+        .custom-date-actions {
+            display: flex;
+            gap: 0.5em;
+        }
+        .btn-custom {
+            padding: 0.8em 1.5em;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
         .ranking-title { display: flex; align-items: center; gap: 0.5em; margin-bottom: 1em; }
         .ranking-period { color: #666; font-size: 0.9em; font-weight: normal; }
@@ -152,7 +205,26 @@
             </option>
             {% endfor %}
             <option value="all" {% if selected_month == 'all' %}selected{% endif %}>全时段 - {{ all_sessions_total }}场</option>
+            <option value="custom" {% if selected_month == 'custom' %}selected{% endif %}>自定义时间范围</option>
         </select>
+    </div>
+
+    <!-- 自定义时间范围输入框 -->
+    <div class="custom-date-range" id="custom-date-range">
+        <div class="date-input-group">
+            <div class="date-input-container">
+                <label for="start-date">开始日期：</label>
+                <input type="date" id="start-date" name="start_date" value="{{ display_start_date or default_start_date or '' }}">
+            </div>
+            <div class="date-input-container">
+                <label for="end-date">结束日期：</label>
+                <input type="date" id="end-date" name="end_date" value="{{ display_end_date or default_end_date or '' }}">
+            </div>
+        </div>
+        <div class="custom-date-actions">
+            <button type="button" class="btn-custom btn-primary" onclick="applyCustomDateRange()">应用筛选</button>
+            <button type="button" class="btn-custom btn-secondary" onclick="clearCustomDateRange()">清除</button>
+        </div>
     </div>
 
     <div class="card">
@@ -161,6 +233,8 @@
             <span class="ranking-period">
                 {% if selected_month == 'all' %}
                 (全时段)
+                {% elif selected_month == 'custom' %}
+                (自定义时间范围)
                 {% else %}
                 ({{ selected_month.replace('-', '年') }}月)
                 {% endif %}
@@ -199,9 +273,15 @@
             {% if selected_month %}
             <input type="hidden" name="month" value="{{ selected_month }}">
             {% endif %}
+            {% if custom_start_date %}
+            <input type="hidden" name="start_date" value="{{ custom_start_date }}">
+            {% endif %}
+            {% if custom_end_date %}
+            <input type="hidden" name="end_date" value="{{ custom_end_date }}">
+            {% endif %}
             <button type="submit" class="btn btn-primary">搜索</button>
             {% if search_query %}
-            <a href="/history{% if selected_month %}?month={{ selected_month }}{% endif %}" class="btn btn-secondary">清除</a>
+            <a href="/history{% if selected_month and selected_month != 'custom' %}?month={{ selected_month }}{% elif selected_month == 'custom' %}?month=custom{% if custom_start_date %}&start_date={{ custom_start_date }}{% endif %}{% if custom_end_date %}&end_date={{ custom_end_date }}{% endif %}{% endif %}" class="btn btn-secondary">清除</a>
             {% endif %}
         </form>
         {% if search_query %}
@@ -263,7 +343,6 @@
     {% if has_more %}
     <div class="load-more-container">
         <button id="load-more-btn" class="load-more-btn" onclick="loadMoreSessions()">显示更多历史场次</button>
-        <div id="loading-text" class="loading-text">正在加载...</div>
     </div>
     {% endif %}
 
@@ -338,6 +417,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // 检查是否选择了自定义时间范围
+    const selector = document.getElementById('month-selector');
+    const customDateRange = document.getElementById('custom-date-range');
+    if (selector.value === 'custom') {
+        customDateRange.classList.add('show');
+    }
+
     console.log('历史记录页面时间转换完成');
 });
 
@@ -345,18 +431,104 @@ document.addEventListener('DOMContentLoaded', function() {
 let currentOffset = {{ sessions|length }};
 const searchQuery = {{ (search_query or '')|tojson }};
 const selectedMonth = {{ (selected_month or '')|tojson }};
+const customStartDate = {{ (custom_start_date or '')|tojson }};
+const customEndDate = {{ (custom_end_date or '')|tojson }};
 
 function changeMonth() {
     const selector = document.getElementById('month-selector');
-    const selectedMonth = selector.value;
+    const selectedValue = selector.value;
+    const customDateRange = document.getElementById('custom-date-range');
+
+    if (selectedValue === 'custom') {
+        // 显示自定义时间范围输入框
+        customDateRange.classList.add('show');
+        return; // 不跳转，等待用户输入时间范围
+    } else {
+        // 隐藏自定义时间范围输入框
+        customDateRange.classList.remove('show');
+    }
+
     const currentUrl = new URL(window.location);
 
     // 更新URL参数
-    if (selectedMonth) {
-        currentUrl.searchParams.set('month', selectedMonth);
+    if (selectedValue && selectedValue !== 'custom') {
+        currentUrl.searchParams.set('month', selectedValue);
     } else {
         currentUrl.searchParams.delete('month');
     }
+
+    // 清除自定义时间范围参数
+    currentUrl.searchParams.delete('start_date');
+    currentUrl.searchParams.delete('end_date');
+
+    // 保留搜索参数
+    const searchParam = currentUrl.searchParams.get('search');
+    if (searchParam) {
+        currentUrl.searchParams.set('search', searchParam);
+    }
+
+    // 跳转到新URL
+    window.location.href = currentUrl.toString();
+}
+
+function applyCustomDateRange() {
+    const startDate = document.getElementById('start-date').value;
+    const endDate = document.getElementById('end-date').value;
+
+    if (!startDate || !endDate) {
+        alert('请选择开始日期和结束日期');
+        return;
+    }
+
+    if (new Date(startDate) > new Date(endDate)) {
+        alert('开始日期不能晚于结束日期');
+        return;
+    }
+
+    // 转换为用户时区的日期时间（开始日期的 0 点和结束日期的 23:59:59）
+    const startDateTime = new Date(startDate + 'T00:00:00');
+    const endDateTime = new Date(endDate + 'T23:59:59');
+
+    // 转换为 ISO 格式，保持本地时区
+    const startDateTimeStr = startDateTime.getFullYear() + '-' +
+                            String(startDateTime.getMonth() + 1).padStart(2, '0') + '-' +
+                            String(startDateTime.getDate()).padStart(2, '0') + 'T' +
+                            String(startDateTime.getHours()).padStart(2, '0') + ':' +
+                            String(startDateTime.getMinutes()).padStart(2, '0');
+
+    const endDateTimeStr = endDateTime.getFullYear() + '-' +
+                          String(endDateTime.getMonth() + 1).padStart(2, '0') + '-' +
+                          String(endDateTime.getDate()).padStart(2, '0') + 'T' +
+                          String(endDateTime.getHours()).padStart(2, '0') + ':' +
+                          String(endDateTime.getMinutes()).padStart(2, '0');
+
+    const currentUrl = new URL(window.location);
+
+    // 设置自定义时间范围参数
+    currentUrl.searchParams.set('month', 'custom');
+    currentUrl.searchParams.set('start_date', startDateTimeStr);
+    currentUrl.searchParams.set('end_date', endDateTimeStr);
+
+    // 保留搜索参数
+    const searchParam = currentUrl.searchParams.get('search');
+    if (searchParam) {
+        currentUrl.searchParams.set('search', searchParam);
+    }
+
+    // 跳转到新URL
+    window.location.href = currentUrl.toString();
+}
+
+function clearCustomDateRange() {
+    document.getElementById('start-date').value = '';
+    document.getElementById('end-date').value = '';
+
+    const currentUrl = new URL(window.location);
+
+    // 清除自定义时间范围参数
+    currentUrl.searchParams.delete('month');
+    currentUrl.searchParams.delete('start_date');
+    currentUrl.searchParams.delete('end_date');
 
     // 保留搜索参数
     const searchParam = currentUrl.searchParams.get('search');
@@ -375,12 +547,10 @@ function handleSearch(event) {
 
 function loadMoreSessions() {
     const loadMoreBtn = document.getElementById('load-more-btn');
-    const loadingText = document.getElementById('loading-text');
 
     // 显示加载状态
     loadMoreBtn.disabled = true;
     loadMoreBtn.textContent = '加载中...';
-    loadingText.style.display = 'block';
 
     // 构建请求URL
     let url = `/api/load_more_sessions?offset=${currentOffset}`;
@@ -389,6 +559,16 @@ function loadMoreSessions() {
     }
     if (selectedMonth) {
         url += `&month=${encodeURIComponent(selectedMonth)}`;
+
+        // 如果是自定义时间范围，使用URL参数中的值
+        if (selectedMonth === 'custom') {
+            if (customStartDate) {
+                url += `&start_date=${encodeURIComponent(customStartDate)}`;
+            }
+            if (customEndDate) {
+                url += `&end_date=${encodeURIComponent(customEndDate)}`;
+            }
+        }
     }
 
     fetch(url)
@@ -433,9 +613,6 @@ function loadMoreSessions() {
             loadMoreBtn.textContent = '加载失败，点击重试';
             loadMoreBtn.disabled = false;
         })
-        .finally(() => {
-            loadingText.style.display = 'none';
-        });
 }
 
 function createSessionCard(sessionId, sessionData) {

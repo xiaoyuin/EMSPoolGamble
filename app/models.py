@@ -186,8 +186,25 @@ def get_global_leaderboard(start_date: str = None, end_date: str = None) -> List
 
 
 def get_available_months() -> List[Dict]:
-    """获取有游戏记录的月份列表"""
+    """获取有数据的月份列表"""
     return db.get_available_months()
+
+
+def get_earliest_session_date() -> Optional[str]:
+    """获取最早的会话日期（用于默认日期范围）"""
+    sessions = db.get_all_sessions()
+    if not sessions:
+        return None
+
+    # 会话已按创建时间降序排列，取最后一个
+    earliest_session = sessions[-1]
+    created_at = earliest_session.get('created_at', '')
+
+    if created_at:
+        # 提取日期部分 (YYYY-MM-DD)
+        return created_at[:10]
+
+    return None
 
 
 def get_player_by_id(player_id: str) -> Optional[Dict]:

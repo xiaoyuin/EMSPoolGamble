@@ -12,7 +12,8 @@ from .models import (sessions, players, save_data, get_player_by_name, get_playe
                      get_all_sessions, delete_session, get_session,
                      get_players_special_wins_batch, get_session_players,
                      get_achievement_players, get_achievement_records,
-                     get_achievement_stats, get_achievement_master_players)
+                     get_achievement_stats, get_achievement_master_players,
+                     get_earliest_session_date, get_available_months)
 from .utils import get_utc_timestamp, generate_session_name
 from .security import require_admin_auth, require_csrf_protection
 from . import APP_VERSION, APP_NAME, VERSION_DATE
@@ -95,10 +96,34 @@ def register_main_routes(app):
         # 展示所有场次和分数历史
         # 初始只加载前3个场次
         search_query = request.args.get('search', '').strip()
-        selected_month = request.args.get('month', '').strip()  # 新增：月份参数
+        selected_month = request.args.get('month', '').strip()  # 月份参数
+        custom_start_date = request.args.get('start_date', '').strip()  # 自定义开始时间
+        custom_end_date = request.args.get('end_date', '').strip()  # 自定义结束时间
+
+        # 计算默认日期范围（用于自定义日期选择器的默认值）
+        import datetime
+
+        default_start_date = get_earliest_session_date() or datetime.date.today().strftime('%Y-%m-%d')
+        default_end_date = datetime.date.today().strftime('%Y-%m-%d')
+
+        # 处理自定义日期显示值（只取日期部分，用于input type="date"）
+        display_start_date = ''
+        display_end_date = ''
+        if custom_start_date:
+            # 从完整的日期时间字符串中提取日期部分
+            if 'T' in custom_start_date:
+                display_start_date = custom_start_date.split('T')[0]
+            else:
+                display_start_date = custom_start_date[:10] if len(custom_start_date) >= 10 else custom_start_date
+
+        if custom_end_date:
+            # 从完整的日期时间字符串中提取日期部分
+            if 'T' in custom_end_date:
+                display_end_date = custom_end_date.split('T')[0]
+            else:
+                display_end_date = custom_end_date[:10] if len(custom_end_date) >= 10 else custom_end_date
 
         # 获取可用月份列表
-        from .models import get_available_months, get_all_sessions
         available_months = get_available_months()
 
         # 计算全时段总场次数
@@ -108,11 +133,24 @@ def register_main_routes(app):
         if not selected_month and available_months:
             selected_month = available_months[0]['key']
 
-        # 计算全局玩家总分，支持月份筛选
+        # 计算全局玩家总分，支持月份筛选和自定义时间范围
         from .models import get_global_leaderboard
         if selected_month == 'all':
             # 全时段
             sorted_total_scores = get_global_leaderboard()
+        elif selected_month == 'custom' and custom_start_date and custom_end_date:
+            # 自定义时间范围
+            # 转换前端的 datetime-local 格式到数据库可用的格式
+            import datetime
+            try:
+                start_dt = datetime.datetime.fromisoformat(custom_start_date.replace('T', ' '))
+                end_dt = datetime.datetime.fromisoformat(custom_end_date.replace('T', ' '))
+                start_date_str = start_dt.strftime('%Y-%m-%d %H:%M:%S')
+                end_date_str = end_dt.strftime('%Y-%m-%d %H:%M:%S')
+                sorted_total_scores = get_global_leaderboard(start_date_str, end_date_str)
+            except ValueError:
+                # 时间格式错误，回退到全时段
+                sorted_total_scores = get_global_leaderboard()
         else:
             # 按月份筛选
             start_date = f"{selected_month}-01"
@@ -139,17 +177,43 @@ def register_main_routes(app):
         # 获取所有场次用于计算总数
         all_sessions_list = get_all_sessions()
 
-        # 按月份筛选场次
+        # 按时间范围筛选场次
         if selected_month and selected_month != 'all':
-            filtered_sessions_by_month = []
-            for session_data in all_sessions_list:
-                session_date = session_data.get('created_at', '')
-                if session_date:
-                    # 提取日期的年月部分 (YYYY-MM)
-                    session_month = session_date[:7]  # 取前7个字符，如 "2024-07"
-                    if session_month == selected_month:
-                        filtered_sessions_by_month.append(session_data)
-            all_sessions_list = filtered_sessions_by_month
+            if selected_month == 'custom' and custom_start_date and custom_end_date:
+                # 自定义时间范围筛选
+                import datetime
+                try:
+                    start_dt = datetime.datetime.fromisoformat(custom_start_date.replace('T', ' '))
+                    end_dt = datetime.datetime.fromisoformat(custom_end_date.replace('T', ' '))
+
+                    filtered_sessions_by_time = []
+                    for session_data in all_sessions_list:
+                        session_date_str = session_data.get('created_at', '')
+                        if session_date_str:
+                            try:
+                                # 解析会话创建时间
+                                session_dt = datetime.datetime.fromisoformat(session_date_str.replace('Z', '+00:00'))
+                                # 转换为 UTC 时间进行比较
+                                session_dt_utc = session_dt.replace(tzinfo=None)
+                                if start_dt <= session_dt_utc <= end_dt:
+                                    filtered_sessions_by_time.append(session_data)
+                            except ValueError:
+                                continue
+                    all_sessions_list = filtered_sessions_by_time
+                except ValueError:
+                    # 时间格式错误，不进行筛选
+                    pass
+            else:
+                # 按月份筛选
+                filtered_sessions_by_month = []
+                for session_data in all_sessions_list:
+                    session_date = session_data.get('created_at', '')
+                    if session_date:
+                        # 提取日期的年月部分 (YYYY-MM)
+                        session_month = session_date[:7]  # 取前7个字符，如 "2024-07"
+                        if session_month == selected_month:
+                            filtered_sessions_by_month.append(session_data)
+                all_sessions_list = filtered_sessions_by_month
 
         # 如果有搜索查询，进一步过滤场次
         if search_query:
@@ -219,30 +283,64 @@ def register_main_routes(app):
                               has_more=has_more,
                               available_months=available_months,
                               selected_month=selected_month,
-                              all_sessions_total=all_sessions_total)
+                              all_sessions_total=all_sessions_total,
+                              custom_start_date=custom_start_date,
+                              custom_end_date=custom_end_date,
+                              display_start_date=display_start_date,
+                              display_end_date=display_end_date,
+                              default_start_date=default_start_date,
+                              default_end_date=default_end_date)
 
     @app.route('/api/load_more_sessions')
     def load_more_sessions():
         """API接口：加载更多场次"""
         search_query = request.args.get('search', '').strip()
-        selected_month = request.args.get('month', '').strip()  # 新增：月份参数
+        selected_month = request.args.get('month', '').strip()  # 月份参数
+        custom_start_date = request.args.get('start_date', '').strip()  # 自定义开始时间
+        custom_end_date = request.args.get('end_date', '').strip()  # 自定义结束时间
         offset = int(request.args.get('offset', 0))
         limit = 3  # 每次加载3个
 
         # 获取所有场次
         all_sessions_list = get_all_sessions()
 
-        # 按月份筛选场次
+        # 按时间范围筛选场次
         if selected_month and selected_month != 'all':
-            filtered_sessions_by_month = []
-            for session_data in all_sessions_list:
-                session_date = session_data.get('created_at', '')
-                if session_date:
-                    # 提取日期的年月部分 (YYYY-MM)
-                    session_month = session_date[:7]  # 取前7个字符，如 "2024-07"
-                    if session_month == selected_month:
-                        filtered_sessions_by_month.append(session_data)
-            all_sessions_list = filtered_sessions_by_month
+            if selected_month == 'custom' and custom_start_date and custom_end_date:
+                # 自定义时间范围筛选
+                import datetime
+                try:
+                    start_dt = datetime.datetime.fromisoformat(custom_start_date.replace('T', ' '))
+                    end_dt = datetime.datetime.fromisoformat(custom_end_date.replace('T', ' '))
+
+                    filtered_sessions_by_time = []
+                    for session_data in all_sessions_list:
+                        session_date_str = session_data.get('created_at', '')
+                        if session_date_str:
+                            try:
+                                # 解析会话创建时间
+                                session_dt = datetime.datetime.fromisoformat(session_date_str.replace('Z', '+00:00'))
+                                # 转换为 UTC 时间进行比较
+                                session_dt_utc = session_dt.replace(tzinfo=None)
+                                if start_dt <= session_dt_utc <= end_dt:
+                                    filtered_sessions_by_time.append(session_data)
+                            except ValueError:
+                                continue
+                    all_sessions_list = filtered_sessions_by_time
+                except ValueError:
+                    # 时间格式错误，不进行筛选
+                    pass
+            else:
+                # 按月份筛选
+                filtered_sessions_by_month = []
+                for session_data in all_sessions_list:
+                    session_date = session_data.get('created_at', '')
+                    if session_date:
+                        # 提取日期的年月部分 (YYYY-MM)
+                        session_month = session_date[:7]  # 取前7个字符，如 "2024-07"
+                        if session_month == selected_month:
+                            filtered_sessions_by_month.append(session_data)
+                all_sessions_list = filtered_sessions_by_month
 
         # 如果有搜索查询，进一步过滤场次
         if search_query:
