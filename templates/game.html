@@ -85,24 +85,24 @@
         .delete-form { display: inline; }
         .timestamp { font-size: 0.8em; color: #999; }
         .timestamp-row { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
-        .special-score-tag { 
-            font-size: 0.7em; 
-            color: #fa8c16; 
-            background: #fff7e6; 
-            border: 1px solid #ffec3d; 
-            border-radius: 3px; 
-            padding: 2px 6px; 
-            margin-left: 8px; 
-            font-weight: normal; 
+        .special-score-tag {
+            font-size: 0.7em;
+            color: #fa8c16;
+            background: #fff7e6;
+            border: 1px solid #ffec3d;
+            border-radius: 3px;
+            padding: 2px 6px;
+            margin-left: 8px;
+            font-weight: normal;
             white-space: nowrap;
             display: inline-block;
         }
-        .record-player-link { 
-            color: #1890ff; 
-            text-decoration: none; 
+        .record-player-link {
+            color: #1890ff;
+            text-decoration: none;
         }
-        .record-player-link:hover { 
-            text-decoration: underline; 
+        .record-player-link:hover {
+            text-decoration: underline;
         }
         .score-selection { margin: 1em 0; }
         .score-selection.hidden { display: none; }
@@ -184,13 +184,13 @@
         // 刷新游戏数据函数
         function refreshGameData() {
             console.log('刷新游戏数据...');
-            
+
             // 显示刷新提示
             const refreshBtn = event.target;
             const originalText = refreshBtn.textContent;
             refreshBtn.textContent = '刷新中...';
             refreshBtn.disabled = true;
-            
+
             // 使用fetch API获取最新数据
             fetch(window.location.href, {
                 method: 'GET',
@@ -208,39 +208,39 @@
                 // 解析返回的HTML
                 const parser = new DOMParser();
                 const newDoc = parser.parseFromString(html, 'text/html');
-                
+
                 // 更新玩家分数排名
                 const currentPlayerRows = document.querySelector('.player-rows');
                 const newPlayerRows = newDoc.querySelector('.player-rows');
                 if (currentPlayerRows && newPlayerRows) {
                     currentPlayerRows.innerHTML = newPlayerRows.innerHTML;
                 }
-                
+
                 // 更新游戏记录
                 const currentRoundsList = document.querySelector('.rounds-list');
                 const newRoundsList = newDoc.querySelector('.rounds-list');
                 if (currentRoundsList && newRoundsList) {
                     currentRoundsList.innerHTML = newRoundsList.innerHTML;
                 }
-                
+
                 // 更新当前玩家列表
                 const currentPlayers = document.querySelector('.current-players');
                 const newPlayers = newDoc.querySelector('.current-players');
                 if (currentPlayers && newPlayers) {
                     currentPlayers.innerHTML = newPlayers.innerHTML;
                 }
-                
+
                 // 重新绑定事件监听器
                 document.querySelectorAll('.player-actions').forEach(actions => {
                     actions.classList.remove('show');
                 });
-                
+
                 // 重置选择状态
                 resetAllSelections();
-                
+
                 // 重新转换时间显示
                 convertUtcToLocal();
-                
+
                 console.log('游戏数据刷新完成');
             })
             .catch(error => {
@@ -638,7 +638,7 @@
 
         function togglePlayerSelection(playerName) {
             const button = document.querySelector(`[data-player-name="${playerName}"]`);
-            
+
             if (selectedPlayers.includes(playerName)) {
                 // 取消选择
                 selectedPlayers = selectedPlayers.filter(name => name !== playerName);
@@ -648,14 +648,14 @@
                 selectedPlayers.push(playerName);
                 button.classList.add('selected');
             }
-            
+
             updateBatchAddButtons();
         }
 
         function updateBatchAddButtons() {
             const batchAddBtn = document.getElementById('batch-add-btn');
             const clearSelectionBtn = document.getElementById('clear-selection-btn');
-            
+
             if (selectedPlayers.length > 0) {
                 batchAddBtn.disabled = false;
                 clearSelectionBtn.disabled = false;
@@ -677,7 +677,7 @@
 
         function batchAddPlayers() {
             if (selectedPlayers.length === 0) return;
-            
+
             // 创建表单批量添加玩家
             const form = document.createElement('form');
             form.method = 'POST';
@@ -719,7 +719,7 @@
         function createNewPlayer() {
             const input = document.getElementById('modalPlayerName');
             const playerName = input.value.trim();
-            
+
             if (!playerName) {
                 alert('请输入玩家名字');
                 return;
@@ -821,7 +821,7 @@
 
             // 初始化按钮状态
             checkCanSubmit();
-            
+
             // 初始化批量添加按钮状态
             updateBatchAddButtons();
 
@@ -946,11 +946,8 @@
     <!-- 主计分卡片 - 只有玩家数量大于等于2时才显示 -->
     {% if sorted_players|length >= 2 %}
     <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1em;">
-            <h4 style="margin: 0;">计分面板</h4>
-            <button type="button" class="btn-secondary" onclick="refreshGameData()" style="padding: 0.5em 1em; font-size: 0.9em;">刷新</button>
-        </div>
-        
+        <h4>计分面板</h4>
+
         <!-- 种类选择区域 -->
         <div class="game-type-selection">
             <label>选择种类：</label>
@@ -973,7 +970,10 @@
 
         <!-- 玩家分数表格 -->
         <div class="players-table">
-            <b>当前分数排名：</b>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5em;">
+                <b>当前分数排名：</b>
+                <button type="button" class="btn-secondary" onclick="refreshGameData()" style="padding: 0.5em 1em; font-size: 0.9em;">刷新</button>
+            </div>
             <div class="player-rows">
                 {% for player in sorted_players %}
                 <div class="player-row">
@@ -1009,12 +1009,12 @@
     <!-- 玩家管理卡片 - 始终显示，在主计分卡片之后 -->
     <div class="card">
         <h4>玩家管理</h4>
-        
+
         <!-- 显示所有玩家 -->
         <div class="current-players">
             <strong>当前玩家：</strong>{{ session.players|join('、') }}
         </div>
-        
+
         <!-- 快速添加玩家 - 主要功能 -->
         <div class="quick-add-section">
             <div class="quick-add-title">快速添加玩家：</div>
@@ -1036,7 +1036,7 @@
                 <button type="button" id="clear-selection-btn" class="btn-secondary" onclick="clearPlayerSelection()" disabled>清空选择</button>
             </div>
         </div>
-        
+
         {% if sorted_players|length < 2 %}
         <div class="hint-warning">
             <strong>提示：</strong> 至少需要2个玩家才能开始游戏，请先添加玩家。
@@ -1159,7 +1159,7 @@ function convertUtcToLocal() {
             try {
                 // 统一时间格式处理，兼容iOS Chrome
                 let dateString = utcTime.trim();
-                
+
                 // 如果不是ISO格式且不包含时区信息，则添加Z表示UTC
                 if (!dateString.includes('T') && !dateString.endsWith('Z') && !dateString.includes('+') && !dateString.includes(' UTC')) {
                     // 将 "YYYY-MM-DD HH:MM:SS" 格式转换为 ISO 格式
@@ -1174,7 +1174,7 @@ function convertUtcToLocal() {
 
                 // 创建Date对象
                 const utcDate = new Date(dateString);
-                
+
                 // 检查日期是否有效
                 if (!isNaN(utcDate.getTime())) {
                     // 转换为本地时间格式
