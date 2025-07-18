@@ -140,9 +140,21 @@
             display: flex;
             gap: 1em;
             margin-bottom: 1em;
+            flex-wrap: wrap;
         }
         .date-input-container {
             flex: 1;
+            min-width: 0;
+            flex-basis: calc(50% - 0.5em);
+        }
+        @media (max-width: 480px) {
+            .date-input-group {
+                gap: 0.8em;
+            }
+            .date-input-container {
+                flex-basis: calc(50% - 0.4em);
+                min-width: 140px;
+            }
         }
         .date-input-container label {
             display: block;

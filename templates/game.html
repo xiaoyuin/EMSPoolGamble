@@ -183,6 +183,35 @@
         /* 记录分数颜色 */
         .score-positive { color: #52c41a; font-weight: bold; }
         .score-negative { color: #ff4d4f; font-weight: bold; }
+
+        /* 玩家详情样式 - 避免溢出，允许换行 */
+        .player-details { padding: 0.5em 0; }
+        .detail-row { 
+            display: block; 
+            word-wrap: break-word; 
+            word-break: break-word;
+            overflow-wrap: break-word;
+            white-space: normal;
+            line-height: 1.4;
+        }
+        .detail-label { 
+            font-weight: bold;
+            color: #333;
+        }
+        .detail-value { 
+            word-wrap: break-word; 
+            word-break: normal;
+            overflow-wrap: break-word;
+            white-space: normal;
+            -webkit-hyphens: none;
+            hyphens: none;
+        }
+        /* 防止在正负号后断行，确保每个分数作为一个整体 */
+        .detail-value .score-positive,
+        .detail-value .score-negative {
+            white-space: nowrap;
+            display: inline-block;
+        }
     </style>    <script>
         let selectedScore = null;
         let selectedWinner = null;
