@@ -4,7 +4,7 @@ EMS Pool Gamble Application
 """
 
 # 应用版本信息
-APP_VERSION = "v1.8.2"
+APP_VERSION = "v1.8.3"
 APP_NAME = "EMS Pool Gamble"
 VERSION_DATE = "2025-07-18"
 
