@@ -114,7 +114,8 @@
         .score-hint { margin-top: 0.5em; font-size: 0.8em; color: #666; text-align: center; }
         .players-table { margin: 1em 0; }
         .player-rows { border-radius: 5px; padding: 0; }
-        .player-row { display: flex; align-items: stretch; margin: 0; border-bottom: 1px solid #f0f0f0; min-height: 3.2em; }
+        .player-row { display: flex; flex-direction: column; margin: 0; border-bottom: 1px solid #f0f0f0; min-height: 3.2em; }
+        .player-main { display: flex; align-items: stretch; min-height: 3.2em; }
         .player-row .player-name { flex: 1; }
         .player-row .player-score-display { margin-left: auto; }
         .player-row:first-child { margin-top: 0; }
@@ -172,6 +173,16 @@
         .hint-success { margin-top: 1em; padding: 0.8em; background: #f6ffed; border: 1px solid #b7eb8f; border-radius: 5px; color: #389e0d; }
         .current-players { margin-bottom: 1em; }
         .btn-link { display: block; text-align: center; text-decoration: none; margin: 0.3em; padding: 0.7em; font-size: 1em; border-radius: 5px; border: none; cursor: pointer; }
+
+        /* 可展开行样式 */
+        .player-info { flex: 1; display: flex; align-items: center; cursor: pointer; transition: background-color 0.2s; padding: 0.4em 0.8em; }
+        .player-info:hover { background-color: #f8f9fa; }
+        .expandable-content { display: none; padding: 0.5em 0.8em; background-color: #fafafa; border-left: 3px solid #1890ff; margin: 0; font-family: monospace; font-size: 1em; color: #333; line-height: 1.4; }
+        .expandable-content.expanded { display: block; }
+
+        /* 记录分数颜色 */
+        .score-positive { color: #52c41a; font-weight: bold; }
+        .score-negative { color: #ff4d4f; font-weight: bold; }
     </style>    <script>
         let selectedScore = null;
         let selectedWinner = null;
@@ -180,6 +191,21 @@
         let selectedGameType = null;  // 当前选择的游戏种类
         let currentSpecialScore = null;  // 当前特殊分数类型（如"双吃"、"小金"、"大金"）
         let currentLosersCount = 1;  // 当前分数对应的败者数量
+
+        // 切换玩家展开状态
+        function togglePlayerExpand(playerName) {
+            const contentElement = document.getElementById(`content-${playerName}`);
+
+            if (contentElement.classList.contains('expanded')) {
+                // 收起
+                contentElement.classList.remove('expanded');
+                console.log('收起玩家:', playerName);
+            } else {
+                // 展开
+                contentElement.classList.add('expanded');
+                console.log('展开玩家:', playerName);
+            }
+        }
 
         // 刷新游戏数据函数
         function refreshGameData() {
@@ -977,17 +1003,46 @@
             <div class="player-rows">
                 {% for player in sorted_players %}
                 <div class="player-row">
-                    <span class="player-name{% if player.has_big_gold %} has-big-gold{% elif player.has_small_gold %} has-small-gold{% endif %}">
-                        {% if player.id %}
-                        <a href="/player/{{ player.id }}">{{ player.name }}</a>
-                        {% else %}
-                        {{ player.name }}
-                        {% endif %}
-                    </span>
-                    <span class="player-score-display {% if player.score > 0 %}positive{% elif player.score < 0 %}negative{% else %}neutral{% endif %}">{{ player.score }}</span>
-                    <div class="player-actions">
-                        <button type="button" class="action-btn plus-btn" onclick="selectPlayerAction('{{ player.name }}', 'plus')">+<span class="action-score"></span></button>
-                        <button type="button" class="action-btn minus-btn" onclick="selectPlayerAction('{{ player.name }}', 'minus')">-<span class="action-score"></span></button>
+                    <div class="player-main">
+                        <div class="player-info" onclick="togglePlayerExpand('{{ player.name }}')">
+                            <span class="player-name{% if player.has_big_gold %} has-big-gold{% elif player.has_small_gold %} has-small-gold{% endif %}">
+                                {% if player.id %}
+                                <a href="/player/{{ player.id }}">{{ player.name }}</a>
+                                {% else %}
+                                {{ player.name }}
+                                {% endif %}
+                            </span>
+                            <span class="player-score-display {% if player.score > 0 %}positive{% elif player.score < 0 %}negative{% else %}neutral{% endif %}">{{ player.score }}</span>
+                        </div>
+                        <div class="player-actions">
+                            <button type="button" class="action-btn plus-btn" onclick="selectPlayerAction('{{ player.name }}', 'plus')">+<span class="action-score"></span></button>
+                            <button type="button" class="action-btn minus-btn" onclick="selectPlayerAction('{{ player.name }}', 'minus')">-<span class="action-score"></span></button>
+                        </div>
+                    </div>
+                    <div class="expandable-content" id="content-{{ player.name }}">
+                        <div class="player-details">
+                            <div class="detail-row">
+                                <span class="detail-label">{{ player.name }}:</span>
+                                <span class="detail-value">
+                                    {%- set player_records = [] -%}
+                                    {%- set all_records = session.get('records', session.get('rounds', [])) -%}
+                                    {%- for record in all_records|reverse -%}
+                                        {%- if record.winner == player.name -%}
+                                            {%- set _ = player_records.append('<span class="score-positive">+' ~ record.score ~ '</span>') -%}
+                                        {%- elif record.is_multi_loser and record.losers -%}
+                                            {%- for loser in record.losers -%}
+                                                {%- if loser.name == player.name -%}
+                                                    {%- set _ = player_records.append('<span class="score-negative">-' ~ (record.score // 2) ~ '</span>') -%}
+                                                {%- endif -%}
+                                            {%- endfor -%}
+                                        {%- elif record.loser == player.name -%}
+                                            {%- set _ = player_records.append('<span class="score-negative">-' ~ record.score ~ '</span>') -%}
+                                        {%- endif -%}
+                                    {%- endfor -%}
+                                    {{- player_records | join('') | safe if player_records else '无记录' -}}
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 {% endfor %}
