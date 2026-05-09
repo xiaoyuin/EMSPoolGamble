@@ -156,7 +156,7 @@
     .match-card.match-done { background: #fff; border-color: #d3adf7; }
     .match-card.match-bye  { opacity: 0.75; }
     .match-card-header {
-        display: flex; align-items: center; gap: 0.4em;
+        display: flex; align-items: center; justify-content: space-between;
         padding: 0.3em 0.7em;
         background: #f7f0ff;
         border-bottom: 1px solid #f0e6ff;
@@ -277,7 +277,7 @@
             <a href="{{ url_for('tournament_match', tournament_id=tournament.tournament_id, match_id=m.match_id) }}"
                class="match-card-link {% if m.is_bye %}match-bye-link{% endif %}">
             <div class="match-card {% if m.winner_id %}match-done{% endif %} {% if m.is_bye %}match-bye{% endif %}">
-                <div class="match-card-header">对阵 {{ m.match_number }}</div>
+                <div class="match-card-header"><span>对阵 {{ m.match_number }}</span><span>比分</span></div>
                 <div class="match-side {% if m.winner_id == m.player1_id %}side-winner{% endif %}">
                     <span class="match-player">
                         {% if m.player1_id %}
