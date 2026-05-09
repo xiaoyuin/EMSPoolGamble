@@ -4,6 +4,10 @@
 
 {% block extra_styles %}
 <style>
+    /* 局部覆盖 main.css 的 button { width:100%; margin:0.5em 0; padding:0.7em } 默认值，
+       让本页的小按钮能用自己的尺寸。 */
+    button { width: auto; margin: 0; padding: 0.5em 1em; }
+
     .form-section { margin-bottom: 1.5em; }
     .form-section label { display: block; margin-bottom: 0.4em; color: #333; font-weight: 600; }
     .form-section input[type=text], .form-section input[type=number] {
@@ -16,22 +20,31 @@
     .rounds-table input[type=text] { width: 100%; }
     .rounds-table input[type=number] { width: 5em; }
     .help-text { color: #888; font-size: 0.85em; margin-top: 0.4em; }
-    .add-round-btn, .remove-round-btn {
-        background: none; border: 1px dashed #d9d9d9; color: #666;
-        padding: 0.4em 0.8em; border-radius: 5px; cursor: pointer;
+    .add-round-btn {
+        background: white; border: 1px dashed #d9d9d9; color: #666;
+        padding: 0.5em 1em; border-radius: 5px; cursor: pointer;
+        font-size: 0.9em; font-weight: 500;
     }
     .add-round-btn:hover { border-color: #722ed1; color: #722ed1; }
-    .remove-round-btn { padding: 0.3em 0.6em; }
-    .remove-round-btn:hover { border-color: #ff4d4f; color: #ff4d4f; }
+    .remove-round-btn {
+        background: white; border: 1px solid #f0f0f0; color: #999;
+        padding: 0; cursor: pointer;
+        font-size: 1.1em; line-height: 1;
+        width: 28px; height: 28px;
+        border-radius: 50%;
+        display: inline-flex; align-items: center; justify-content: center;
+    }
+    .remove-round-btn:hover { border-color: #ff4d4f; color: #ff4d4f; background: #fff1f0; }
     .form-actions { display: flex; gap: 0.5em; margin-top: 1.5em; }
     .form-actions button, .form-actions a {
         flex: 1; padding: 0.8em; border-radius: 5px; text-align: center;
         font-size: 1em; cursor: pointer; text-decoration: none;
+        font-weight: 600;
     }
-    .btn-primary { background: #722ed1; color: white; border: none; font-weight: 600; }
-    .btn-primary:hover { background: #5b1fb0; }
+    .btn-primary { background: #722ed1; color: white; border: none; }
+    .btn-primary:hover { background: #5b1fb0; color: white; text-decoration: none; }
     .btn-secondary { background: #f5f5f5; color: #595959; border: 1px solid #d9d9d9; }
-    .btn-secondary:hover { background: #fafafa; }
+    .btn-secondary:hover { background: #fafafa; color: #595959; text-decoration: none; }
 </style>
 {% endblock %}
 

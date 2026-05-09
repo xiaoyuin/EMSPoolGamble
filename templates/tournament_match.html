@@ -4,6 +4,11 @@
 
 {% block extra_styles %}
 <style>
+    /* 局部覆盖 main.css 的 button 默认（width:100%; margin:0.5em 0; padding:0.7em） */
+    button { width: auto; margin: 0; padding: 0.5em 1em; }
+    /* 同样需要重置 input 的 margin（main.css 给 input 也加了 margin:0.5em 0） */
+    input { margin: 0; }
+
     .breadcrumb { margin-top: 1em; font-size: 0.9em; color: #666; }
     .breadcrumb a { color: #1890ff; text-decoration: none; }
     .breadcrumb a:hover { text-decoration: underline; }
