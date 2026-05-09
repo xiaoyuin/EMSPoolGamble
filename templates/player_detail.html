@@ -224,7 +224,7 @@
     <!-- 时间范围筛选器 -->
     <div class="month-selector">
         <select id="month-selector" onchange="changeMonth()" title="选择时间范围">
-            <option value="all" {% if selected_month == 'all' %}selected{% endif %}>全时段 - {{ all_records_total }}场记录</option>
+            <option value="all" {% if selected_month == 'all' %}selected{% endif %}>全时段 - {{ all_records_total }}条记录</option>
             {% for month in available_months %}
             <option value="{{ month.key }}" {% if selected_month == month.key %}selected{% endif %}>
                 {{ month.name }} - {{ month.count }}场
