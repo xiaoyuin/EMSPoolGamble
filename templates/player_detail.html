@@ -415,7 +415,12 @@
                     {% else %}
                     <span data-utc-time="{{ t.created_at }}">{{ t.created_at }}</span>
                     {% endif %}
-                    · {{ t.status }}
+                    ·
+                    {% if t.status == 'draft' %}草稿
+                    {% elif t.status == 'registration' %}报名中
+                    {% elif t.status == 'in_progress' %}进行中
+                    {% elif t.status == 'completed' %}已结束
+                    {% else %}{{ t.status }}{% endif %}
                 </div>
                 <div class="th-placement th-placement--{{ t.placement|replace(' ','') }}">
                     {{ t.placement }}
