@@ -492,3 +492,10 @@ def register_main_routes(app):
             })
         else:
             return jsonify({'error': 'Invalid session ID'}), 400
+
+    @app.route('/tournament')
+    def tournament():
+        """赛事详情页占位 —— 后续会逐步开发为正式赛事页面"""
+        return render_template('tournament.html',
+                               app_version=APP_VERSION,
+                               version_date=VERSION_DATE)

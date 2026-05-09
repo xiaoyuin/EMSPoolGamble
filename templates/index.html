@@ -13,6 +13,58 @@
     .no-sessions-message { text-align: center; color: #666; }
     .game-link { color: #1890ff; text-decoration: none; margin-left: 8px; }
     .game-link:hover { text-decoration: underline; }
+
+    /* 赛事入口卡片 */
+    .tournament-card {
+        background: linear-gradient(135deg, #722ed1 0%, #1890ff 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 1.4em 1.2em;
+        margin-top: 1.5em;
+        box-shadow: 0 4px 14px rgba(114, 46, 209, 0.25);
+        display: block;
+        text-decoration: none;
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .tournament-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(114, 46, 209, 0.35);
+        text-decoration: none;
+        color: white;
+    }
+    .tournament-badge {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.22);
+        color: #fff;
+        font-size: 0.72em;
+        padding: 2px 8px;
+        border-radius: 10px;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.6em;
+    }
+    .tournament-title {
+        font-size: 1.15em;
+        font-weight: bold;
+        line-height: 1.4;
+        margin-bottom: 0.4em;
+    }
+    .tournament-subtitle {
+        font-size: 0.88em;
+        opacity: 0.92;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.6em;
+    }
+    .tournament-cta {
+        font-size: 0.85em;
+        background: rgba(255, 255, 255, 0.2);
+        padding: 4px 10px;
+        border-radius: 6px;
+        white-space: nowrap;
+    }
 </style>
 {% endblock %}
 
@@ -61,6 +113,16 @@
             <button type="submit" class="btn-success btn-full" id="create-session-btn">快速创建 - <span id="suggested-session-name">{{ suggested_session_name }}</span></button>
         </form>
     </div>
+
+    {# 赛事入口卡片（占位，详情页待开发） #}
+    <a href="/tournament" class="tournament-card">
+        <span class="tournament-badge">🏆 即将开始</span>
+        <div class="tournament-title">EMS 微软苏州第三届「终局之战」台球友谊赛</div>
+        <div class="tournament-subtitle">
+            <span>点击查看赛事信息</span>
+            <span class="tournament-cta">前往 →</span>
+        </div>
+    </a>
 
     {# 最近结束的场次 #}
     {% if ended_sessions %}

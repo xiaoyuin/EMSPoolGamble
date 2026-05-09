@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}终局之战 - 赛事详情{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .tournament-hero {
+        background: linear-gradient(135deg, #722ed1 0%, #1890ff 100%);
+        color: white;
+        border-radius: 14px;
+        padding: 2.4em 1.4em;
+        text-align: center;
+        margin-top: 1em;
+        box-shadow: 0 6px 20px rgba(114, 46, 209, 0.25);
+    }
+    .tournament-hero .icon {
+        font-size: 3em;
+        line-height: 1;
+        margin-bottom: 0.4em;
+    }
+    .tournament-hero h2 {
+        margin: 0 0 0.4em 0;
+        font-size: 1.4em;
+        line-height: 1.4;
+    }
+    .tournament-hero .subtitle {
+        opacity: 0.9;
+        font-size: 0.95em;
+    }
+    .placeholder-msg {
+        text-align: center;
+        color: #666;
+        padding: 1.5em 1em;
+        line-height: 1.7;
+    }
+    .placeholder-msg .small {
+        color: #999;
+        font-size: 0.85em;
+        margin-top: 0.6em;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tournament-hero">
+    <div class="icon">🏆</div>
+    <h2>EMS 微软苏州第三届<br>「终局之战」台球友谊赛</h2>
+    <div class="subtitle">即将开始 · 敬请期待</div>
+</div>
+
+<div class="card">
+    <div class="placeholder-msg">
+        赛事详情页正在开发中，稍后将上线赛程、对阵和实时积分。
+        <div class="small">（这是一个占位页面）</div>
+    </div>
+</div>
+
+<div class="links">
+    <a href="/">← 返回首页</a>
+</div>
+{% endblock %}
