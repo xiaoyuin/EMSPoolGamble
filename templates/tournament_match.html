@@ -92,11 +92,11 @@
 <div class="breadcrumb">
     <a href="{{ url_for('tournament_index') }}">赛事</a>
     &gt; <a href="{{ url_for('tournament_detail', tournament_id=tournament.tournament_id) }}">{{ tournament.name }}</a>
-    &gt; {{ match.round_name }} - 第 {{ match.slot_index }} 场
+    &gt; 对阵 {{ match.match_number }}
 </div>
 
 <div class="match-hero">
-    <div class="round-tag">{{ match.round_name }} · 第 {{ match.slot_index }} 场</div>
+    <div class="round-tag">{{ match.round_name }} · 对阵 {{ match.match_number }}</div>
     <h2>{{ match.best_of }} 局 {{ (match.best_of // 2) + 1 }} 胜</h2>
     <div class="meta">
         {% if match.is_bye %}
@@ -116,6 +116,8 @@
         <div class="player-name">
             {% if match.player1_id %}
                 <a href="{{ url_for('player_detail', player_id=match.player1_id) }}" class="player-link">{{ match.player1_name }}</a>
+            {% elif match.prev_p1_number %}
+                <span style="color:#bbb;font-style:italic;">对阵 {{ match.prev_p1_number }} 胜者</span>
             {% else %}<span style="color:#bbb;font-style:italic;">待定</span>{% endif %}
         </div>
         <div class="games-won">{{ match.player1_games_won }}</div>
@@ -127,6 +129,8 @@
                 <span style="color:#bbb;font-style:italic;">— 轮空 —</span>
             {% elif match.player2_id %}
                 <a href="{{ url_for('player_detail', player_id=match.player2_id) }}" class="player-link">{{ match.player2_name }}</a>
+            {% elif match.prev_p2_number %}
+                <span style="color:#bbb;font-style:italic;">对阵 {{ match.prev_p2_number }} 胜者</span>
             {% else %}<span style="color:#bbb;font-style:italic;">待定</span>{% endif %}
         </div>
         <div class="games-won">{{ match.player2_games_won }}</div>

@@ -501,7 +501,13 @@ def _propagate_winner_to_next_round(cursor, tournament_id: str,
 # ===== 查询 bracket（详情页用） =====
 
 def get_bracket(tournament_id: str) -> List[List[Dict]]:
-    """返回 [[round1_matches], [round2_matches], ...]，每场 match 含玩家名。"""
+    """返回 [[round1_matches], [round2_matches], ...]，每场 match 含玩家名。
+
+    在原始字段之外，额外注入：
+      - match_number: 全局序号（按 round_index, slot_index 顺序累加）
+      - prev_p1_number / prev_p2_number: 上一轮对应那场的 match_number，
+        仅在玩家未确定时用于 UI 显示「对阵 N 胜者」占位。
+    """
     with db.get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute('''
@@ -523,11 +529,35 @@ def get_bracket(tournament_id: str) -> List[List[Dict]]:
     by_round: Dict[int, List[Dict]] = {}
     for r in rows:
         by_round.setdefault(r['round_index'], []).append(r)
-    return [by_round[i] for i in sorted(by_round.keys())]
+    rounds = [by_round[i] for i in sorted(by_round.keys())]
+
+    # 全局编号：按轮次顺序累加。首轮 1..N1，下一轮 N1+1..N1+N2，依此类推。
+    counter = 0
+    # number_lookup[(round_index, slot_index)] -> match_number
+    number_lookup: Dict[Tuple[int, int], int] = {}
+    for round_matches in rounds:
+        for m in round_matches:
+            counter += 1
+            m['match_number'] = counter
+            number_lookup[(m['round_index'], m['slot_index'])] = counter
+
+    # 注入"上一轮对应场次"的编号，便于 UI 显示「对阵 N 胜者」占位
+    for round_matches in rounds:
+        for m in round_matches:
+            if m['round_index'] == 1:
+                m['prev_p1_number'] = None
+                m['prev_p2_number'] = None
+                continue
+            prev_round = m['round_index'] - 1
+            # 当前 slot S → 上一轮 slot 2S-1 (player1 来源) 和 2S (player2 来源)
+            m['prev_p1_number'] = number_lookup.get((prev_round, m['slot_index'] * 2 - 1))
+            m['prev_p2_number'] = number_lookup.get((prev_round, m['slot_index'] * 2))
+
+    return rounds
 
 
 def get_match(match_id: str) -> Optional[Dict]:
-    """获取单场对阵的完整信息（含玩家名、轮信息、逐局历史）。"""
+    """获取单场对阵的完整信息（含玩家名、轮信息、逐局历史、全局编号、上一轮对应场次编号）。"""
     with db.get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute('''
@@ -559,6 +589,29 @@ def get_match(match_id: str) -> Optional[Dict]:
             ORDER BY mg.game_index
         ''', (match_id,))
         match['games'] = [dict(g) for g in cursor.fetchall()]
+
+        # 计算全局 match_number（按 round_index, slot_index 排序时的全局序号），
+        # 以及上一轮对应位置的 match_number（用于"对阵 N 胜者"占位）。
+        # 用 ROW_NUMBER 一次性算出整赛事的编号映射。
+        cursor.execute('''
+            SELECT match_id, round_index, slot_index,
+                   ROW_NUMBER() OVER (ORDER BY round_index, slot_index) AS num
+            FROM tournament_matches
+            WHERE tournament_id = ?
+        ''', (match['tournament_id'],))
+        all_rows = cursor.fetchall()
+        number_lookup = {(r['round_index'], r['slot_index']): r['num'] for r in all_rows}
+        by_id = {r['match_id']: r['num'] for r in all_rows}
+
+        match['match_number'] = by_id.get(match_id)
+        if match['round_index'] == 1:
+            match['prev_p1_number'] = None
+            match['prev_p2_number'] = None
+        else:
+            prev_round = match['round_index'] - 1
+            match['prev_p1_number'] = number_lookup.get((prev_round, match['slot_index'] * 2 - 1))
+            match['prev_p2_number'] = number_lookup.get((prev_round, match['slot_index'] * 2))
+
         return match
 
 

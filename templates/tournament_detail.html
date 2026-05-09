@@ -153,6 +153,18 @@
     }
     .match-card.match-done { background: #fff; border-color: #d3adf7; }
     .match-card.match-bye  { opacity: 0.75; }
+    .match-card-header {
+        display: flex; align-items: center; gap: 0.4em;
+        padding: 0.3em 0.7em;
+        background: #f7f0ff;
+        border-bottom: 1px solid #f0e6ff;
+        font-size: 0.78em;
+        color: #722ed1;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+    }
+    .match-card.match-done .match-card-header { background: #faf5ff; }
+    .match-card.match-bye .match-card-header { background: #fafafa; color: #999; border-bottom-color: #f0f0f0; }
     .match-side {
         display: flex; align-items: center; justify-content: space-between;
         padding: 0.5em 0.7em;
@@ -247,9 +259,16 @@
             <a href="{{ url_for('tournament_match', tournament_id=tournament.tournament_id, match_id=m.match_id) }}"
                class="match-card-link {% if m.is_bye %}match-bye-link{% endif %}">
             <div class="match-card {% if m.winner_id %}match-done{% endif %} {% if m.is_bye %}match-bye{% endif %}">
+                <div class="match-card-header">对阵 {{ m.match_number }}</div>
                 <div class="match-side {% if m.winner_id == m.player1_id %}side-winner{% endif %}">
                     <span class="match-player">
-                        {% if m.player1_id %}{{ m.player1_name }}{% else %}<span class="match-tbd">待定</span>{% endif %}
+                        {% if m.player1_id %}
+                            {{ m.player1_name }}
+                        {% elif m.prev_p1_number %}
+                            <span class="match-tbd">对阵 {{ m.prev_p1_number }} 胜者</span>
+                        {% else %}
+                            <span class="match-tbd">待定</span>
+                        {% endif %}
                     </span>
                     <span class="match-score">
                         {% if m.winner_id and not m.is_bye %}{{ m.player1_games_won }}{% endif %}
@@ -263,7 +282,13 @@
                 {% else %}
                 <div class="match-side {% if m.winner_id == m.player2_id %}side-winner{% endif %}">
                     <span class="match-player">
-                        {% if m.player2_id %}{{ m.player2_name }}{% else %}<span class="match-tbd">待定</span>{% endif %}
+                        {% if m.player2_id %}
+                            {{ m.player2_name }}
+                        {% elif m.prev_p2_number %}
+                            <span class="match-tbd">对阵 {{ m.prev_p2_number }} 胜者</span>
+                        {% else %}
+                            <span class="match-tbd">待定</span>
+                        {% endif %}
                     </span>
                     <span class="match-score">
                         {% if m.winner_id %}{{ m.player2_games_won }}{% endif %}
