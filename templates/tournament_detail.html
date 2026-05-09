@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}{{ tournament.name }} - 赛事详情{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .t-hero {
+        background: linear-gradient(135deg, #722ed1 0%, #1890ff 100%);
+        color: white;
+        border-radius: 14px;
+        padding: 1.6em 1.4em;
+        margin-top: 1em;
+        box-shadow: 0 4px 14px rgba(114, 46, 209, 0.25);
+    }
+    .t-hero h2 { margin: 0 0 0.4em 0; font-size: 1.4em; line-height: 1.4; }
+    .t-hero .meta { font-size: 0.9em; opacity: 0.92; }
+    .t-status-pill {
+        display: inline-block;
+        background: rgba(255,255,255,0.22);
+        padding: 2px 10px;
+        border-radius: 10px;
+        font-size: 0.78em;
+        letter-spacing: 0.5px;
+        margin-left: 0.4em;
+    }
+
+    .section-title {
+        margin: 0 0 0.8em 0;
+        color: #333;
+        font-size: 1.1em;
+    }
+    .rounds-table { width: 100%; border-collapse: collapse; }
+    .rounds-table th, .rounds-table td {
+        padding: 0.6em 0.4em;
+        text-align: left;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 0.95em;
+    }
+    .rounds-table th { color: #888; font-weight: 500; font-size: 0.85em; }
+
+    .participant-chip {
+        display: inline-block;
+        background: #f5f5f5;
+        border-radius: 14px;
+        padding: 4px 12px;
+        margin: 0 0.4em 0.5em 0;
+        font-size: 0.9em;
+    }
+    .participant-chip .seed-badge {
+        display: inline-block;
+        background: #fa8c16;
+        color: white;
+        border-radius: 10px;
+        padding: 0 6px;
+        margin-right: 6px;
+        font-size: 0.75em;
+        font-weight: 600;
+    }
+
+    .admin-actions { display: flex; flex-wrap: wrap; gap: 0.5em; margin-top: 1em; }
+    .admin-actions a, .admin-actions button {
+        flex: 1; min-width: 120px;
+        padding: 0.7em 1em;
+        border-radius: 5px;
+        text-align: center;
+        text-decoration: none;
+        font-size: 0.95em;
+        cursor: pointer;
+        border: none;
+    }
+    .admin-actions .btn-primary { background: #722ed1; color: white; font-weight: 600; }
+    .admin-actions .btn-primary:hover { background: #5b1fb0; }
+    .admin-actions .btn-danger  { background: #fff1f0; color: #ff4d4f; border: 1px solid #ffa39e; }
+    .admin-actions .btn-danger:hover  { background: #ffccc7; }
+    .delete-form { display: inline; flex: 1; }
+    .delete-form button { width: 100%; }
+
+    .placeholder-msg {
+        padding: 1.5em 1em;
+        text-align: center;
+        color: #888;
+        background: #fafafa;
+        border-radius: 8px;
+        margin-top: 1em;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="t-hero">
+    <h2>🏆 {{ tournament.name }}
+        <span class="t-status-pill">
+            {% if tournament.status == 'draft' %}草稿
+            {% elif tournament.status == 'registration' %}报名中
+            {% elif tournament.status == 'in_progress' %}进行中
+            {% elif tournament.status == 'completed' %}已结束
+            {% else %}{{ tournament.status }}{% endif %}
+        </span>
+    </h2>
+    <div class="meta">
+        {{ tournament.participants|length }} 人报名
+        {% if tournament.bracket_size %} · {{ tournament.bracket_size }} 人 bracket{% endif %}
+        · {{ tournament.rounds|length }} 轮
+    </div>
+</div>
+
+<div class="card">
+    <h3 class="section-title">赛制</h3>
+    <table class="rounds-table">
+        <tr><th>第几轮</th><th>名称</th><th>赛制</th></tr>
+        {% for r in tournament.rounds %}
+        <tr>
+            <td>{{ r.round_index }}</td>
+            <td>{{ r.round_name }}</td>
+            <td>{{ r.best_of }} 局 {{ (r.best_of // 2) + 1 }} 胜</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
+<div class="card">
+    <h3 class="section-title">参赛者 ({{ tournament.participants|length }})</h3>
+    {% if tournament.participants %}
+        {% for p in tournament.participants %}
+        <span class="participant-chip">
+            {% if p.seed %}<span class="seed-badge">#{{ p.seed }}</span>{% endif %}
+            <a href="{{ url_for('player_detail', player_id=p.player_id) }}" class="player-link">{{ p.player_name }}</a>
+        </span>
+        {% endfor %}
+    {% else %}
+        <div class="placeholder-msg">暂无参赛者{% if is_admin_authenticated() %}，前往报名页添加{% endif %}</div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h3 class="section-title">对阵</h3>
+    <div class="placeholder-msg">
+        bracket 尚未生成<br>
+        <small>（生成对阵 / 录入比分功能将在后续 commit 中上线）</small>
+    </div>
+</div>
+
+{% if is_admin_authenticated() %}
+<div class="card">
+    <h3 class="section-title">🔓 管理员操作</h3>
+    <div class="admin-actions">
+        <form method="post" action="{{ url_for('tournament_delete', tournament_id=tournament.tournament_id) }}"
+              class="delete-form"
+              onsubmit="return confirm('确定要删除赛事 \&quot;{{ tournament.name }}\&quot; 吗？所有报名、对阵都会一并删除。');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn-danger">删除赛事</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

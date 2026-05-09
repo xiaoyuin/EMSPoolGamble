@@ -10,6 +10,7 @@ from app.main_routes import register_main_routes
 from app.game_routes import register_game_routes
 from app.player_routes import register_player_routes
 from app.achievement_routes import register_achievement_routes
+from app.tournament_routes import register_tournament_routes
 from app.security import register_security_routes
 
 
@@ -29,6 +30,7 @@ def create_app():
     register_game_routes(app)
     register_player_routes(app)
     register_achievement_routes(app)
+    register_tournament_routes(app)
     register_security_routes(app)
 
     return app

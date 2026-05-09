@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}创建赛事 - EMS Pool{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .form-section { margin-bottom: 1.5em; }
+    .form-section label { display: block; margin-bottom: 0.4em; color: #333; font-weight: 600; }
+    .form-section input[type=text], .form-section input[type=number] {
+        width: 100%; padding: 0.7em; border: 1px solid #d9d9d9; border-radius: 5px;
+        font-size: 1em; box-sizing: border-box;
+    }
+    .rounds-table { width: 100%; border-collapse: separate; border-spacing: 0 0.5em; }
+    .rounds-table th { text-align: left; color: #666; font-weight: 500; font-size: 0.9em; }
+    .rounds-table td { padding-right: 0.5em; }
+    .rounds-table input[type=text] { width: 100%; }
+    .rounds-table input[type=number] { width: 5em; }
+    .help-text { color: #888; font-size: 0.85em; margin-top: 0.4em; }
+    .add-round-btn, .remove-round-btn {
+        background: none; border: 1px dashed #d9d9d9; color: #666;
+        padding: 0.4em 0.8em; border-radius: 5px; cursor: pointer;
+    }
+    .add-round-btn:hover { border-color: #722ed1; color: #722ed1; }
+    .remove-round-btn { padding: 0.3em 0.6em; }
+    .remove-round-btn:hover { border-color: #ff4d4f; color: #ff4d4f; }
+    .form-actions { display: flex; gap: 0.5em; margin-top: 1.5em; }
+    .form-actions button, .form-actions a {
+        flex: 1; padding: 0.8em; border-radius: 5px; text-align: center;
+        font-size: 1em; cursor: pointer; text-decoration: none;
+    }
+    .btn-primary { background: #722ed1; color: white; border: none; font-weight: 600; }
+    .btn-primary:hover { background: #5b1fb0; }
+    .btn-secondary { background: #f5f5f5; color: #595959; border: 1px solid #d9d9d9; }
+    .btn-secondary:hover { background: #fafafa; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 style="margin-top: 0;">创建赛事</h2>
+
+    <form method="post" action="{{ url_for('tournament_create') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="form-section">
+            <label for="name">赛事名称</label>
+            <input type="text" id="name" name="name" required placeholder="如：终局之战 杯">
+        </div>
+
+        <div class="form-section">
+            <label>各轮赛制</label>
+            <div class="help-text" style="margin-bottom: 0.6em;">
+                按从早到晚排列。每轮 best-of 必须为奇数（5/7/9 等）。
+                可以根据实际报名人数调整轮数；多余的轮可以删除。
+            </div>
+            <table class="rounds-table">
+                <thead>
+                    <tr>
+                        <th style="width: 60%;">轮次名称</th>
+                        <th>Best of</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="rounds-tbody">
+                    {% for r in default_rounds %}
+                    <tr class="round-row">
+                        <td><input type="text" name="round_name_{{ loop.index }}" value="{{ r.name }}" required></td>
+                        <td><input type="number" name="best_of_{{ loop.index }}" value="{{ r.best_of }}" min="1" step="2" required></td>
+                        <td><button type="button" class="remove-round-btn" onclick="removeRound(this)">×</button></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <button type="button" class="add-round-btn" onclick="addRound()">+ 添加一轮</button>
+        </div>
+
+        <div class="form-actions">
+            <a href="{{ url_for('tournament_index') }}" class="btn-secondary">取消</a>
+            <button type="submit" class="btn-primary">创建</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let roundCount = {{ default_rounds|length }};
+
+function addRound() {
+    if (roundCount >= 10) {
+        alert('最多支持 10 轮');
+        return;
+    }
+    roundCount += 1;
+    const tbody = document.getElementById('rounds-tbody');
+    const tr = document.createElement('tr');
+    tr.className = 'round-row';
+    tr.innerHTML = `
+        <td><input type="text" name="round_name_${roundCount}" placeholder="轮次名称" required></td>
+        <td><input type="number" name="best_of_${roundCount}" value="5" min="1" step="2" required></td>
+        <td><button type="button" class="remove-round-btn" onclick="removeRound(this)">×</button></td>
+    `;
+    tbody.appendChild(tr);
+}
+
+function removeRound(btn) {
+    const tbody = document.getElementById('rounds-tbody');
+    if (tbody.querySelectorAll('.round-row').length <= 1) {
+        alert('至少保留 1 轮');
+        return;
+    }
+    btn.closest('tr').remove();
+    // 重新编号，保证字段名 round_name_1, round_name_2, ... 连续
+    renumberRounds();
+}
+
+function renumberRounds() {
+    const rows = document.querySelectorAll('#rounds-tbody .round-row');
+    roundCount = rows.length;
+    rows.forEach((row, idx) => {
+        const i = idx + 1;
+        row.querySelector('input[type=text]').name = `round_name_${i}`;
+        row.querySelector('input[type=number]').name = `best_of_${i}`;
+    });
+}
+</script>
+{% endblock %}

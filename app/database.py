@@ -107,6 +107,77 @@ class DatabaseManager:
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_game_records_session ON game_records (session_id)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_game_records_players ON game_records (winner_id, loser_id)')
 
+            # ========== 杯赛（Tournament）相关表（v1.10 新增） ==========
+            # 与现有计分系统隔离：杯赛对阵 best-of-N 制，不计分。
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS tournaments (
+                    tournament_id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    bracket_size INTEGER,
+                    status TEXT NOT NULL DEFAULT 'draft',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    completed_at TEXT
+                )
+            ''')
+
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS tournament_rounds (
+                    tournament_id TEXT NOT NULL,
+                    round_index INTEGER NOT NULL,
+                    round_name TEXT NOT NULL,
+                    best_of INTEGER NOT NULL,
+                    PRIMARY KEY (tournament_id, round_index),
+                    FOREIGN KEY (tournament_id) REFERENCES tournaments (tournament_id) ON DELETE CASCADE
+                )
+            ''')
+
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS tournament_participants (
+                    tournament_id TEXT NOT NULL,
+                    player_id TEXT NOT NULL,
+                    seed INTEGER,
+                    PRIMARY KEY (tournament_id, player_id),
+                    FOREIGN KEY (tournament_id) REFERENCES tournaments (tournament_id) ON DELETE CASCADE,
+                    FOREIGN KEY (player_id) REFERENCES players (player_id)
+                )
+            ''')
+
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS tournament_matches (
+                    match_id TEXT PRIMARY KEY,
+                    tournament_id TEXT NOT NULL,
+                    round_index INTEGER NOT NULL,
+                    slot_index INTEGER NOT NULL,
+                    player1_id TEXT,
+                    player2_id TEXT,
+                    is_bye INTEGER NOT NULL DEFAULT 0,
+                    winner_id TEXT,
+                    player1_games_won INTEGER NOT NULL DEFAULT 0,
+                    player2_games_won INTEGER NOT NULL DEFAULT 0,
+                    started_at TEXT,
+                    finished_at TEXT,
+                    FOREIGN KEY (tournament_id) REFERENCES tournaments (tournament_id) ON DELETE CASCADE,
+                    FOREIGN KEY (player1_id) REFERENCES players (player_id),
+                    FOREIGN KEY (player2_id) REFERENCES players (player_id),
+                    FOREIGN KEY (winner_id) REFERENCES players (player_id)
+                )
+            ''')
+
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS tournament_match_games (
+                    match_id TEXT NOT NULL,
+                    game_index INTEGER NOT NULL,
+                    winner_id TEXT NOT NULL,
+                    PRIMARY KEY (match_id, game_index),
+                    FOREIGN KEY (match_id) REFERENCES tournament_matches (match_id) ON DELETE CASCADE,
+                    FOREIGN KEY (winner_id) REFERENCES players (player_id)
+                )
+            ''')
+
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_tournament_matches_tid ON tournament_matches (tournament_id, round_index, slot_index)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_tournament_participants_player ON tournament_participants (player_id)')
+
             conn.commit()
             print(f"数据库初始化完成: {self.db_path}")
 

@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}赛事 - EMS Pool{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .tournament-hero {
+        background: linear-gradient(135deg, #722ed1 0%, #1890ff 100%);
+        color: white;
+        border-radius: 14px;
+        padding: 1.6em 1.4em;
+        text-align: center;
+        margin-top: 1em;
+        box-shadow: 0 4px 14px rgba(114, 46, 209, 0.25);
+    }
+    .tournament-hero .icon {
+        font-size: 2.4em;
+        line-height: 1;
+        margin-bottom: 0.3em;
+    }
+    .tournament-hero h2 {
+        margin: 0 0 0.3em 0;
+        font-size: 1.2em;
+        line-height: 1.4;
+    }
+    .tournament-list-item {
+        background: #fff;
+        border-radius: 10px;
+        padding: 1em 1.2em;
+        margin-bottom: 0.8em;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        border-left: 4px solid #722ed1;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1em;
+        text-decoration: none;
+        color: inherit;
+        transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .tournament-list-item:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        text-decoration: none;
+        color: inherit;
+    }
+    .tli-name { font-weight: 600; color: #333; font-size: 1.05em; margin-bottom: 0.2em; }
+    .tli-meta { font-size: 0.85em; color: #888; }
+    .tli-status {
+        font-size: 0.75em;
+        padding: 2px 10px;
+        border-radius: 10px;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .tli-status--draft        { background: #fafafa; color: #999; border: 1px solid #eee; }
+    .tli-status--registration { background: #e6f7ff; color: #1890ff; }
+    .tli-status--in_progress  { background: #f6ffed; color: #52c41a; }
+    .tli-status--completed    { background: #f5f5f5; color: #666; }
+
+    .new-tournament-btn {
+        display: block;
+        text-align: center;
+        background: #722ed1;
+        color: white;
+        padding: 0.8em;
+        border-radius: 8px;
+        text-decoration: none;
+        margin-top: 1em;
+        font-weight: 600;
+    }
+    .new-tournament-btn:hover { background: #5b1fb0; color: white; text-decoration: none; }
+    .empty-msg {
+        text-align: center;
+        color: #999;
+        padding: 2em 1em;
+        font-style: italic;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tournament-hero">
+    <div class="icon">🏆</div>
+    <h2>赛事中心</h2>
+    <div style="opacity: 0.9; font-size: 0.9em;">查看进行中和历届赛事</div>
+</div>
+
+<div class="card">
+    {% if tournaments %}
+        {% for t in tournaments %}
+        <a href="{{ url_for('tournament_detail', tournament_id=t.tournament_id) }}" class="tournament-list-item">
+            <div style="flex: 1; min-width: 0;">
+                <div class="tli-name">{{ t.name }}</div>
+                <div class="tli-meta">
+                    {{ t.participant_count }} 人报名
+                    {% if t.bracket_size %} · {{ t.bracket_size }} 人 bracket{% endif %}
+                    · 创建于 <span data-utc-time="{{ t.created_at }}">{{ t.created_at }}</span>
+                </div>
+            </div>
+            <span class="tli-status tli-status--{{ t.status }}">
+                {% if t.status == 'draft' %}草稿
+                {% elif t.status == 'registration' %}报名中
+                {% elif t.status == 'in_progress' %}进行中
+                {% elif t.status == 'completed' %}已结束
+                {% else %}{{ t.status }}{% endif %}
+            </span>
+        </a>
+        {% endfor %}
+    {% else %}
+        <div class="empty-msg">暂无赛事</div>
+    {% endif %}
+
+    {% if is_admin_authenticated() %}
+    <a href="{{ url_for('tournament_new') }}" class="new-tournament-btn">+ 创建新赛事</a>
+    {% endif %}
+</div>
+{% endblock %}
