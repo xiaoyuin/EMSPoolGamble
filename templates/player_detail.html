@@ -130,7 +130,7 @@
 </head>
 <body>
     <div class="header">
-        <h2>EMS Pool Gamble - 玩家详情</h2>
+        <h2>EMS Pool - 玩家详情</h2>
         <div class="player-name{% if special_wins.has_big_gold %} has-big-gold{% elif special_wins.has_small_gold %} has-small-gold{% endif %}">{{ player.name }}</div>
         <div class="player-info">
             创建时间: <span data-utc-time="{{ player.created_at }}">{{ player.created_at }}</span>
@@ -323,7 +323,7 @@
     </div>
 
     <div class="footer">
-        <p>© 2025 EMS Pool Gamble {{ app_version }} |
+        <p>© 2025 EMS Pool {{ app_version }} |
            <a href="https://github.com/xiaoyuin/EMSPoolGamble" target="_blank" rel="noopener">GitHub</a> |
            <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a>
         </p>

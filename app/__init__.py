@@ -1,11 +1,11 @@
 """
-EMS Pool Gamble Application
+EMS Pool Application
 一个功能完整的多人台球计分 Web 应用
 """
 
 # 应用版本信息
 APP_VERSION = "v1.8.4"
-APP_NAME = "EMS Pool Gamble"
+APP_NAME = "EMS Pool"
 VERSION_DATE = "2025-07-18"
 
 # 默认分数选项（包含特殊分数14和20）
