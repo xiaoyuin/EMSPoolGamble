@@ -339,76 +339,50 @@ def _build_bracket_layout(participants: List[Dict],
     if n_byes_needed < 0:
         raise ValueError('手动指定的 bye 数量超过 bracket 容量')
 
-    # 上下半区切分（slot 1..size/2 上半，size/2+1..size 下半，0-based 索引）
+    # 构建待分配池：剩余玩家 + 需要的 bye
+    pool = list(remaining_players) + [RESOURCE_BYE] * n_byes_needed
+    if len(pool) != len(remaining_slots):
+        raise ValueError(
+            f'待分配资源({len(pool)})与剩余 slot 数({len(remaining_slots)})不一致')
+
+    # 如果没有剩余 slot（全部手动指定了），直接返回
+    if not remaining_slots:
+        return slots
+
+    # 尽量让 bye 在上下半区均匀分布：
+    # 把剩余 slot 按半区分组，各组内随机填入玩家和 bye
     half_size = bracket_size // 2
-    upper_half = lambda idx: idx < half_size
+    upper_slots = [i for i in remaining_slots if i < half_size]
+    lower_slots = [i for i in remaining_slots if i >= half_size]
 
     # 已锁 bye 在两半区的分布
     upper_locked_byes = sum(1 for i in locked_slot_indices
-                            if upper_half(i) and slots[i] is None)
+                            if i < half_size and slots[i] is None)
     lower_locked_byes = manual_bye_count - upper_locked_byes
 
-    # 各半区剩余可分配 slot 数（排除已锁定的）
-    upper_remaining_slot_count = sum(1 for i in remaining_slots if upper_half(i))
-    lower_remaining_slot_count = len(remaining_slots) - upper_remaining_slot_count
+    # 各半区应分多少 bye（尽量均匀，受限于实际空位数）
+    total_byes = bracket_size - n  # 含已锁和待分配
+    target_upper = max(0, min((total_byes + 1) // 2 - upper_locked_byes, len(upper_slots)))
+    target_lower = max(0, min(total_byes // 2 - lower_locked_byes, len(lower_slots)))
+    # 剩余的 bye 给有空位的一边
+    shortfall = n_byes_needed - target_upper - target_lower
+    if shortfall > 0:
+        if len(upper_slots) - target_upper >= shortfall:
+            target_upper += shortfall
+        else:
+            target_lower += shortfall
 
-    # 总 bye 数 = bracket_size - 参赛人数
-    total_byes = bracket_size - n
-
-    # 目标：让上下半区各自的 bye 总数（已锁 + 待分配）尽量均等，
-    # 但必须受限于各半区实际剩余 slot 数。
-    #
-    # 当管理员手动填完所有选手后，剩余 slot 可能全部集中在同一半区，
-    # 这时 bye 只能全部放到那个半区，不能硬往没有空位的半区分配。
-
-    # Step 1: 算出各半区"还需要放置"的理想 bye 数
-    ideal_upper = max(0, (total_byes + 1) // 2 - upper_locked_byes)
-    ideal_lower = max(0, total_byes // 2 - lower_locked_byes)
-
-    # Step 2: clamp 到各半区实际可用 slot 数
-    upper_bye_to_place = min(ideal_upper, upper_remaining_slot_count)
-    lower_bye_to_place = min(ideal_lower, lower_remaining_slot_count)
-
-    # Step 3: 校正——clamp 后总数可能不够，把差额给有空间的半区
-    placed = upper_bye_to_place + lower_bye_to_place
-    if placed < n_byes_needed:
-        delta = n_byes_needed - placed
-        upper_capacity = upper_remaining_slot_count - upper_bye_to_place
-        lower_capacity = lower_remaining_slot_count - lower_bye_to_place
-        give_upper = min(delta, upper_capacity)
-        upper_bye_to_place += give_upper
-        lower_bye_to_place += delta - give_upper
-
-    # 各半区分别构建池子（玩家 + bye），洗牌后依次填该半区剩余 slot
-    upper_remaining_slot_idx = [i for i in remaining_slots if upper_half(i)]
-    lower_remaining_slot_idx = [i for i in remaining_slots if not upper_half(i)]
-
-    upper_player_count = len(upper_remaining_slot_idx) - upper_bye_to_place
-    lower_player_count = len(lower_remaining_slot_idx) - lower_bye_to_place
-
-    if upper_player_count < 0 or lower_player_count < 0:
-        raise ValueError('某半区的轮空数超过该半区可用 slot')
-    if upper_player_count + lower_player_count != len(remaining_players):
-        raise ValueError(
-            f'剩余玩家数与半区分配不一致：'
-            f'upper={upper_player_count} lower={lower_player_count} '
-            f'remaining_players={len(remaining_players)}'
-        )
-
-    # 从 remaining_players 随机抽 upper_player_count 个去上半，剩下的去下半
-    shuffled_players = list(remaining_players)
-    random.shuffle(shuffled_players)
-    upper_players = shuffled_players[:upper_player_count]
-    lower_players = shuffled_players[upper_player_count:]
-
-    upper_pool = upper_players + [RESOURCE_BYE] * upper_bye_to_place
-    lower_pool = lower_players + [RESOURCE_BYE] * lower_bye_to_place
+    # 随机选哪些玩家去上半区
+    random.shuffle(remaining_players)
+    upper_player_count = len(upper_slots) - target_upper
+    upper_pool = list(remaining_players[:upper_player_count]) + [RESOURCE_BYE] * target_upper
+    lower_pool = list(remaining_players[upper_player_count:]) + [RESOURCE_BYE] * target_lower
     random.shuffle(upper_pool)
     random.shuffle(lower_pool)
 
-    for slot_idx, item in zip(upper_remaining_slot_idx, upper_pool):
+    for slot_idx, item in zip(upper_slots, upper_pool):
         slots[slot_idx] = None if item == RESOURCE_BYE else item
-    for slot_idx, item in zip(lower_remaining_slot_idx, lower_pool):
+    for slot_idx, item in zip(lower_slots, lower_pool):
         slots[slot_idx] = None if item == RESOURCE_BYE else item
 
     return slots
