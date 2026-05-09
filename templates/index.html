@@ -135,15 +135,22 @@
         </form>
     </div>
 
-    {# 赛事入口卡片（占位，详情页待开发） #}
-    <a href="/tournament" class="tournament-card">
-        <span class="tournament-badge">🏆 即将开始</span>
-        <div class="tournament-title">EMS 微软苏州第三届「终局之战」杯</div>
+    {# 赛事入口卡片：仅当有活跃赛事时显示 #}
+    {% if active_tournament %}
+    <a href="{{ url_for('tournament_detail', tournament_id=active_tournament.tournament_id) }}" class="tournament-card">
+        <span class="tournament-badge">
+            🏆
+            {% if active_tournament.status == 'registration' %}即将开始
+            {% elif active_tournament.status == 'in_progress' %}进行中
+            {% else %}{{ active_tournament.status }}{% endif %}
+        </span>
+        <div class="tournament-title">{{ active_tournament.name }}</div>
         <div class="tournament-subtitle">
             <span>点击查看赛事信息</span>
             <span class="tournament-cta">前往 →</span>
         </div>
     </a>
+    {% endif %}
 
     {# 管理员可见：创建新赛事入口 #}
     {% if is_admin_authenticated() %}

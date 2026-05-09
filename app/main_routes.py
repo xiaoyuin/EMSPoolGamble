@@ -82,11 +82,19 @@ def register_main_routes(app):
             if full_session:
                 sorted_ended_sessions.append((session_id, full_session))
 
+        # 取"当前活跃赛事"用于首页 banner（最新创建的非已结束赛事）
+        from .tournament import list_tournaments
+        active_tournament = next(
+            (t for t in list_tournaments() if t['status'] != 'completed'),
+            None,
+        )
+
         return render_template('index.html',
                              active_sessions=sorted_active_sessions,
                              ended_sessions=sorted_ended_sessions,
                              sessions=sessions,
                              suggested_session_name=generate_session_name(),  # 默认用服务器时间，前端会替换
+                             active_tournament=active_tournament,
                              app_version=APP_VERSION,
                              app_name=APP_NAME,
                              version_date=VERSION_DATE)
