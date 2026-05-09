@@ -353,9 +353,8 @@ def register_tournament_routes(app):
             app_version=APP_VERSION,
         )
 
-    # ---------- 录入比分 - 逐局加（管理员） ----------
+    # ---------- 录入比分 - 逐局加（所有用户） ----------
     @app.route('/tournament/<tournament_id>/match/<match_id>/record_game', methods=['POST'])
-    @require_admin_auth
     @require_csrf_protection
     def tournament_match_record_game(tournament_id, match_id):
         match = get_match(match_id)
@@ -370,9 +369,8 @@ def register_tournament_routes(app):
         flash(msg, 'success' if ok else 'error')
         return redirect(url_for('tournament_match', tournament_id=tournament_id, match_id=match_id))
 
-    # ---------- 录入比分 - 一次性总比分（管理员） ----------
+    # ---------- 录入比分 - 一次性总比分（所有用户） ----------
     @app.route('/tournament/<tournament_id>/match/<match_id>/record_result', methods=['POST'])
-    @require_admin_auth
     @require_csrf_protection
     def tournament_match_record_result(tournament_id, match_id):
         match = get_match(match_id)

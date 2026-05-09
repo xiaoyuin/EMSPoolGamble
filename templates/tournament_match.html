@@ -166,9 +166,7 @@
 </div>
 {% endif %}
 
-{% if is_admin_authenticated() and not match.is_bye and match.player1_id and match.player2_id %}
-<div class="admin-card">
-    <h4>🔓 管理员操作</h4>
+{% if not match.is_bye and match.player1_id and match.player2_id %}
 
     {% if not match.winner_id %}
     <div class="record-options">
@@ -196,20 +194,23 @@
             </form>
         </div>
     </div>
-    {% else %}
-    <div class="record-block">
-        <label>撤销结果</label>
-        <div class="help">将清空本场比分并重置下一轮对应位置。如果下一轮已经开打，请先撤销下一轮。</div>
-        <form method="post"
-              action="{{ url_for('tournament_match_reset', tournament_id=tournament.tournament_id, match_id=match.match_id) }}"
-              class="reset-form"
-              onsubmit="return confirm('确定要撤销本场结果？');">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit">撤销</button>
-        </form>
+    {% elif is_admin_authenticated() %}
+    <div class="admin-card">
+        <h4>🔓 管理员操作</h4>
+        <div class="record-block">
+            <label>撤销结果</label>
+            <div class="help">将清空本场比分并重置下一轮对应位置。如果下一轮已经开打，请先撤销下一轮。</div>
+            <form method="post"
+                  action="{{ url_for('tournament_match_reset', tournament_id=tournament.tournament_id, match_id=match.match_id) }}"
+                  class="reset-form"
+                  onsubmit="return confirm('确定要撤销本场结果？');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit">撤销</button>
+            </form>
+        </div>
     </div>
     {% endif %}
-</div>
+
 {% elif match.is_bye %}
 <div class="placeholder-msg">本场为轮空，无需录入比分</div>
 {% elif not match.player1_id or not match.player2_id %}
