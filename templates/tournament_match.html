@@ -130,7 +130,7 @@
     <div class="player-block {% if match.winner_id == match.player1_id %}is-winner{% endif %}">
         <div class="player-name">
             {% if match.player1_id %}
-                <a href="{{ url_for('player_detail', player_id=match.player1_id) }}" class="player-link">{{ match.player1_name }}</a>{% if match.player1_seed %}<span class="seed-tag">{{ match.player1_seed }} 号种子</span>{% endif %}
+                <a href="{{ url_for('player_detail', player_id=match.player1_id) }}" class="player-link">{{ match.player1_name }}</a>{% if match.player1_seed %} <span style="color: #999; font-size: 0.8em; font-weight: 400;">({{ match.player1_seed }})</span>{% endif %}
             {% elif match.prev_p1_number %}
                 <span style="color:#bbb;font-style:italic;">对阵 {{ match.prev_p1_number }} 胜者</span>
             {% else %}<span style="color:#bbb;font-style:italic;">待定</span>{% endif %}
@@ -143,7 +143,7 @@
             {% if match.is_bye %}
                 <span style="color:#bbb;font-style:italic;">— 轮空 —</span>
             {% elif match.player2_id %}
-                <a href="{{ url_for('player_detail', player_id=match.player2_id) }}" class="player-link">{{ match.player2_name }}</a>{% if match.player2_seed %}<span class="seed-tag">{{ match.player2_seed }} 号种子</span>{% endif %}
+                <a href="{{ url_for('player_detail', player_id=match.player2_id) }}" class="player-link">{{ match.player2_name }}</a>{% if match.player2_seed %} <span style="color: #999; font-size: 0.8em; font-weight: 400;">({{ match.player2_seed }})</span>{% endif %}
             {% elif match.prev_p2_number %}
                 <span style="color:#bbb;font-style:italic;">对阵 {{ match.prev_p2_number }} 胜者</span>
             {% else %}<span style="color:#bbb;font-style:italic;">待定</span>{% endif %}
