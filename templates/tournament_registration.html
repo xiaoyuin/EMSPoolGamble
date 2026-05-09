@@ -189,11 +189,12 @@
     .round-tabs {
         display: flex;
         gap: 0;
-        border-bottom: 2px solid #f0e6ff;
         margin: 0.8em 0 0;
         overflow-x: auto;
-        scrollbar-width: thin;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
     }
+    .round-tabs::-webkit-scrollbar { display: none; }
     .round-tab {
         flex-shrink: 0;
         background: none; border: none;
@@ -202,15 +203,12 @@
         color: #888;
         cursor: pointer;
         white-space: nowrap;
-        border-bottom: 2px solid transparent;
-        margin-bottom: -2px;
-        transition: all 0.15s;
+        transition: color 0.15s;
     }
     .round-tab:hover { color: #722ed1; }
     .round-tab.active {
         color: #722ed1;
         font-weight: 600;
-        border-bottom-color: #722ed1;
     }
     .round-pane { display: none; }
     .round-pane.active { display: block; }
@@ -225,6 +223,15 @@
         font-size: 0.9em;
     }
     .future-round-msg .icon { font-size: 1.3em; display: block; margin-bottom: 0.3em; }
+
+    /* 预览态：select 锁定显示，浅紫底色突出"已经是预览结果，不可改" */
+    .pairing-row select.preview-locked {
+        background: #faf5ff;
+        color: #722ed1;
+        border-color: #d3adf7;
+        font-weight: 500;
+        cursor: not-allowed;
+    }
 </style>
 {% endblock %}
 
@@ -339,16 +346,17 @@
 <div class="card generate-bracket-card">
     <h4>🎲 生成对阵</h4>
     <div class="help">
-        在「首轮」tab 中安排选手位置：
+        在「首轮」tab 中预设位置：
         <em>留空</em>（系统随机抽签）、
         <em>指定参赛者</em>，或 <em>指定为轮空</em>。<br>
-        对阵表共 <strong>{{ bracket_size }}</strong> 个位置{% if n_byes > 0 %}，其中 <strong>{{ n_byes }}</strong> 个是轮空{% endif %}。
-        留空的位置由算法把"剩余玩家 + 剩余轮空"打散随机分配。
+        对阵表共 <strong>{{ bracket_size }}</strong> 个位置{% if n_byes > 0 %}，其中 <strong>{{ n_byes }}</strong> 个是轮空{% endif %}。<br>
+        点「随机生成预览」可看到完整对阵，可反复重新随机。点「确认对阵」才会写入数据库。
     </div>
 
     <form method="post" action="{{ url_for('tournament_generate_bracket', tournament_id=tournament.tournament_id) }}"
           id="generate-form"
-          onsubmit="return confirmGenerate(event);">
+          onsubmit="return confirmGenerate(event);"
+          data-preview-url="{{ url_for('tournament_preview_bracket', tournament_id=tournament.tournament_id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         {# 用 round-tabs 把"首轮编辑器 + 后续轮占位"包起来，与 tournament_detail.html 风格一致 #}
@@ -420,8 +428,14 @@
 
         <input type="hidden" id="n-byes-allowed" value="{{ n_byes }}">
 
-        <div class="save-bar">
-            <button type="submit" class="btn-success">生成对阵</button>
+        {# 两阶段生成：先随机预览，确认后才写库 #}
+        <div class="save-bar" id="preview-actions">
+            <button type="button" class="btn-success" onclick="generatePreview()">🎲 随机生成预览</button>
+        </div>
+        <div class="save-bar" id="confirm-actions" style="display:none;">
+            <button type="button" class="btn-secondary" onclick="resetPreview()">重置</button>
+            <button type="button" class="btn-secondary" onclick="generatePreview()">再随机一次</button>
+            <button type="submit" class="btn-success">确认对阵</button>
         </div>
     </form>
 </div>
@@ -515,6 +529,10 @@ function enforceSlotExclusivity(changed) {
 }
 
 function confirmGenerate(e) {
+    // 确认提交前把 disabled 的 select 重新 enable，让浏览器能把它们 POST 上去
+    document.querySelectorAll('#generate-form .slot-select').forEach(sel => {
+        sel.disabled = false;
+    });
     return confirm('确认生成对阵？此后将无法修改报名名单。');
 }
 
@@ -523,6 +541,56 @@ function selectGenRoundTab(btn) {
     const idx = btn.dataset.roundIdx;
     document.querySelectorAll('#generate-form .round-tab').forEach(t => t.classList.toggle('active', t.dataset.roundIdx === idx));
     document.querySelectorAll('#generate-form .round-pane').forEach(p => p.classList.toggle('active', p.dataset.roundIdx === idx));
+}
+
+// ---- 两阶段生成：随机预览 + 确认 ----
+async function generatePreview() {
+    const form = document.getElementById('generate-form');
+    if (!form) return;
+    const fd = new FormData(form);
+    const url = form.dataset.previewUrl;
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            body: fd,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data || !data.ok) {
+            const msg = (data && data.message) || `预览失败 (${res.status})`;
+            alert(msg);
+            return;
+        }
+        applyPreview(data.slots);
+    } catch (err) {
+        console.error('预览失败:', err);
+        alert('网络错误，请重试');
+    }
+}
+
+function applyPreview(slots) {
+    // slots = { '1': player_id_or_'__bye__', ... }
+    document.querySelectorAll('#generate-form .slot-select').forEach(sel => {
+        const slotIdx = sel.dataset.slot;
+        const value = slots[slotIdx];
+        if (value !== undefined) {
+            sel.value = value;
+        }
+        sel.disabled = true;
+        sel.classList.add('preview-locked');
+    });
+    document.getElementById('preview-actions').style.display = 'none';
+    document.getElementById('confirm-actions').style.display = 'flex';
+}
+
+function resetPreview() {
+    document.querySelectorAll('#generate-form .slot-select').forEach(sel => {
+        sel.value = 'random';
+        sel.disabled = false;
+        sel.classList.remove('preview-locked');
+    });
+    document.getElementById('preview-actions').style.display = 'flex';
+    document.getElementById('confirm-actions').style.display = 'none';
 }
 
 // 新建玩家弹窗

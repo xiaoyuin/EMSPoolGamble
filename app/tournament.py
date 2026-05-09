@@ -358,6 +358,41 @@ def _build_bracket_layout(participants: List[Dict],
     return slots
 
 
+def preview_bracket_layout(tournament_id: str,
+                           manual_slots: Optional[Dict[int, str]] = None
+                           ) -> Optional[Dict]:
+    """Dry-run 计算首轮 slot 布局，不写库。返回
+    { 'bracket_size': N, 'slots': { '1': player_id_or_'__bye__', ... } }
+    或 None 表示失败（参赛人数不足、轮数不够、约束冲突等）。
+    """
+    tournament = get_tournament(tournament_id)
+    if not tournament:
+        return None
+    if tournament['status'] not in (STATUS_DRAFT, STATUS_REGISTRATION):
+        return None
+    participants = tournament['participants']
+    if len(participants) < 2:
+        return None
+
+    bracket_size = max(4, _next_power_of_2(len(participants)))
+    expected_rounds = int(math.log2(bracket_size))
+    if len(tournament['rounds']) < expected_rounds:
+        return None
+
+    try:
+        slots = _build_bracket_layout(participants, bracket_size, manual_slots=manual_slots)
+    except ValueError:
+        return None
+
+    # 把 None 映射回 '__bye__' 标记，方便前端识别
+    payload_slots = {}
+    for idx, val in enumerate(slots):
+        slot_1based = str(idx + 1)
+        payload_slots[slot_1based] = RESOURCE_BYE if val is None else val
+
+    return {'bracket_size': bracket_size, 'slots': payload_slots}
+
+
 def generate_bracket(tournament_id: str,
                      manual_slots: Optional[Dict[int, str]] = None) -> bool:
     """

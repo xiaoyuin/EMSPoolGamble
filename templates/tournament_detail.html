@@ -102,11 +102,12 @@
     .round-tabs {
         display: flex;
         gap: 0;
-        border-bottom: 2px solid #f0e6ff;
         margin-bottom: 1em;
         overflow-x: auto;
-        scrollbar-width: thin;
+        scrollbar-width: none;        /* Firefox */
+        -ms-overflow-style: none;     /* IE/Edge legacy */
     }
+    .round-tabs::-webkit-scrollbar { display: none; }   /* Chrome/Safari */
     .round-tab {
         flex-shrink: 0;
         background: none; border: none;
@@ -115,16 +116,13 @@
         color: #888;
         cursor: pointer;
         white-space: nowrap;
-        border-bottom: 2px solid transparent;
-        margin-bottom: -2px; /* 让选中态的下划线盖住容器的 border */
-        transition: all 0.15s;
+        transition: color 0.15s;
         display: flex; align-items: center; gap: 0.4em;
     }
     .round-tab:hover { color: #722ed1; }
     .round-tab.active {
         color: #722ed1;
         font-weight: 600;
-        border-bottom-color: #722ed1;
     }
     .round-tab.tab-done { color: #999; }
     .round-tab.tab-done.active { color: #722ed1; }

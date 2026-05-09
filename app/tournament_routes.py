@@ -17,7 +17,7 @@ Tournament 路由模块（v1.10）
   POST     /tournament/<tid>/match/<mid>/reset
 """
 
-from flask import render_template, request, redirect, url_for, flash
+from flask import render_template, request, redirect, url_for, flash, jsonify
 from .security import require_admin_auth, require_csrf_protection
 from . import APP_VERSION
 from .models import players, get_player_by_id, get_player_by_name, create_player as create_global_player, save_data
@@ -26,7 +26,7 @@ from .tournament import (
     create_tournament, list_tournaments, get_tournament,
     delete_tournament,
     add_participant, remove_participant, set_participant_seed,
-    generate_bracket, get_bracket, get_match,
+    generate_bracket, preview_bracket_layout, get_bracket, get_match,
     record_match_game, record_match_result, reset_match,
     RESOURCE_BYE, _next_power_of_2,
     STATUS_DRAFT, STATUS_REGISTRATION, STATUS_IN_PROGRESS, STATUS_COMPLETED,
@@ -276,6 +276,31 @@ def register_tournament_routes(app):
             set_participant_seed(tournament_id, pid, seed)
         flash('种子设置已保存', 'success')
         return redirect(url_for('tournament_registration', tournament_id=tournament_id))
+
+    # ---------- 预览对阵（dry-run，不写库） ----------
+    @app.route('/tournament/<tournament_id>/preview_bracket', methods=['POST'])
+    @require_admin_auth
+    @require_csrf_protection
+    def tournament_preview_bracket(tournament_id):
+        tournament = get_tournament(tournament_id)
+        if not tournament:
+            return jsonify({'ok': False, 'message': '赛事不存在'}), 404
+        if tournament['status'] not in (STATUS_DRAFT, STATUS_REGISTRATION):
+            return jsonify({'ok': False, 'message': '赛事已生成对阵'}), 400
+        if len(tournament['participants']) < 2:
+            return jsonify({'ok': False, 'message': '至少需要 2 名参赛者'}), 400
+
+        bracket_size = max(4, _next_power_of_2(len(tournament['participants'])))
+        manual_slots = {}
+        for slot_1based in range(1, bracket_size + 1):
+            raw = request.form.get(f'slot_{slot_1based}', '').strip()
+            if raw and raw != 'random':
+                manual_slots[slot_1based] = raw
+
+        result = preview_bracket_layout(tournament_id, manual_slots=manual_slots or None)
+        if not result:
+            return jsonify({'ok': False, 'message': '生成预览失败：约束冲突或配置不足'}), 400
+        return jsonify({'ok': True, **result})
 
     # ---------- 生成 bracket（管理员） ----------
     @app.route('/tournament/<tournament_id>/generate_bracket', methods=['POST'])
