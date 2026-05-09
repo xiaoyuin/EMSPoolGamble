@@ -158,7 +158,7 @@
     {% for g in match.games %}
     <div class="game-row">
         <span class="game-idx">第 {{ g.game_index }} 局</span>
-        <span class="game-winner"><a href="{{ url_for('player_detail', player_id=g.winner_id) }}" style="color: #722ed1; text-decoration: none;">{{ g.winner_name }}</a> 胜</span>
+        <span class="game-winner"><a href="{{ url_for('player_detail', player_id=g.winner_id) }}" style="color: #1890ff; text-decoration: none;">{{ g.winner_name }}</a> 胜</span>
         {% if loop.last and is_admin_authenticated() %}
         <form method="post"
               action="{{ url_for('tournament_match_undo_game', tournament_id=tournament.tournament_id, match_id=match.match_id) }}"
