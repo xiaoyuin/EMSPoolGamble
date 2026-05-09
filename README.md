@@ -92,7 +92,7 @@ EMSPoolGamble/
 ├── ems_pool_gamble.db          # SQLite 数据库（运行时生成）
 ├── requirements.txt
 ├── CHANGELOG.md
-├── PROJECT_STATUS.md
+├── CLAUDE.md                   # 给 AI 助手的项目说明
 └── README.md
 ```
 
@@ -194,7 +194,6 @@ MIT License — 详见 [LICENSE](./LICENSE)。
 ## 📞 联系
 
 - GitHub: [xiaoyuin/EMSPoolGamble](https://github.com/xiaoyuin/EMSPoolGamble)
-- 项目状态：[PROJECT_STATUS.md](./PROJECT_STATUS.md)
 - 完整版本历史：[CHANGELOG.md](./CHANGELOG.md)
 
 ---
