@@ -175,7 +175,7 @@
     {% if tournament.participants %}
     <form method="post" action="{{ url_for('tournament_register_set_seed', tournament_id=tournament.tournament_id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="help">设置 1-4 号种子（决定 bracket 上的固定位置；其它位置随机或手动指定）</div>
+        <div class="help">设置 1-4 号种子（决定对阵表上的固定位置；其它位置随机或手动指定）</div>
         <div class="registered-list">
             {% for p in tournament.participants %}
             <div class="registered-row">
@@ -272,13 +272,13 @@
 <div class="card generate-bracket-card">
     <h4>🎲 生成对阵</h4>
     <div class="help">
-        Bracket 容量为 <strong>{{ bracket_size }}</strong> 个 slot{% if n_byes > 0 %}（其中 <strong>{{ n_byes }}</strong> 个为轮空 bye）{% endif %}。<br>
-        每个 slot 可以选择：
+        对阵表容量为 <strong>{{ bracket_size }}</strong> 个位置{% if n_byes > 0 %}（其中 <strong>{{ n_byes }}</strong> 个为轮空）{% endif %}。<br>
+        每个位置可以选择：
         <em>留空</em>（由系统随机抽签）、
         <em>指定某位参赛者</em>、
-        或 <em>指定为 bye</em>。<br>
-        留空的 slot 在生成时由算法把"剩余玩家 + 剩余 bye 名额"打散随机分配。
-        种子号（如已设置）只影响留空 slot 的随机抽签：种子尽量落入 bracket 标准位。
+        或 <em>指定为轮空</em>。<br>
+        留空的位置在生成时由算法把"剩余玩家 + 剩余轮空名额"打散随机分配。
+        种子号（如已设置）只影响留空位置的随机抽签：种子尽量落入对阵表标准位。
     </div>
 
     <form method="post" action="{{ url_for('tournament_generate_bracket', tournament_id=tournament.tournament_id) }}"
@@ -288,10 +288,10 @@
         <div class="slot-grid">
             {% for slot_idx in range(1, bracket_size + 1) %}
             <div class="slot-cell">
-                <label>Slot {{ slot_idx }}</label>
+                <label>位置 {{ slot_idx }}</label>
                 <select name="slot_{{ slot_idx }}">
                     <option value="random" selected>— 随机 —</option>
-                    <option value="__bye__">轮空 (bye)</option>
+                    <option value="__bye__">轮空</option>
                     <optgroup label="参赛者">
                     {% for p in tournament.participants %}
                         <option value="{{ p.player_id }}">{{ p.player_name }}{% if p.seed %} (种子#{{ p.seed }}){% endif %}</option>

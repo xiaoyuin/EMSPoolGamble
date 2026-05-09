@@ -157,37 +157,9 @@
     <h2>{{ tournament.name }}</h2>
     <div class="meta">
         {{ tournament.participants|length }} 人报名
-        {% if tournament.bracket_size %} · {{ tournament.bracket_size }} 人 bracket{% endif %}
+        {% if tournament.bracket_size %} · {{ tournament.bracket_size }} 人对阵表{% endif %}
         · {{ tournament.rounds|length }} 轮
     </div>
-</div>
-
-<div class="card">
-    <h3 class="section-title">赛制</h3>
-    <table class="rounds-table">
-        <tr><th>第几轮</th><th>名称</th><th>赛制</th></tr>
-        {% for r in tournament.rounds %}
-        <tr>
-            <td>{{ r.round_index }}</td>
-            <td>{{ r.round_name }}</td>
-            <td>{{ r.best_of }} 局 {{ (r.best_of // 2) + 1 }} 胜</td>
-        </tr>
-        {% endfor %}
-    </table>
-</div>
-
-<div class="card">
-    <h3 class="section-title">参赛者 ({{ tournament.participants|length }})</h3>
-    {% if tournament.participants %}
-        {% for p in tournament.participants %}
-        <span class="participant-chip">
-            {% if p.seed %}<span class="seed-badge">#{{ p.seed }}</span>{% endif %}
-            <a href="{{ url_for('player_detail', player_id=p.player_id) }}" class="player-link">{{ p.player_name }}</a>
-        </span>
-        {% endfor %}
-    {% else %}
-        <div class="placeholder-msg">暂无参赛者{% if is_admin_authenticated() %}，前往报名页添加{% endif %}</div>
-    {% endif %}
 </div>
 
 <div class="card">
@@ -233,12 +205,40 @@
         {% endfor %}
     {% else %}
         <div class="placeholder-msg">
-            bracket 尚未生成
+            对阵尚未生成
             {% if is_admin_authenticated() and tournament.status == 'registration' and tournament.participants|length >= 2 %}
             <br><small>前往「报名管理」生成对阵</small>
             {% endif %}
         </div>
     {% endif %}
+</div>
+
+<div class="card">
+    <h3 class="section-title">参赛者 ({{ tournament.participants|length }})</h3>
+    {% if tournament.participants %}
+        {% for p in tournament.participants %}
+        <span class="participant-chip">
+            {% if p.seed %}<span class="seed-badge">#{{ p.seed }}</span>{% endif %}
+            <a href="{{ url_for('player_detail', player_id=p.player_id) }}" class="player-link">{{ p.player_name }}</a>
+        </span>
+        {% endfor %}
+    {% else %}
+        <div class="placeholder-msg">暂无参赛者{% if is_admin_authenticated() %}，前往报名页添加{% endif %}</div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h3 class="section-title">赛制</h3>
+    <table class="rounds-table">
+        <tr><th>第几轮</th><th>名称</th><th>赛制</th></tr>
+        {% for r in tournament.rounds %}
+        <tr>
+            <td>{{ r.round_index }}</td>
+            <td>{{ r.round_name }}</td>
+            <td>{{ r.best_of }} 局 {{ (r.best_of // 2) + 1 }} 胜</td>
+        </tr>
+        {% endfor %}
+    </table>
 </div>
 
 {% if is_admin_authenticated() %}
