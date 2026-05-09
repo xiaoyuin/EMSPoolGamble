@@ -14,17 +14,28 @@
         padding: 1.6em 1.4em;
         margin-top: 1em;
         box-shadow: 0 4px 14px rgba(114, 46, 209, 0.25);
+        text-align: center;
     }
-    .t-hero h2 { margin: 0 0 0.4em 0; font-size: 1.4em; line-height: 1.4; }
+    .t-hero .t-icon {
+        font-size: 3em;
+        line-height: 1;
+        margin-bottom: 0.3em;
+    }
+    .t-hero h2 {
+        margin: 0 0 0.5em 0;
+        font-size: 1.3em;
+        line-height: 1.4;
+        font-weight: 700;
+    }
     .t-hero .meta { font-size: 0.9em; opacity: 0.92; }
     .t-status-pill {
         display: inline-block;
-        background: rgba(255,255,255,0.22);
+        background: rgba(255, 255, 255, 0.22);
         padding: 2px 10px;
         border-radius: 10px;
         font-size: 0.78em;
         letter-spacing: 0.5px;
-        margin-left: 0.4em;
+        margin-bottom: 0.6em;
     }
 
     .section-title {
@@ -135,15 +146,15 @@
 
 {% block content %}
 <div class="t-hero">
-    <h2>🏆 {{ tournament.name }}
-        <span class="t-status-pill">
-            {% if tournament.status == 'draft' %}草稿
-            {% elif tournament.status == 'registration' %}报名中
-            {% elif tournament.status == 'in_progress' %}进行中
-            {% elif tournament.status == 'completed' %}已结束
-            {% else %}{{ tournament.status }}{% endif %}
-        </span>
-    </h2>
+    <div class="t-icon">🏆</div>
+    <span class="t-status-pill">
+        {% if tournament.status == 'draft' %}草稿
+        {% elif tournament.status == 'registration' %}报名中
+        {% elif tournament.status == 'in_progress' %}进行中
+        {% elif tournament.status == 'completed' %}已结束
+        {% else %}{{ tournament.status }}{% endif %}
+    </span>
+    <h2>{{ tournament.name }}</h2>
     <div class="meta">
         {{ tournament.participants|length }} 人报名
         {% if tournament.bracket_size %} · {{ tournament.bracket_size }} 人 bracket{% endif %}
