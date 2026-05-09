@@ -83,6 +83,43 @@
         border-radius: 8px;
         margin-top: 1em;
     }
+
+    /* Bracket 展示 */
+    .bracket-round { margin-bottom: 1.5em; }
+    .bracket-round:last-child { margin-bottom: 0; }
+    .bracket-round-title {
+        font-weight: 600;
+        color: #722ed1;
+        margin-bottom: 0.6em;
+        padding-bottom: 0.3em;
+        border-bottom: 2px solid #f0e6ff;
+    }
+    .bracket-round-title .round-meta { color: #888; font-weight: normal; font-size: 0.85em; margin-left: 0.5em; }
+    .match-card {
+        background: #fafafa;
+        border: 1px solid #f0f0f0;
+        border-radius: 6px;
+        margin-bottom: 0.5em;
+        overflow: hidden;
+    }
+    .match-card.match-done { background: #fff; border-color: #d3adf7; }
+    .match-card.match-bye  { opacity: 0.75; }
+    .match-side {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0.5em 0.7em;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 0.95em;
+    }
+    .match-side:last-child { border-bottom: none; }
+    .match-side.side-winner { background: #f6ffed; font-weight: 600; }
+    .match-side .match-player { flex: 1; min-width: 0; }
+    .match-side .match-player .player-link { color: #1890ff; text-decoration: none; }
+    .match-side .match-tbd { color: #bbb; font-style: italic; }
+    .match-side .match-score {
+        flex-shrink: 0; min-width: 1.6em; text-align: right;
+        color: #722ed1; font-weight: 600;
+    }
+    .match-bye-row .match-player { color: #999; }
 </style>
 {% endblock %}
 
@@ -134,16 +171,63 @@
 
 <div class="card">
     <h3 class="section-title">对阵</h3>
-    <div class="placeholder-msg">
-        bracket 尚未生成<br>
-        <small>（生成对阵 / 录入比分功能将在后续 commit 中上线）</small>
-    </div>
+    {% if bracket %}
+        {% for round_matches in bracket %}
+        <div class="bracket-round">
+            <div class="bracket-round-title">
+                {{ round_matches[0].round_name }}
+                <span class="round-meta">{{ round_matches[0].best_of }} 局 {{ (round_matches[0].best_of // 2) + 1 }} 胜</span>
+            </div>
+            {% for m in round_matches %}
+            <div class="match-card {% if m.winner_id %}match-done{% endif %} {% if m.is_bye %}match-bye{% endif %}">
+                <div class="match-side {% if m.winner_id == m.player1_id %}side-winner{% endif %}">
+                    <span class="match-player">
+                        {% if m.player1_id %}
+                        <a href="{{ url_for('player_detail', player_id=m.player1_id) }}" class="player-link">{{ m.player1_name }}</a>
+                        {% else %}<span class="match-tbd">待定</span>{% endif %}
+                    </span>
+                    <span class="match-score">
+                        {% if m.winner_id and not m.is_bye %}{{ m.player1_games_won }}{% endif %}
+                    </span>
+                </div>
+                {% if m.is_bye %}
+                <div class="match-side match-bye-row">
+                    <span class="match-player match-tbd">— 轮空 —</span>
+                    <span class="match-score"></span>
+                </div>
+                {% else %}
+                <div class="match-side {% if m.winner_id == m.player2_id %}side-winner{% endif %}">
+                    <span class="match-player">
+                        {% if m.player2_id %}
+                        <a href="{{ url_for('player_detail', player_id=m.player2_id) }}" class="player-link">{{ m.player2_name }}</a>
+                        {% else %}<span class="match-tbd">待定</span>{% endif %}
+                    </span>
+                    <span class="match-score">
+                        {% if m.winner_id %}{{ m.player2_games_won }}{% endif %}
+                    </span>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="placeholder-msg">
+            bracket 尚未生成
+            {% if is_admin_authenticated() and tournament.status == 'registration' and tournament.participants|length >= 2 %}
+            <br><small>前往「报名管理」生成对阵</small>
+            {% endif %}
+        </div>
+    {% endif %}
 </div>
 
 {% if is_admin_authenticated() %}
 <div class="card">
     <h3 class="section-title">🔓 管理员操作</h3>
     <div class="admin-actions">
+        {% if tournament.status in ('draft', 'registration') %}
+        <a href="{{ url_for('tournament_registration', tournament_id=tournament.tournament_id) }}" class="btn-primary">报名管理 / 生成对阵</a>
+        {% endif %}
         <form method="post" action="{{ url_for('tournament_delete', tournament_id=tournament.tournament_id) }}"
               class="delete-form"
               onsubmit="return confirm('确定要删除赛事 \&quot;{{ tournament.name }}\&quot; 吗？所有报名、对阵都会一并删除。');">

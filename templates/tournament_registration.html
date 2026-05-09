@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block title %}{{ tournament.name }} - 报名管理{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .breadcrumb { margin-top: 1em; font-size: 0.9em; color: #666; }
+    .breadcrumb a { color: #1890ff; text-decoration: none; }
+    .breadcrumb a:hover { text-decoration: underline; }
+
+    .section-title { margin: 0 0 0.8em 0; color: #333; }
+
+    .registered-list { display: flex; flex-direction: column; gap: 0.4em; }
+    .registered-row {
+        display: flex; align-items: center; gap: 0.6em;
+        padding: 0.5em 0.6em;
+        background: #fafafa;
+        border-radius: 6px;
+    }
+    .registered-row .name {
+        flex: 1; min-width: 0;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .registered-row select {
+        flex-shrink: 0;
+        width: 80px;
+        padding: 4px 6px;
+        border: 1px solid #d9d9d9;
+        border-radius: 4px;
+        font-size: 0.9em;
+    }
+    .remove-btn {
+        background: #fff1f0; color: #ff4d4f; border: 1px solid #ffa39e;
+        padding: 4px 10px; border-radius: 4px; font-size: 0.85em;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+    .remove-btn:hover { background: #ffccc7; }
+
+    .available-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 0.5em;
+        max-height: 360px; overflow-y: auto;
+        padding: 0.4em;
+        background: #fafafa;
+        border-radius: 6px;
+    }
+    .available-grid label {
+        display: flex; align-items: center; gap: 0.4em;
+        padding: 0.4em 0.6em;
+        background: white;
+        border: 1px solid #eee;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.9em;
+    }
+    .available-grid label:hover { border-color: #1890ff; }
+    .available-grid input[type=checkbox] { margin: 0; flex-shrink: 0; }
+    .available-grid .pname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .save-bar { display: flex; gap: 0.5em; margin-top: 0.8em; }
+    .save-bar button { flex: 1; padding: 0.7em; border-radius: 5px; border: none; font-weight: 600; cursor: pointer; }
+    .btn-primary { background: #1890ff; color: white; }
+    .btn-primary:hover { background: #40a9ff; }
+    .btn-success { background: #722ed1; color: white; }
+    .btn-success:hover { background: #5b1fb0; }
+    .btn-secondary { background: #f5f5f5; color: #595959; border: 1px solid #d9d9d9; }
+
+    .help { color: #888; font-size: 0.85em; margin-bottom: 0.6em; }
+
+    .generate-bracket-card {
+        background: #f9f0ff;
+        border: 1px solid #d3adf7;
+        border-radius: 8px;
+        padding: 1em;
+        margin-top: 1.5em;
+    }
+    .generate-bracket-card h4 { margin: 0 0 0.5em 0; color: #722ed1; }
+    .mode-options { display: flex; gap: 1em; margin-bottom: 0.8em; }
+    .mode-options label { font-size: 0.95em; }
+
+    .slot-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 0.6em;
+        margin: 1em 0;
+    }
+    .slot-cell {
+        background: white;
+        border: 1px solid #e6d4ff;
+        border-radius: 6px;
+        padding: 0.5em 0.6em;
+    }
+    .slot-cell label {
+        display: block;
+        font-size: 0.8em;
+        color: #722ed1;
+        margin-bottom: 0.3em;
+        font-weight: 600;
+    }
+    .slot-cell select {
+        width: 100%;
+        padding: 0.4em;
+        border: 1px solid #e6d4ff;
+        border-radius: 4px;
+        font-size: 0.9em;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+    <a href="{{ url_for('tournament_index') }}">赛事</a>
+    &gt; <a href="{{ url_for('tournament_detail', tournament_id=tournament.tournament_id) }}">{{ tournament.name }}</a>
+    &gt; 报名管理
+</div>
+
+<div class="card">
+    <h3 class="section-title">已报名 ({{ tournament.participants|length }})</h3>
+
+    {% if tournament.participants %}
+    <form method="post" action="{{ url_for('tournament_register_set_seed', tournament_id=tournament.tournament_id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="help">设置 1-4 号种子（决定 bracket 上的固定位置；其它位置随机或手动指定）</div>
+        <div class="registered-list">
+            {% for p in tournament.participants %}
+            <div class="registered-row">
+                <span class="name">{{ p.player_name }}</span>
+                <select name="seed_{{ p.player_id }}">
+                    <option value="" {% if not p.seed %}selected{% endif %}>非种子</option>
+                    <option value="1" {% if p.seed == 1 %}selected{% endif %}>1 号种子</option>
+                    <option value="2" {% if p.seed == 2 %}selected{% endif %}>2 号种子</option>
+                    <option value="3" {% if p.seed == 3 %}selected{% endif %}>3 号种子</option>
+                    <option value="4" {% if p.seed == 4 %}selected{% endif %}>4 号种子</option>
+                </select>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="save-bar">
+            <button type="submit" class="btn-primary">保存种子设置</button>
+        </div>
+    </form>
+
+    {% for p in tournament.participants %}
+    <form method="post"
+          action="{{ url_for('tournament_register_remove', tournament_id=tournament.tournament_id) }}"
+          style="display:inline; margin-top: 0.4em;"
+          onsubmit="return confirm('从报名中移除 {{ p.player_name }} ?');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="player_id" value="{{ p.player_id }}">
+        <button type="submit" class="remove-btn">移除 {{ p.player_name }}</button>
+    </form>
+    {% endfor %}
+    {% else %}
+        <div class="help">还没有人报名</div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h3 class="section-title">添加参赛者</h3>
+    <div class="help">
+        从已存在的玩家中选择。如果赛事需要的玩家还不在系统里，
+        请先<a href="/game" target="_blank">在某个场次中创建</a>（需管理员权限），然后回到此页。
+    </div>
+    {% if available_players %}
+    <form method="post" action="{{ url_for('tournament_register_add', tournament_id=tournament.tournament_id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="available-grid">
+            {% for p in available_players %}
+            <label>
+                <input type="checkbox" name="player_ids" value="{{ p.player_id }}">
+                <span class="pname">{{ p.name }}</span>
+            </label>
+            {% endfor %}
+        </div>
+        <div class="save-bar">
+            <button type="submit" class="btn-primary">添加选中</button>
+        </div>
+    </form>
+    {% else %}
+        <div class="help">所有已存在玩家都已报名</div>
+    {% endif %}
+</div>
+
+{% if tournament.participants|length >= 2 %}
+<div class="card generate-bracket-card">
+    <h4>🎲 生成对阵</h4>
+    <div class="help">
+        Bracket 容量为 <strong>{{ bracket_size }}</strong> 个 slot{% if n_byes > 0 %}（其中 <strong>{{ n_byes }}</strong> 个为轮空 bye）{% endif %}。<br>
+        每个 slot 可以选择：
+        <em>留空</em>（由系统随机抽签）、
+        <em>指定某位参赛者</em>、
+        或 <em>指定为 bye</em>。<br>
+        留空的 slot 在生成时由算法把"剩余玩家 + 剩余 bye 名额"打散随机分配。
+        种子号（如已设置）只影响留空 slot 的随机抽签：种子尽量落入 bracket 标准位。
+    </div>
+
+    <form method="post" action="{{ url_for('tournament_generate_bracket', tournament_id=tournament.tournament_id) }}"
+          onsubmit="return confirm('确认生成对阵？此后将无法修改报名名单。');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="slot-grid">
+            {% for slot_idx in range(1, bracket_size + 1) %}
+            <div class="slot-cell">
+                <label>Slot {{ slot_idx }}</label>
+                <select name="slot_{{ slot_idx }}">
+                    <option value="random" selected>— 随机 —</option>
+                    <option value="__bye__">轮空 (bye)</option>
+                    <optgroup label="参赛者">
+                    {% for p in tournament.participants %}
+                        <option value="{{ p.player_id }}">{{ p.player_name }}{% if p.seed %} (种子#{{ p.seed }}){% endif %}</option>
+                    {% endfor %}
+                    </optgroup>
+                </select>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="save-bar">
+            <button type="submit" class="btn-success">生成对阵</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+{% endblock %}
