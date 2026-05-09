@@ -142,6 +142,56 @@
     .round-tab.tab-done.active .tab-progress { background: #f6ffed; color: #52c41a; }
     .round-tab .tab-check { color: #52c41a; font-size: 0.95em; }
 
+    /* Bracket pair connector (Y shape on right side) */
+    .match-pair {
+        display: flex;
+        align-items: stretch;
+        margin-bottom: 0.8em;
+    }
+    .match-pair-matches {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5em;
+    }
+    .match-pair-connector {
+        width: 24px;
+        flex-shrink: 0;
+        position: relative;
+    }
+    .match-pair-connector::before,
+    .match-pair-connector::after {
+        content: '';
+        position: absolute;
+        right: 0;
+        width: 12px;
+        border-top: 2px solid #d9d9d9;
+    }
+    /* Top arm: vertically centered in upper half */
+    .match-pair-connector::before {
+        top: 25%;
+    }
+    /* Bottom arm: vertically centered in lower half */
+    .match-pair-connector::after {
+        top: 75%;
+    }
+    /* Vertical line connecting the two arms + horizontal merge line */
+    .match-pair-connector .connector-stem {
+        position: absolute;
+        right: 0;
+        top: 25%;
+        height: 50%;
+        border-right: 2px solid #d9d9d9;
+    }
+    .match-pair-connector .connector-out {
+        position: absolute;
+        right: -10px;
+        top: 50%;
+        width: 10px;
+        border-top: 2px solid #d9d9d9;
+    }
+
     .round-pane { display: none; }
     .round-pane.active { display: block; }
     .round-meta-line { color: #888; font-size: 0.85em; margin-bottom: 0.6em; }
@@ -273,7 +323,12 @@
                 {{ round_matches[0].best_of }} 局 {{ (round_matches[0].best_of // 2) + 1 }} 胜
                 · 共 {{ round_matches|length }} 场
             </div>
+            {% set is_final = (round_matches|length == 1) %}
             {% for m in round_matches %}
+            {% if not is_final and loop.index is odd %}
+            <div class="match-pair">
+                <div class="match-pair-matches">
+            {% endif %}
             <a href="{{ url_for('tournament_match', tournament_id=tournament.tournament_id, match_id=m.match_id) }}"
                class="match-card-link {% if m.is_bye %}match-bye-link{% endif %}">
             <div class="match-card {% if m.winner_id %}match-done{% endif %} {% if m.is_bye %}match-bye{% endif %}">
@@ -315,6 +370,14 @@
                 {% endif %}
             </div>
             </a>
+            {% if not is_final and loop.index is even %}
+                </div>
+                <div class="match-pair-connector">
+                    <div class="connector-stem"></div>
+                    <div class="connector-out"></div>
+                </div>
+            </div>
+            {% endif %}
             {% endfor %}
         </div>
         {% endfor %}
