@@ -1,95 +1,32 @@
-<!DOCTYPE html>
-<html lang="zh">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EMS Pool Gamble - 台球比赛记分系统</title>
-    <style>
-        body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
-        .card { background: #ffffff; border-radius: 10px; padding: 1.2em; margin-top: 2em; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .session-card { background: #ffffff; border-radius: 10px; padding: 1em; margin-top: 1em; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid #1890ff; }
-        input, select, button { width: 100%; margin: 0.5em 0; padding: 0.7em; font-size: 1em; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
-        button { background: #1890ff; color: white; border: none; cursor: pointer; font-weight: bold; }
-        button:hover { background: #40a9ff; }
-        .btn-success { background: #52c41a; }
-        .btn-success:hover { background: #73d13d; }
-        .header { text-align: center; color: #333; margin-bottom: 1.5em; }
-        .header h2 { margin: 0 0 0.3em 0; }
-        .flash-message { padding: 10px; margin: 10px 0; border-radius: 5px; }
-        .flash-success { background-color: #f6ffed; border: 1px solid #b7eb8f; color: #52c41a; }
-        .flash-error { background-color: #fff2f0; border: 1px solid #ffccc7; color: #ff4d4f; }
-        .footer { margin-top: 2em; text-align: center; font-size: 0.8em; color: #888; }
-        .links { margin-top: 1em; text-align: center; }
-        .links a { color: #1890ff; text-decoration: none; margin: 0 0.5em; }
-        .links a:hover { text-decoration: underline; }
-        .status-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.8em; }
-        .status-active { background: #e6f7ff; color: #1890ff; }
-        .status-ended { background: #f5f5f5; color: #666; }
-        .session-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5em; }
-        .session-name { font-weight: bold; color: #1890ff; font-size: 1.1em; }
-        .session-info { color: #666; font-size: 0.9em; margin-bottom: 0.5em; }
-        .join-form { margin-top: 0.5em; }
-        .section-title { font-size: 1.2em; font-weight: bold; color: #333; margin-bottom: 1em; }
-        .btn-danger { background: #ff4d4f; }
-        .btn-danger:hover { background: #ff7875; }
-        .session-actions { display: flex; gap: 0.5em; margin-top: 0.5em; }
-        .session-actions button { width: 100%; padding: 0.7em; font-size: 1em; }
-        .session-actions .join-form { flex: 1; }
-        .ended-session-card { background: #fafafa; border-left: 4px solid #d9d9d9; }
-        .ended-session-card .session-name { color: #666; }
-        .no-sessions-message { text-align: center; color: #666; }
-        .detail-btn { display: block; padding: 8px 16px; background: #1890ff; color: white; border-radius: 5px; text-decoration: none; margin-top: 0.5em; text-align: center; width: 100%; box-sizing: border-box; }
-        .detail-btn:hover { background: #40a9ff; color: white; text-decoration: none; }
-        .login-status { background: #e6f7ff; border: 1px solid #91d5ff; border-radius: 8px; padding: 12px; margin-bottom: 1em; margin-top: 1em;}
-        .login-status .user-info { font-weight: bold; color: #1890ff; }
-        .login-status .session-info { font-size: 0.9em; color: #666; margin-top: 4px; }
-        .logout-btn { display: inline-block; padding: 4px 8px; background: #ff4d4f; color: white; border-radius: 4px; text-decoration: none; font-size: 0.8em; margin-left: 8px; }
-        .logout-btn:hover { background: #ff7875; color: white; text-decoration: none; }
-        .game-link { color: #1890ff; text-decoration: none; margin-left: 8px; }
-        .game-link:hover { text-decoration: underline; }
-        .version-info { text-align: center; font-size: 0.75em; color: #999; margin-top: 0; }
-        .version-info .version-badge { color: #666; }
-        .version-info .build-date { color: #999; margin-left: 4px; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h2>EMS Pool Gamble</h2>
-        <!-- 版本信息 -->
-        <div class="version-info">
-            <span class="version-badge">{{ app_version }}</span>
-            <span class="build-date">{{ version_date }}</span>
-        </div>
+{% extends "base.html" %}
 
-        <!-- 管理员状态显示 -->
-        {% if is_admin_authenticated() %}
-        <div class="login-status">
-            <div class="user-info">
-                🔓 管理员模式已启用
-                <a href="/admin_logout" class="logout-btn">退出管理员模式</a>
-            </div>
-            <div class="session-info">可以执行删除、结束场次等关键操作</div>
-        </div>
-        {% endif %}
-    </div>
+{% block title %}EMS Pool Gamble - 台球比赛记分系统{% endblock %}
 
-    <!-- 显示消息通知 -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="flash-message flash-{{ category }}">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
+{% block extra_styles %}
+<style>
+    /* index.html 专属样式（base.css 已涵盖卡片/按钮/状态徽章/玩家链接等） */
+    .join-form { margin-top: 0.5em; }
+    .section-title { font-size: 1.2em; font-weight: bold; color: #333; margin-bottom: 1em; }
+    .session-actions { display: flex; gap: 0.5em; margin-top: 0.5em; }
+    .session-actions button { width: 100%; padding: 0.7em; font-size: 1em; }
+    .session-actions .join-form { flex: 1; }
+    .no-sessions-message { text-align: center; color: #666; }
+    .game-link { color: #1890ff; text-decoration: none; margin-left: 8px; }
+    .game-link:hover { text-decoration: underline; }
+</style>
+{% endblock %}
 
-    <!-- 如果没有活跃场次的提示，移到最上面 -->
+{% block links %}{# 首页不显示通用底部 links，下面有自己的 #}{% endblock %}
+
+{% block content %}
+    {# 没有活跃场次的提示 #}
     {% if not active_sessions %}
     <div class="card">
         <p class="no-sessions-message">当前没有进行中的场次，快来创建一个吧！</p>
     </div>
     {% endif %}
 
-    <!-- 正在进行的场次列表 -->
+    {# 正在进行的场次列表 #}
     {% if active_sessions %}
     <div class="card">
         <div class="section-title">正在进行的场次</div>
@@ -116,7 +53,7 @@
     </div>
     {% endif %}
 
-    <!-- 创建新场次 -->
+    {# 创建新场次 #}
     <div class="card">
         <form method="post" id="create-session-form">
             <input type="hidden" name="action" value="create_session">
@@ -124,9 +61,8 @@
             <button type="submit" class="btn-success btn-full" id="create-session-btn">快速创建 - <span id="suggested-session-name">{{ suggested_session_name }}</span></button>
         </form>
     </div>
-    </div>
 
-    <!-- 最近结束的场次 -->
+    {# 最近结束的场次 #}
     {% if ended_sessions %}
     <div class="card">
         <div class="section-title">最近结束的场次</div>
@@ -151,15 +87,12 @@
         <a href="/history">查看历史记录</a> |
         <a href="/achievements">成就</a>
     </div>
+{% endblock %}
 
-    <div class="footer">
-        <p>© 2025 EMS Pool Gamble | <a href="https://github.com/xiaoyuin/EMSPoolGamble" target="_blank" rel="noopener">GitHub</a></p>
-    </div>
-
+{% block scripts %}
 <script>
-// 时区偏移量和建议场次名称处理
+// 生成基于用户时区的建议场次名称
 (function() {
-    // 生成基于用户时区的建议场次名称
     function generateSessionName() {
         const now = new Date();
         const month = now.getMonth() + 1;
@@ -167,20 +100,14 @@
         const hour = now.getHours();
 
         let timePeriod;
-        if (hour >= 6 && hour < 11) {
-            timePeriod = "上午";
-        } else if (hour >= 11 && hour < 14) {
-            timePeriod = "中午";
-        } else if (hour >= 14 && hour < 18) {
-            timePeriod = "下午";
-        } else {
-            timePeriod = "晚上";
-        }
+        if (hour >= 6 && hour < 11) timePeriod = "上午";
+        else if (hour >= 11 && hour < 14) timePeriod = "中午";
+        else if (hour >= 14 && hour < 18) timePeriod = "下午";
+        else timePeriod = "晚上";
 
         return `${month}月${day}号${timePeriod}场`;
     }
 
-    // 更新建议的场次名称
     const suggestedNameElement = document.getElementById('suggested-session-name');
     const sessionNameInput = document.getElementById('session-name-input');
 
@@ -189,60 +116,6 @@
         suggestedNameElement.textContent = userSessionName;
         sessionNameInput.value = userSessionName;
     }
-
-    // 调试信息（开发时可用）
-    console.log('建议场次名称:', generateSessionName());
 })();
-
-// 将UTC时间转换为本地时间显示 - 兼容iOS Chrome
-function convertUtcToLocal() {
-    // 转换所有带有 data-utc-time 属性的元素
-    document.querySelectorAll('[data-utc-time]').forEach(function(element) {
-        const utcTime = element.getAttribute('data-utc-time');
-        if (utcTime && utcTime.trim() !== '' && utcTime !== '未知') {
-            try {
-                // 统一时间格式处理，兼容iOS Chrome
-                let dateString = utcTime.trim();
-
-                // 如果不是ISO格式且不包含时区信息，则添加Z表示UTC
-                if (!dateString.includes('T') && !dateString.endsWith('Z') && !dateString.includes('+') && !dateString.includes(' UTC')) {
-                    // 将 "YYYY-MM-DD HH:MM:SS" 格式转换为 ISO 格式
-                    dateString = dateString.replace(' ', 'T') + 'Z';
-                } else if (dateString.includes(' UTC')) {
-                    // 移除 ' UTC' 并替换为 'Z'
-                    dateString = dateString.replace(' UTC', 'Z').replace(' ', 'T');
-                } else if (!dateString.endsWith('Z') && !dateString.includes('+') && !dateString.includes('-', 10)) {
-                    // 确保有时区标识
-                    dateString += 'Z';
-                }
-
-                // 创建Date对象
-                const utcDate = new Date(dateString);
-
-                // 检查日期是否有效
-                if (!isNaN(utcDate.getTime())) {
-                    const localTimeStr = utcDate.toLocaleString('zh-CN', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit'
-                    });
-                    element.textContent = localTimeStr;
-                    console.log('首页时间转换:', utcTime, '->', localTimeStr);
-                } else {
-                    console.warn('首页时间解析失败:', utcTime, '转换后:', dateString);
-                }
-            } catch (e) {
-                console.warn('首页时间转换失败:', utcTime, e);
-            }
-        }
-    });
-}
-
-// 页面加载完成后执行时间转换
-document.addEventListener('DOMContentLoaded', convertUtcToLocal);
 </script>
-</body>
-</html>
+{% endblock %}

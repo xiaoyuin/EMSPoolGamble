@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}EMS Pool Gamble{% endblock %}</title>
+
+    {# 全站基础样式 #}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+
+    {# 各页面专属样式（保留旧的内联 <style> 时用这个 block） #}
+    {% block extra_styles %}{% endblock %}
+    {% block head_extra %}{% endblock %}
+</head>
+<body>
+    {# ---------- 顶部 header（版本 + 管理员状态） ---------- #}
+    {% block header %}
+    <div class="header">
+        <h2>{% block header_title %}EMS Pool Gamble{% endblock %}</h2>
+
+        {% block version_info %}
+        <div class="version-info">
+            <span class="version-badge">{{ app_version }}</span>
+            <span class="build-date">{{ version_date }}</span>
+        </div>
+        {% endblock %}
+
+        {% if is_admin_authenticated() %}
+        <div class="login-status">
+            <div class="user-info">
+                🔓 管理员模式已启用
+                <a href="/admin_logout" class="logout-btn">退出管理员模式</a>
+            </div>
+            <div class="session-info">可以执行删除、结束场次等关键操作</div>
+        </div>
+        {% endif %}
+    </div>
+    {% endblock %}
+
+    {# ---------- Flash 消息 ---------- #}
+    {% block flash %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-message flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    {% endblock %}
+
+    {# ---------- 页面主内容 ---------- #}
+    {% block content %}{% endblock %}
+
+    {# ---------- 底部链接区 ---------- #}
+    {% block links %}
+    <div class="links">
+        <a href="/">首页</a> |
+        <a href="/history">历史记录</a> |
+        <a href="/achievements">成就</a>
+    </div>
+    {% endblock %}
+
+    {# ---------- Footer ---------- #}
+    {% block footer %}
+    <div class="footer">
+        <p>© 2025 EMS Pool Gamble | <a href="https://github.com/xiaoyuin/EMSPoolGamble" target="_blank" rel="noopener">GitHub</a></p>
+    </div>
+    {% endblock %}
+
+    {# 全站基础脚本（含 UTC→本地时间转换） #}
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+    {# 各页面专属脚本 #}
+    {% block scripts %}{% endblock %}
+</body>
+</html>
