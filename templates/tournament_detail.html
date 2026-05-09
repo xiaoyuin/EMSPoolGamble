@@ -191,6 +191,10 @@
         width: 10px;
         border-top: 2px solid #d9d9d9;
     }
+    .match-pair-connector.connector-done::before,
+    .match-pair-connector.connector-done::after { border-top-color: #b7eb8f; }
+    .match-pair-connector.connector-done .connector-stem { border-right-color: #b7eb8f; }
+    .match-pair-connector.connector-done .connector-out { border-top-color: #b7eb8f; }
 
     .round-pane { display: none; }
     .round-pane.active { display: block; }
@@ -324,8 +328,10 @@
                 · 共 {{ round_matches|length }} 场
             </div>
             {% set is_final = (round_matches|length == 1) %}
+            {% set pair_ns = namespace(first_done=false) %}
             {% for m in round_matches %}
             {% if not is_final and loop.index is odd %}
+            {% set pair_ns.first_done = (m.winner_id is not none) %}
             <div class="match-pair">
                 <div class="match-pair-matches">
             {% endif %}
@@ -372,7 +378,8 @@
             </a>
             {% if not is_final and loop.index is even %}
                 </div>
-                <div class="match-pair-connector">
+                {% set pair_done = pair_ns.first_done and m.winner_id is not none %}
+                <div class="match-pair-connector {% if pair_done %}connector-done{% endif %}">
                     <div class="connector-stem"></div>
                     <div class="connector-out"></div>
                 </div>
