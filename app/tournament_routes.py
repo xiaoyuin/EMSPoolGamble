@@ -65,12 +65,12 @@ def register_tournament_routes(app):
     @app.route('/tournament/new', methods=['GET'])
     @require_admin_auth
     def tournament_new():
-        # 默认提一个常见赛制建议（4 轮：1/8 → 1/4 → 半决赛 → 决赛）
+        # 默认提一个常见赛制建议（4 轮：16进8 → 8进4 → 半决赛 → 决赛）
         default_rounds = [
-            {'name': '1/8 决赛', 'best_of': 5},
-            {'name': '1/4 决赛', 'best_of': 7},
-            {'name': '半决赛',   'best_of': 7},
-            {'name': '决赛',     'best_of': 9},
+            {'name': '16进8', 'best_of': 5},
+            {'name': '8进4',  'best_of': 7},
+            {'name': '半决赛', 'best_of': 7},
+            {'name': '决赛',   'best_of': 9},
         ]
         return render_template(
             'tournament_new.html',

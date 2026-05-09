@@ -41,10 +41,10 @@ def create_tournament(name: str, rounds_config: List[Dict]) -> str:
     """
     创建一个新赛事。
     rounds_config: 每轮的配置，按从早到晚顺序排列，例如
-        [{'name': '1/8 决赛', 'best_of': 5},
-         {'name': '1/4 决赛', 'best_of': 7},
-         {'name': '半决赛',   'best_of': 7},
-         {'name': '决赛',     'best_of': 9}]
+        [{'name': '16进8', 'best_of': 5},
+         {'name': '8进4',  'best_of': 7},
+         {'name': '半决赛', 'best_of': 7},
+         {'name': '决赛',   'best_of': 9}]
 
     返回新建的 tournament_id。bracket_size 此时为 NULL，等到生成 bracket 时由
     报名人数决定（next power of 2，最小 4）。
