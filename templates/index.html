@@ -65,33 +65,29 @@
         border-radius: 6px;
         white-space: nowrap;
     }
-
-    /* 管理员可见：创建新赛事 */
-    .new-tournament-link {
-        display: block;
-        margin-top: 0.5em;
-        padding: 0.6em 1em;
-        text-align: center;
-        background: rgba(114, 46, 209, 0.08);
-        color: #722ed1;
-        border: 1px dashed #d3adf7;
-        border-radius: 8px;
-        text-decoration: none;
-        font-size: 0.92em;
-        font-weight: 500;
-        transition: background 0.15s;
-    }
-    .new-tournament-link:hover {
-        background: rgba(114, 46, 209, 0.15);
-        text-decoration: none;
-        color: #722ed1;
-    }
 </style>
 {% endblock %}
 
 {% block links %}{# 首页不显示通用底部 links，下面有自己的 #}{% endblock %}
 
 {% block content %}
+    {# 赛事入口卡片：仅当有活跃赛事时显示，置于最顶（高优先级） #}
+    {% if active_tournament %}
+    <a href="{{ url_for('tournament_detail', tournament_id=active_tournament.tournament_id) }}" class="tournament-card">
+        <span class="tournament-badge">
+            🏆
+            {% if active_tournament.status == 'registration' %}即将开始
+            {% elif active_tournament.status == 'in_progress' %}进行中
+            {% else %}{{ active_tournament.status }}{% endif %}
+        </span>
+        <div class="tournament-title">{{ active_tournament.name }}</div>
+        <div class="tournament-subtitle">
+            <span>点击查看赛事信息</span>
+            <span class="tournament-cta">前往 →</span>
+        </div>
+    </a>
+    {% endif %}
+
     {# 没有活跃场次的提示 #}
     {% if not active_sessions %}
     <div class="card">
@@ -134,28 +130,6 @@
             <button type="submit" class="btn-success btn-full" id="create-session-btn">快速创建 - <span id="suggested-session-name">{{ suggested_session_name }}</span></button>
         </form>
     </div>
-
-    {# 赛事入口卡片：仅当有活跃赛事时显示 #}
-    {% if active_tournament %}
-    <a href="{{ url_for('tournament_detail', tournament_id=active_tournament.tournament_id) }}" class="tournament-card">
-        <span class="tournament-badge">
-            🏆
-            {% if active_tournament.status == 'registration' %}即将开始
-            {% elif active_tournament.status == 'in_progress' %}进行中
-            {% else %}{{ active_tournament.status }}{% endif %}
-        </span>
-        <div class="tournament-title">{{ active_tournament.name }}</div>
-        <div class="tournament-subtitle">
-            <span>点击查看赛事信息</span>
-            <span class="tournament-cta">前往 →</span>
-        </div>
-    </a>
-    {% endif %}
-
-    {# 管理员可见：创建新赛事入口 #}
-    {% if is_admin_authenticated() %}
-    <a href="{{ url_for('tournament_new') }}" class="new-tournament-link">+ 创建新赛事</a>
-    {% endif %}
 
     {# 最近结束的场次 #}
     {% if ended_sessions %}

@@ -58,6 +58,18 @@
     .tli-status--in_progress  { background: #f6ffed; color: #52c41a; }
     .tli-status--completed    { background: #f5f5f5; color: #666; }
 
+    .new-tournament-btn {
+        display: block;
+        text-align: center;
+        background: #722ed1;
+        color: white;
+        padding: 0.8em;
+        border-radius: 8px;
+        text-decoration: none;
+        margin-top: 1em;
+        font-weight: 600;
+    }
+    .new-tournament-btn:hover { background: #5b1fb0; color: white; text-decoration: none; }
     .empty-msg {
         text-align: center;
         color: #999;
@@ -97,6 +109,10 @@
         {% endfor %}
     {% else %}
         <div class="empty-msg">暂无赛事</div>
+    {% endif %}
+
+    {% if is_admin_authenticated() %}
+    <a href="{{ url_for('tournament_new') }}" class="new-tournament-btn">创建新赛事</a>
     {% endif %}
 </div>
 {% endblock %}
