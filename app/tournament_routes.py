@@ -27,7 +27,7 @@ from .tournament import (
     delete_tournament,
     add_participant, remove_participant, set_participant_seed,
     generate_bracket, preview_bracket_layout, get_bracket, get_match,
-    record_match_game, record_match_result, reset_match,
+    record_match_game, record_match_result, reset_match, undo_last_game,
     RESOURCE_BYE, _next_power_of_2,
     STATUS_DRAFT, STATUS_REGISTRATION, STATUS_IN_PROGRESS, STATUS_COMPLETED,
 )
@@ -397,5 +397,17 @@ def register_tournament_routes(app):
             flash('对阵不存在', 'error')
             return redirect(url_for('tournament_detail', tournament_id=tournament_id))
         ok, msg = reset_match(match_id)
+        flash(msg, 'success' if ok else 'error')
+        return redirect(url_for('tournament_match', tournament_id=tournament_id, match_id=match_id))
+
+    # ---------- 撤回最后一局（所有用户） ----------
+    @app.route('/tournament/<tournament_id>/match/<match_id>/undo_game', methods=['POST'])
+    @require_csrf_protection
+    def tournament_match_undo_game(tournament_id, match_id):
+        match = get_match(match_id)
+        if not match or match['tournament_id'] != tournament_id:
+            flash('对阵不存在', 'error')
+            return redirect(url_for('tournament_detail', tournament_id=tournament_id))
+        ok, msg = undo_last_game(match_id)
         flash(msg, 'success' if ok else 'error')
         return redirect(url_for('tournament_match', tournament_id=tournament_id, match_id=match_id))

@@ -897,7 +897,88 @@ def reset_match(match_id: str) -> Tuple[bool, str]:
     return True, '已撤销'
 
 
-# ===== 玩家联动（#5 用） =====
+def undo_last_game(match_id: str) -> Tuple[bool, str]:
+    """撤回某场对阵的最后一局。
+
+    如果整场比赛已结束（有 winner_id），也一并撤回胜负判定和晋级。
+    """
+    match = get_match(match_id)
+    if not match:
+        return False, 'match 不存在'
+    if match['is_bye']:
+        return False, 'bye 比赛无需操作'
+    if not match['games']:
+        return False, '没有可撤回的局'
+
+    # 如果比赛已结束，需要先检查下一轮是否已开打
+    if match['winner_id']:
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            next_round = match['round_index'] + 1
+            next_slot = (match['slot_index'] + 1) // 2
+            cursor.execute('''
+                SELECT match_id, winner_id, started_at FROM tournament_matches
+                WHERE tournament_id = ? AND round_index = ? AND slot_index = ?
+            ''', (match['tournament_id'], next_round, next_slot))
+            next_match = cursor.fetchone()
+            if next_match and next_match['winner_id']:
+                return False, '下一轮对应 match 已有结果，请先撤销下一轮'
+
+    last_game = match['games'][-1]
+    last_winner = last_game['winner_id']
+    new_p1 = match['player1_games_won'] - (1 if last_winner == match['player1_id'] else 0)
+    new_p2 = match['player2_games_won'] - (1 if last_winner == match['player2_id'] else 0)
+
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+
+        # 删除最后一局
+        cursor.execute('''
+            DELETE FROM tournament_match_games
+            WHERE match_id = ? AND game_index = ?
+        ''', (match_id, last_game['game_index']))
+
+        if match['winner_id']:
+            # 撤回整场胜负：清 winner、晋级 slot、可能的赛事完成状态
+            next_round = match['round_index'] + 1
+            next_slot = (match['slot_index'] + 1) // 2
+            cursor.execute('''
+                SELECT match_id FROM tournament_matches
+                WHERE tournament_id = ? AND round_index = ? AND slot_index = ?
+            ''', (match['tournament_id'], next_round, next_slot))
+            next_match = cursor.fetchone()
+            if next_match:
+                is_player1 = (match['slot_index'] % 2 == 1)
+                field = 'player1_id' if is_player1 else 'player2_id'
+                cursor.execute(f'''
+                    UPDATE tournament_matches SET {field} = NULL
+                    WHERE match_id = ?
+                ''', (next_match['match_id'],))
+
+            cursor.execute('''
+                UPDATE tournament_matches
+                SET player1_games_won = ?, player2_games_won = ?,
+                    winner_id = NULL, finished_at = NULL
+                WHERE match_id = ?
+            ''', (new_p1, new_p2, match_id))
+
+            # 如果赛事已完成（决赛被撤），切回 in_progress
+            cursor.execute('''
+                UPDATE tournaments SET status = ?, completed_at = NULL, updated_at = ?
+                WHERE tournament_id = ? AND status = ?
+            ''', (STATUS_IN_PROGRESS, get_utc_timestamp(),
+                  match['tournament_id'], STATUS_COMPLETED))
+        else:
+            cursor.execute('''
+                UPDATE tournament_matches
+                SET player1_games_won = ?, player2_games_won = ?
+                WHERE match_id = ?
+            ''', (new_p1, new_p2, match_id))
+
+        conn.commit()
+
+    p_name = match['player1_name'] if last_winner == match['player1_id'] else match['player2_name']
+    return True, f'已撤回第 {last_game["game_index"]} 局（{p_name} 赢）'
     """返回 [[round1_matches], [round2_matches], ...]，每场 match 含玩家名。"""
     with db.get_connection() as conn:
         cursor = conn.cursor()

@@ -157,9 +157,16 @@
     {% for g in match.games %}
     <div class="game-row">
         <span class="game-idx">第 {{ g.game_index }} 局</span>
-        <span class="game-winner">{{ g.winner_name }}</span>
+        <span class="game-winner">{{ g.winner_name }} 胜</span>
     </div>
     {% endfor %}
+    <form method="post"
+          action="{{ url_for('tournament_match_undo_game', tournament_id=tournament.tournament_id, match_id=match.match_id) }}"
+          style="margin-top: 0.6em;"
+          onsubmit="return confirm('确定撤回最后一局？');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-secondary" style="font-size: 0.85em;">撤回最后一局</button>
+    </form>
 </div>
 {% endif %}
 
