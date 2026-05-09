@@ -65,8 +65,10 @@ def register_player_routes(app):
         # 该玩家有对战的月份列表（用于下拉选项）
         available_months = get_available_months_for_player(player_id)
 
-        # 全时段总场次数（给"全时段"选项显示数字）
-        all_records_total = len(get_player_records(player_id))
+        # 全时段该玩家参与的不同场次数
+        # available_months 已按月聚合 distinct session_id，每个 session 只属于一个月，
+        # 求和即为全时段不重复场次数。
+        all_sessions_total = sum(m['count'] for m in available_months)
 
         # 用于自定义日期选择器的默认值
         default_start_date = ''
@@ -252,7 +254,7 @@ def register_player_routes(app):
             display_end_date=display_end_date,
             default_start_date=default_start_date,
             default_end_date=default_end_date,
-            all_records_total=all_records_total,
+            all_sessions_total=all_sessions_total,
             app_version=APP_VERSION
         )
 
