@@ -253,6 +253,7 @@
         background: rgba(250, 140, 22, 0.15);
         border-color: rgba(250, 140, 22, 0.4);
     }
+    .seed-hint { color: #999; font-size: 0.85em; font-weight: 400; }
     .match-card-link {
         display: block; text-decoration: none; color: inherit;
         margin-bottom: 0.5em;
@@ -342,7 +343,7 @@
                 <div class="match-side {% if m.winner_id == m.player1_id %}side-winner{% endif %}">
                     <span class="match-player">
                         {% if m.player1_id %}
-                            {{ m.player1_name }}{% if m.player1_seed %}<span class="seed-tag">{{ m.player1_seed }} 号种子</span>{% endif %}
+                            {{ m.player1_name }}{% if m.player1_seed %} <span class="seed-hint">({{ m.player1_seed }})</span>{% endif %}
                         {% elif m.prev_p1_number %}
                             <span class="match-tbd">对阵 {{ m.prev_p1_number }} 胜者</span>
                         {% else %}
@@ -362,7 +363,7 @@
                 <div class="match-side {% if m.winner_id == m.player2_id %}side-winner{% endif %}">
                     <span class="match-player">
                         {% if m.player2_id %}
-                            {{ m.player2_name }}{% if m.player2_seed %}<span class="seed-tag">{{ m.player2_seed }} 号种子</span>{% endif %}
+                            {{ m.player2_name }}{% if m.player2_seed %} <span class="seed-hint">({{ m.player2_seed }})</span>{% endif %}
                         {% elif m.prev_p2_number %}
                             <span class="match-tbd">对阵 {{ m.prev_p2_number }} 胜者</span>
                         {% else %}
