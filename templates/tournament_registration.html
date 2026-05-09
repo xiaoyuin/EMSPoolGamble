@@ -146,7 +146,7 @@
     .pairing-list {
         display: flex; flex-direction: column;
         gap: 0.6em;
-        margin: 1em 0;
+        margin: 0.8em 0;
     }
     .pairing-card {
         background: white;
@@ -160,17 +160,6 @@
         font-weight: 600;
         margin-bottom: 0.4em;
         letter-spacing: 0.3px;
-    }
-    .pairing-half-tag {
-        display: inline-block;
-        font-size: 0.7em;
-        font-weight: 500;
-        color: #888;
-        background: #f5f0ff;
-        border-radius: 8px;
-        padding: 1px 7px;
-        margin-left: 0.4em;
-        letter-spacing: 0;
     }
     .pairing-rows { display: flex; flex-direction: column; gap: 0.4em; }
     .pairing-row {
@@ -195,6 +184,47 @@
         font-weight: 600;
         letter-spacing: 0.5px;
     }
+
+    /* round-tabs（与 tournament_detail.html 风格一致） */
+    .round-tabs {
+        display: flex;
+        gap: 0;
+        border-bottom: 2px solid #f0e6ff;
+        margin: 0.8em 0 0;
+        overflow-x: auto;
+        scrollbar-width: thin;
+    }
+    .round-tab {
+        flex-shrink: 0;
+        background: none; border: none;
+        padding: 0.6em 0.9em;
+        font-size: 0.9em;
+        color: #888;
+        cursor: pointer;
+        white-space: nowrap;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        transition: all 0.15s;
+    }
+    .round-tab:hover { color: #722ed1; }
+    .round-tab.active {
+        color: #722ed1;
+        font-weight: 600;
+        border-bottom-color: #722ed1;
+    }
+    .round-pane { display: none; }
+    .round-pane.active { display: block; }
+    .future-round-msg {
+        text-align: center;
+        color: #999;
+        background: #fafafa;
+        border: 1px dashed #e9ecef;
+        border-radius: 6px;
+        padding: 1.2em 1em;
+        margin: 0.8em 0;
+        font-size: 0.9em;
+    }
+    .future-round-msg .icon { font-size: 1.3em; display: block; margin-bottom: 0.3em; }
 </style>
 {% endblock %}
 
@@ -309,13 +339,11 @@
 <div class="card generate-bracket-card">
     <h4>🎲 生成对阵</h4>
     <div class="help">
-        对阵表容量为 <strong>{{ bracket_size }}</strong> 个位置{% if n_byes > 0 %}（其中 <strong>{{ n_byes }}</strong> 个为轮空）{% endif %}。<br>
-        每个位置可以选择：
-        <em>留空</em>（由系统随机抽签）、
-        <em>指定某位参赛者</em>、
-        或 <em>指定为轮空</em>。<br>
-        留空的位置在生成时由算法把"剩余玩家 + 剩余轮空名额"打散随机分配。
-        种子号（如已设置）只影响留空位置的随机抽签：种子尽量落入对阵表标准位。
+        在「首轮」tab 中安排选手位置：
+        <em>留空</em>（系统随机抽签）、
+        <em>指定参赛者</em>，或 <em>指定为轮空</em>。<br>
+        对阵表共 <strong>{{ bracket_size }}</strong> 个位置{% if n_byes > 0 %}，其中 <strong>{{ n_byes }}</strong> 个是轮空{% endif %}。
+        留空的位置由算法把"剩余玩家 + 剩余轮空"打散随机分配。
     </div>
 
     <form method="post" action="{{ url_for('tournament_generate_bracket', tournament_id=tournament.tournament_id) }}"
@@ -323,55 +351,72 @@
           onsubmit="return confirmGenerate(event);">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-        {# 把所有 slot 按 R1 配对（1+2、3+4 …）显示。
-           4 人对阵：上下半区只有 2 个 pair；
-           8 人：上 2 + 下 2；
-           16 人：4 个 1/4 分区。
-           pair_idx 决定半区 / 1/4 分区的分组标签。 #}
-        {% set pair_count = bracket_size // 2 %}
-        <div class="pairing-list">
-            {% for pair_idx in range(pair_count) %}
-                {% set slot_a = pair_idx * 2 + 1 %}
-                {% set slot_b = pair_idx * 2 + 2 %}
-                {# 半区：前一半属于上半区，后一半下半区 #}
-                {% set is_upper_half = (pair_idx < pair_count // 2 if pair_count >= 2 else true) %}
-            <div class="pairing-card">
-                <div class="pairing-title">
-                    第 {{ loop.index }} 场首轮
-                    {% if pair_count >= 2 %}
-                    <span class="pairing-half-tag">{% if is_upper_half %}上半区{% else %}下半区{% endif %}</span>
-                    {% endif %}
-                </div>
-                <div class="pairing-rows">
-                    <div class="pairing-row">
-                        <span class="pos-label">位置 {{ slot_a }}</span>
-                        <select name="slot_{{ slot_a }}" class="slot-select" data-slot="{{ slot_a }}" onchange="enforceSlotExclusivity(this)">
-                            <option value="random" selected>— 随机 —</option>
-                            <option value="__bye__">轮空</option>
-                            <optgroup label="参赛者">
-                            {% for p in tournament.participants %}
-                                <option value="{{ p.player_id }}">{{ p.player_name }}{% if p.seed %} (种子#{{ p.seed }}){% endif %}</option>
-                            {% endfor %}
-                            </optgroup>
-                        </select>
-                    </div>
-                    <div class="pairing-vs">VS</div>
-                    <div class="pairing-row">
-                        <span class="pos-label">位置 {{ slot_b }}</span>
-                        <select name="slot_{{ slot_b }}" class="slot-select" data-slot="{{ slot_b }}" onchange="enforceSlotExclusivity(this)">
-                            <option value="random" selected>— 随机 —</option>
-                            <option value="__bye__">轮空</option>
-                            <optgroup label="参赛者">
-                            {% for p in tournament.participants %}
-                                <option value="{{ p.player_id }}">{{ p.player_name }}{% if p.seed %} (种子#{{ p.seed }}){% endif %}</option>
-                            {% endfor %}
-                            </optgroup>
-                        </select>
-                    </div>
-                </div>
-            </div>
+        {# 用 round-tabs 把"首轮编辑器 + 后续轮占位"包起来，与 tournament_detail.html 风格一致 #}
+        {% set total_rounds = tournament.rounds|length %}
+        <div class="round-tabs" role="tablist">
+            {% for r in tournament.rounds %}
+            <button type="button"
+                    class="round-tab {% if loop.first %}active{% endif %}"
+                    data-round-idx="{{ loop.index0 }}"
+                    onclick="selectGenRoundTab(this)">
+                {{ r.round_name }}
+            </button>
             {% endfor %}
         </div>
+
+        {# 首轮：完整的位置编辑器 #}
+        <div class="round-pane active" data-round-idx="0">
+            {% set pair_count = bracket_size // 2 %}
+            <div class="pairing-list">
+                {% for pair_idx in range(pair_count) %}
+                    {% set slot_a = pair_idx * 2 + 1 %}
+                    {% set slot_b = pair_idx * 2 + 2 %}
+                <div class="pairing-card">
+                    <div class="pairing-title">第 {{ loop.index }} 场首轮</div>
+                    <div class="pairing-rows">
+                        <div class="pairing-row">
+                            <span class="pos-label">位置 {{ slot_a }}</span>
+                            <select name="slot_{{ slot_a }}" class="slot-select" data-slot="{{ slot_a }}" onchange="enforceSlotExclusivity(this)">
+                                <option value="random" selected>— 随机 —</option>
+                                <option value="__bye__">轮空</option>
+                                <optgroup label="参赛者">
+                                {% for p in tournament.participants %}
+                                    <option value="{{ p.player_id }}">{{ p.player_name }}{% if p.seed %} (种子#{{ p.seed }}){% endif %}</option>
+                                {% endfor %}
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div class="pairing-vs">VS</div>
+                        <div class="pairing-row">
+                            <span class="pos-label">位置 {{ slot_b }}</span>
+                            <select name="slot_{{ slot_b }}" class="slot-select" data-slot="{{ slot_b }}" onchange="enforceSlotExclusivity(this)">
+                                <option value="random" selected>— 随机 —</option>
+                                <option value="__bye__">轮空</option>
+                                <optgroup label="参赛者">
+                                {% for p in tournament.participants %}
+                                    <option value="{{ p.player_id }}">{{ p.player_name }}{% if p.seed %} (种子#{{ p.seed }}){% endif %}</option>
+                                {% endfor %}
+                                </optgroup>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        {# 后续轮：占位提示 #}
+        {% for r in tournament.rounds %}
+            {% if not loop.first %}
+        <div class="round-pane" data-round-idx="{{ loop.index0 }}">
+            <div class="future-round-msg">
+                <span class="icon">🪜</span>
+                由上一轮的胜者自动晋级<br>
+                <small>{{ r.best_of }} 局 {{ (r.best_of // 2) + 1 }} 胜</small>
+            </div>
+        </div>
+            {% endif %}
+        {% endfor %}
 
         <input type="hidden" id="n-byes-allowed" value="{{ n_byes }}">
 
@@ -471,6 +516,13 @@ function enforceSlotExclusivity(changed) {
 
 function confirmGenerate(e) {
     return confirm('确认生成对阵？此后将无法修改报名名单。');
+}
+
+// 报名页"生成对阵"区域内部的轮次 tab 切换
+function selectGenRoundTab(btn) {
+    const idx = btn.dataset.roundIdx;
+    document.querySelectorAll('#generate-form .round-tab').forEach(t => t.classList.toggle('active', t.dataset.roundIdx === idx));
+    document.querySelectorAll('#generate-form .round-pane').forEach(p => p.classList.toggle('active', p.dataset.roundIdx === idx));
 }
 
 // 新建玩家弹窗
