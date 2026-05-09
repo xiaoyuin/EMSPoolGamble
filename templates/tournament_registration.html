@@ -529,11 +529,16 @@ function enforceSlotExclusivity(changed) {
 }
 
 function confirmGenerate(e) {
-    // 确认提交前把 disabled 的 select 重新 enable，让浏览器能把它们 POST 上去
-    document.querySelectorAll('#generate-form .slot-select').forEach(sel => {
-        sel.disabled = false;
-    });
-    return confirm('确认生成对阵？此后将无法修改报名名单。');
+    // 提交前先把 disabled 的 select 重新 enable，浏览器才能 POST 它们
+    const locked = document.querySelectorAll('#generate-form .slot-select.preview-locked');
+    locked.forEach(sel => { sel.disabled = false; });
+
+    if (!confirm('确认生成对阵？此后将无法修改报名名单。')) {
+        // 用户取消：恢复锁定态，避免 select 变得可改
+        locked.forEach(sel => { sel.disabled = true; });
+        return false;
+    }
+    return true;
 }
 
 // 报名页"生成对阵"区域内部的轮次 tab 切换
