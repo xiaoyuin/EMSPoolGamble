@@ -190,7 +190,20 @@ def render_admin_login_form():
 
 def register_security_routes(app):
     """注册安全相关路由"""
-    
+
+    @app.route('/admin', methods=['GET'])
+    def admin_login_page():
+        """管理员登录入口：已登录直接回首页；未登录显示密码表单。"""
+        if session.get('admin_authenticated'):
+            flash('已经处于管理员模式', 'success')
+            return redirect(url_for('index'))
+        if not check_ip_whitelist():
+            flash('访问被拒绝：IP 地址不在白名单中', 'error')
+            return redirect(url_for('index'))
+        # 让登录后回到首页（被动触发时会回到 referrer）
+        session['pending_admin_operation'] = {'referrer': url_for('index')}
+        return render_admin_login_form()
+
     @app.route('/admin_login', methods=['POST'])
     def admin_login():
         """处理管理员登录"""
