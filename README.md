@@ -1,321 +1,202 @@
-# 🎱 EMS Pool Gamble
+# 🎱 EMS Pool
 
-专业游戏管理平台 🎱
+> 仓库代号：**EMSPoolGamble**
 
-这是一个功能完整的多人台球计分 Python Flask Web App，支持移动端浏览器访问。
+一个功能完整的多人台球计分 Python Flask Web 应用，支持移动端浏览器访问。
+
+**当前版本：[v1.9.0](./CHANGELOG.md)（2026-05-09）**
 
 ## ✨ 核心功能
 
 ### 🎮 游戏管理
 - **场次管理**：创建、进行、结束、查看、删除的完整生命周期
-- **简化流程**：移除登录系统，任何人可直接参与游戏
-- **智能计分**：1-10分 + 特殊分数（14/20），支持两败者模式
-- **批量玩家管理** **(v1.5.0 升级)**：支持多选批量添加玩家，大幅提升操作效率
+- **简化流程**：无需登录，任何人可直接参与游戏
+- **智能计分**：1–10 分 + 特殊分数（小金 8/14、大金 10/20），支持双败者模式
+- **批量玩家管理**：多选批量添加玩家，新建玩家弹窗带键盘快捷键
+- **🆕 计分不刷新整页（v1.9.0）**：所有计分入口改走 AJAX，提交后顶部 toast 提示并就地刷新分数表
 
 ### 👥 玩家系统
-- **独立档案**：每个玩家拥有唯一ID和完整档案
-- **玩家详情页**：专门页面展示个人统计、对手分析、历史记录
-- **全局跳转**：所有页面的玩家名字均可点击查看详情
-- **胜率智能显示** **(v1.5.0 新增)**：快速添加按钮显示有效胜率（排除1分），新玩家显示"新手"
-- **特殊胜利高亮** **(v1.6.0 新增)**：小金/大金胜利者全站高亮显示，视觉层次分明
-- **大金类型扩充** **(v1.7.0 新增)**：新增10分大金选项（1胜1败），20分调整为1胜2败
+- **唯一档案**：每个玩家拥有唯一 `player_id`，重命名后历史记录自动同步
+- **玩家详情页**：个人统计、对手分析、累计分数趋势图（Chart.js）
+- **🆕 时间筛选（v1.9.0）**：玩家详情支持按月份 / 自定义日期范围过滤，所有派生数据（统计、对手、趋势、特殊胜利计数）随窗口重算
+- **全站玩家跳转**：任何页面点击玩家名字都能进入详情
+- **特殊胜利高亮**：小金（橙色）/ 大金（紫色）光环全站可见
 
-### 🏆 成就系统 **(v1.8.1 持续优化)**
-- **成就分类**：小金成就、大金成就、达人级成就，负面成就（大吃一金），层次分明
-- **独立页面**：每个成就类型拥有专用详情页，展示达成条件和玩家排行
-- **达成统计**：实时统计达成玩家数量、总达成次数等关键指标
-- **排行榜系统**：根据达成次数和首次达成时间进行智能排名
-- **负面成就优化** **(v1.8.1 新增)**：负面成就UI重构，败者强调显示，最大克星统计
-- **术语改进** **(v1.8.1 新增)**：统一术语表达，提升用户体验和代码可读性
-- **历史记录**：完整展示每次成就达成的详细记录，支持多败者显示
-- **响应式设计**：完美适配移动端，两列布局优化，统计信息左对齐
-- **主题配色**：不同成就类型采用独特配色方案，视觉识别度高
+### 🏆 成就系统
+- **6 种成就**：小金、大金、小金达人、大金达人、大金传奇、大吃一金（负面）
+- **独立详情页**：每种成就有自己的排行榜、达成统计、达成历史
+- **统一主题配色**：每类成就独立色系；负面成就用红色边框区分
+- **多败者记录展示**：大金支持 "胜 A + B" 双败者形式
 
 ### 📊 统计分析
-- **个人统计**：总场次、胜局数、胜率、得分分布
-- **对手分析**：与每个对手的详细对战记录和胜负关系
-- **历史回顾**：按时间顺序展示所有参与的场次记录
-- **排行榜系统**：全局排行榜和场次排行榜
-- **特殊胜利统计** **(v1.6.0 新增)**：小金/大金胜利次数专项统计
-- **计分记录优化** **(v1.6.0 新增)**：最新记录优先显示，提升查看体验
-- **界面体验优化** **(v1.7.0 新增)**：表单布局、搜索功能、分数排名界面全面优化
+- **个人统计**：总记录、有效对局、胜率（排除 1 分）、特殊胜利次数
+- **1 分收益**：送出 / 收到 1 分次数与净收益
+- **对手分析**：与每个对手的胜负、胜率、总分差
+- **历史排行榜**：全局月份 / 自定义日期范围切换，全时段或单月聚合分数 + 胜率
 
-### 🔒 安全保护 **(v1.5.1 升级)**
-- **CSRF 漏洞修复**：修复删除场次的安全漏洞，防止恶意脚本攻击
-- **管理员认证**：关键操作（删除记录、结束场次、玩家重命名）需要管理员密码
-- **CSRF保护**：防止跨站请求伪造攻击，所有表单都包含安全令牌
-- **IP白名单**：可选的IP地址限制功能，适用于内网环境
-- **安全状态显示**：首页显示管理员模式状态，可随时退出管理模式
+### 🆕 终局之战入口（v1.9.0）
+- 首页加入「EMS 微软苏州第三届『终局之战』杯」赛事入口卡片
+- `/tournament` 当前为占位页，赛程 / 对阵 / 实时积分将在后续版本上线
 
-### 🎨 用户体验 **(v1.5.0 重点优化)**
-- **卡片布局重构**：玩家管理、计分面板、场次控制功能分工明确，层次清晰
-- **快速添加玩家升级**：多选批量添加、动态按钮状态、选中数量实时显示
-- **新建玩家交互优化**："+"号弹窗模式，支持键盘快捷键和点击外部关闭
-- **界面美化**：按钮区域浅色背景、圆角设计、统一间距，提升视觉层次感
-- **响应式设计**：完美适配移动端和桌面端
-- **智能按钮**：记录按钮始终显示，未满足条件时智能置灰
-- **触摸友好**：按钮大小适合触摸操作，误触预防
-- **跨平台兼容**：完美支持iOS Chrome、Safari、Android Chrome等移动浏览器
-- **中英文显示兼容**：经过多轮调整，确保按钮高度一致且文字不被截断
+### 🔒 安全保护
+- **管理员密码认证**：删除场次 / 删除记录 / 重命名玩家等关键操作需要管理员模式
+- **CSRF 保护**：所有表单都包含 CSRF token
+- **IP 白名单**（可选）：通过 `ALLOWED_IPS` 环境变量限制访问
 
-## 快速开始
+## 🏗️ 技术栈
 
-1. 安装依赖：
-   ```bash
-   pip install -r requirements.txt
-   ```
+| 层 | 实现 |
+|---|---|
+| **后端** | Flask 3.1.1 + Werkzeug 3.1.3 + Jinja2 |
+| **数据库** | SQLite（`ems_pool_gamble.db`），自动初始化与迁移 |
+| **前端** | 服务端渲染（Jinja2）+ 原生 HTML/CSS/JS + Chart.js |
+| **前端基础设施（v1.9.0）** | `templates/base.html`、`static/css/main.css`、`static/js/main.js`（含 `EMS.showToast` / `EMS.ajaxSubmit` 工具） |
+| **部署** | Azure App Service（Python 3.12） |
 
-2. (推荐) 设置安全环境变量：
-   ```bash
-   # Windows PowerShell
-   $env:ADMIN_PASSWORD="your_secure_password"
-   $env:CSRF_SECRET_KEY="your_csrf_key"
-   $env:SECRET_KEY="your_flask_secret"
+> v1.9.0 起前端正在分阶段从"每页内联样式"迁移到 base.html + 共享 CSS/JS。首页 `index.html` 与新增的占位 `tournament.html` 已迁移；其余页面保留各自内联样式，将在后续 CSS 整理轮次中迁移。
 
-   # Linux/macOS
-   export ADMIN_PASSWORD="your_secure_password"
-   export CSRF_SECRET_KEY="your_csrf_key"
-   export SECRET_KEY="your_flask_secret"
-   ```
+## 📁 项目结构
 
-3. 本地运行：
-   ```bash
-   python app.py
-   ```
+```
+EMSPoolGamble/
+├── app.py                      # 启动入口（创建 Flask 应用）
+├── app/                        # 后端模块化包
+│   ├── __init__.py             # APP_VERSION / APP_NAME / DEFAULT_SCORE_OPTIONS
+│   ├── database.py             # SQLite 操作（场次、玩家、计分、成就、统计）
+│   ├── models.py               # 业务模型层 wrapper
+│   ├── main_routes.py          # 首页 / 历史 / 场次详情 / 终局之战占位
+│   ├── game_routes.py          # 游戏界面、计分（含 AJAX 分支）
+│   ├── player_routes.py        # 玩家详情（含月份筛选）、重命名
+│   ├── achievement_routes.py   # 成就系统所有路由
+│   ├── security.py             # 管理员认证 / CSRF / IP 白名单
+│   └── utils.py                # 工具函数
+├── templates/
+│   ├── base.html               # 全站骨架（v1.9.0）
+│   ├── index.html              # 首页（已迁移到 base.html）
+│   ├── tournament.html         # 终局之战占位页（v1.9.0）
+│   ├── game.html               # 游戏 / 计分界面
+│   ├── history.html            # 历史 + 全局排行榜
+│   ├── session_detail.html     # 场次详情
+│   ├── player_detail.html      # 玩家详情（含时间筛选 v1.9.0）
+│   ├── achievements.html       # 旧入口（保留）
+│   └── achievements/           # 各成就详情页
+│       ├── index.html
+│       ├── small_gold.html / small_gold_master.html
+│       ├── big_gold.html / big_gold_master.html / big_gold_legend.html
+│       └── gold_loser.html
+├── static/
+│   ├── css/main.css            # 全站共享样式（v1.9.0）
+│   ├── js/main.js              # 全站共享 JS（含 toast / ajaxSubmit）
+│   ├── js/chart.js             # Chart.js 离线副本
+│   └── icons/                  # 应用图标
+├── ems_pool_gamble.db          # SQLite 数据库（运行时生成）
+├── requirements.txt
+├── CHANGELOG.md
+├── PROJECT_STATUS.md
+└── README.md
+```
 
-4. 在浏览器访问 http://localhost:5000
+## 🚀 快速开始
 
-> **安全提示**：如不设置密码，将使用默认管理员密码 `admin123`。详细安全配置请参见 [SECURITY.md](./SECURITY.md)
+### 1. 安装依赖
 
-## 部署到 Azure
+```bash
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### 2. （推荐）设置安全环境变量
+
+```bash
+# Linux / macOS
+export ADMIN_PASSWORD="your_secure_password"
+export CSRF_SECRET_KEY="your_csrf_key"
+export SECRET_KEY="your_flask_secret"
+
+# Windows PowerShell
+$env:ADMIN_PASSWORD="your_secure_password"
+$env:CSRF_SECRET_KEY="your_csrf_key"
+$env:SECRET_KEY="your_flask_secret"
+```
+
+> 未设置时使用默认管理员密码 `admin123`（仅适合本地试用）。完整安全配置见 [SECURITY.md](./SECURITY.md)。
+
+### 3. 启动
+
+```bash
+python app.py
+```
+
+浏览器访问 <http://localhost:5000>。
+
+## ☁️ 部署到 Azure
 
 ### 使用 Azure Portal
 
-1. 在 [Azure Portal](https://portal.azure.com) 创建一个 Web App 服务
-2. 选择运行时堆栈为 Python 3.12
-3. 配置部署选项，可以选择GitHub Actions或其他CI/CD方式
-4. 设置环境变量:
-   - `SECRET_KEY`: 生产环境的密钥（建议随机生成）
-   - `ADMIN_PASSWORD`: 管理员密码（用于保护关键操作）
-   - `CSRF_SECRET_KEY`: CSRF保护密钥（建议随机生成）
-   - `ALLOWED_IPS`: IP白名单（可选，用逗号分隔多个IP）
-   - `PORT`: 应用运行端口（默认5000）
-   - `FLASK_DEBUG`: 生产环境设为"False"
+1. 在 [Azure Portal](https://portal.azure.com) 创建 Web App
+2. 选择运行时 **Python 3.12**
+3. 配置部署源（GitHub Actions / 本地 git / Zip Deploy 均可）
+4. 配置环境变量（Settings → Configuration）：
+   - `SECRET_KEY` — Flask session 密钥（建议随机生成）
+   - `ADMIN_PASSWORD` — 管理员密码
+   - `CSRF_SECRET_KEY` — CSRF 保护密钥
+   - `ALLOWED_IPS`（可选）— IP 白名单，逗号分隔
+   - `FLASK_DEBUG=False`
 
 ### 使用 Azure CLI
 
 ```bash
-# 登录Azure
 az login
-
-# 创建资源组
 az group create --name myResourceGroup --location eastus
-
-# 创建App Service计划
 az appservice plan create --name myAppServicePlan --resource-group myResourceGroup --sku B1 --is-linux
-
-# 创建Web App
 az webapp create --resource-group myResourceGroup --plan myAppServicePlan --name myWebAppName --runtime "PYTHON|3.12"
-
-# 部署代码
-az webapp deployment source config --name myWebAppName --resource-group myResourceGroup --repo-url https://github.com/yourusername/EMSPoolGamble --branch main
-
-# 设置环境变量
-az webapp config appsettings set --resource-group myResourceGroup --name myWebAppName --settings SECRET_KEY="your-secret-key" FLASK_DEBUG="False"
+az webapp config appsettings set --resource-group myResourceGroup --name myWebAppName \
+    --settings SECRET_KEY="..." ADMIN_PASSWORD="..." CSRF_SECRET_KEY="..." FLASK_DEBUG="False"
 ```
 
-## 使用流程
+## 🎯 使用流程
 
-### 🎯 游戏流程
-1. **进入主页**：查看当前进行中的场次或创建新场次
-2. **创建场次**：输入场次名称（如"周末台球赛"），创建新比赛
-3. **加入游戏**：输入用户名直接加入，系统自动创建或匹配玩家档案
-4. **开始计分**：
-   - 选择胜者、败者、分数（1-10，特殊分数14/20）
-   - 支持两败者模式，分数自动平分
-   - 智能按钮状态，未满足条件时置灰提示
-   - 动态添加新玩家，智能推荐最近玩家
-5. **查看详情**：点击场次名称或"查看详情"进入详情页
-6. **探索玩家**：点击任何玩家名字查看详细档案
+1. **进入主页**：查看进行中的场次、终局之战入口、最近结束的场次
+2. **创建场次**：点"快速创建 - 4月29日下午场"按钮（场次名按本地时区自动生成）
+3. **加入与计分**：进入场次后批量添加玩家，选择 胜者 / 败者 / 分数 / 游戏种类（普胜 / 双吃 / 小金 / 大金）
+4. **记录与刷新**：点"记录"提交 → 顶部 toast 即时反馈，分数表就地更新（不再整页刷新）
+5. **结束场次**：完赛后结束，可在历史页和场次详情查看完整数据
+6. **探索玩家**：点任意玩家名进入详情，**用月份下拉或自定义日期切换时间窗口**
+7. **查看成就**：从底部"成就"链接进入，每种成就都有自己的排行榜
 
-### 🔗 页面导航
-- **主页** → **游戏页** → **场次详情** → **历史记录**
-- **玩家跳转**：任何页面点击玩家名字 → **玩家详情页**
-- **智能返回**：每个页面都有清晰的导航路径
+## 📜 版本历史
 
-### 👤 玩家管理 **(v1.3.0)**
-1. **查看玩家详情**：点击任何玩家名字进入详情页
-2. **个人统计**：查看总场次、胜率、得分分布等数据
-3. **对手分析**：了解与每个对手的对战记录
-4. **重命名功能**：更改显示名称，历史记录自动同步
-5. **历史回顾**：按时间顺序查看所有参与场次
+详见 [CHANGELOG.md](./CHANGELOG.md)。
 
-## 🆕 v1.3.0 重大更新
+最新里程碑：
 
-### 🔄 架构重构
-- **玩家系统分离**：玩家数据与场次数据完全独立管理
-- **唯一ID管理**：每个玩家分配唯一`player_id`，支持重命名不丢失历史
-- **关系型设计**：场次通过`player_ids`关联玩家，类似关系数据库
-- **自动数据迁移**：完美兼容旧版本数据，启动时自动升级
+- **v1.9.0**（2026-05-09）— 前端架构整理（base.html + main.css/js）、计分 AJAX、玩家详情时间筛选、终局之战入口、徽章换行修复、UI 标题精简
+- **v1.8.4** — game 页面与历史自定义时间 UI 修复
+- **v1.8.0–v1.8.3** — 成就系统、模块化架构、自定义筛选时间
+- **v1.3.0** — 玩家系统重构、唯一 ID、玩家详情页
 
-### 📊 新增功能
-- **玩家详情页**：`/player/<player_id>`路由，完整的个人档案系统
-- **统计分析**：个人统计、对手分析、历史回顾等专业数据
-- **智能跳转**：所有页面玩家名字可点击，深度探索玩家信息
-- **重命名系统**：支持玩家重命名，所有历史记录自动同步
+## 🔮 后续计划
 
-### 🎮 体验优化
-- **简化流程**：移除登录系统，降低使用门槛
-- **智能按钮**：记录按钮始终显示，条件不满足时智能置灰
-- **最近玩家**：基于`player_id`的智能推荐系统
-- **交互优化**：修复按钮状态、表单提交等前端问题
-
-## 🏗️ 技术架构
-
-### 数据结构 **(v1.3.0)**
-```json
-{
-  "players": {
-    "player_001": {
-      "name": "张三",
-      "created_at": "2025-06-26T...",
-      "updated_at": "2025-06-26T..."
-    }
-  },
-  "sessions": {
-    "session_id": {
-      "player_ids": ["player_001", "player_002"],
-      "records": [
-        {
-          "winner_id": "player_001",
-          "loser_id": "player_002",
-          "score": 8,
-          "timestamp": "..."
-        }
-      ]
-    }
-  }
-}
-```
-
-### 技术栈
-- **后端**: Flask 3.1.1 + Werkzeug >=3.0.0
-- **数据**: JSON持久化 + 双重数据结构
-- **前端**: 响应式HTML + 内联CSS + JavaScript
-- **部署**: Azure App Service Ready
-
-## 📁 主要文件
-
-- `app.py`：**[v1.8.0重构]** 主应用入口，创建Flask实例和路由注册
-- `app/`：**[v1.8.0新增]** 后端应用模块化架构
-  - `__init__.py`: 应用版本和配置信息
-  - `database.py`: **[v1.8.0升级]** 数据库操作，新增成就统计和查询方法
-  - `models.py`: **[v1.8.0升级]** 数据模型，新增成就相关接口
-  - `main_routes.py`: 主要路由（首页、历史、玩家详情等）
-  - `game_routes.py`: 游戏相关路由（创建、加入、计分等）
-  - `player_routes.py`: 玩家管理路由（重命名等）
-  - `achievement_routes.py`: **[v1.8.0新增]** 成就系统路由模块
-  - `security.py`: 安全验证和CSRF保护
-  - `utils.py`: 工具函数和辅助方法
-- `templates/`：前端页面模板
-  - `index.html`: 首页，场次列表和创建功能
-  - `game.html`: 游戏界面，计分操作和玩家管理
-  - `history.html`: 历史记录，全局排行榜（支持玩家跳转）
-  - `session_detail.html`: 场次详情，完整计分记录（支持玩家跳转）
-  - `player_detail.html`: **[v1.3.0新增]** 玩家详情，统计分析和重命名
-  - `achievements/`: **[v1.8.0新增]** 成就系统页面目录
-    - `index.html`: 成就列表主页，展示所有成就类型
-    - `small_gold.html`: 小金成就详情页
-    - `big_gold.html`: 大金成就详情页
-    - `small_gold_master.html`: 小金达人成就详情页
-    - `big_gold_master.html`: 大金达人成就详情页
-    - `big_gold_legend.html`: 大金传奇成就详情页
-- `requirements.txt`：依赖列表
-- `data.json`：数据持久化存储（自动生成，双重结构）
-- `CHANGELOG.md`：版本历史记录
-- `PROJECT_STATUS.md`：项目状态总结
-
-## 🚀 开发亮点
-
-### v1.3.0 技术成就
-- **代码规模**: 从404行升级到823行，功能密度大幅提升
-- **架构设计**: 关系型数据结构，为数据库迁移做准备
-- **用户体验**: 现代化交互设计，深度社交探索
-- **数据安全**: 完美向前兼容，自动数据迁移
-- **可扩展性**: 模块化设计，支持高级功能扩展
-
-### 开发注意事项
-- **数据迁移**: 自动升级旧数据格式，无需手动操作
-- **唯一ID**: 所有玩家操作基于player_id，确保数据一致性
-- **路由设计**: RESTful风格，支持资源ID传递
-- **模板复用**: 统一的CSS样式和组件设计
-- **错误处理**: 完善的异常捕获和用户友好提示
-
-## 🎯 已完成的功能
-
-- ✅ **负面成就优化** (v1.8.1)
-- ✅ **术语改进统一** (v1.8.1)
-- ✅ **UI重构完成** (v1.8.1)
-- ✅ **成就系统模块** (v1.8.0)
-- ✅ **模块化架构重构** (v1.8.0)
-- ✅ **成就统计和排行** (v1.8.0)
-- ✅ **响应式成就页面** (v1.8.0)
-- ✅ **多败者记录支持** (v1.8.0)
-- ✅ **玩家系统重构** (v1.3.0)
-- ✅ **统计分析功能** (v1.3.0)
-- ✅ **智能跳转链接** (v1.3.0)
-- ✅ **玩家重命名功能** (v1.3.0)
-- ✅ **数据结构升级** (v1.3.0)
-- ✅ **自动数据迁移** (v1.3.0)
-- ✅ **场次管理系统**
-- ✅ **响应式界面设计**
-- ✅ **移动端触摸优化**
-- ✅ **数据持久化存储**
-- ✅ **Azure部署兼容**
-
-## 🔮 下一版本计划
-
-### v1.9.0 - 负面成就版本
-- 新增负面成就类型（失误、连败等）
-- 成就系统扩展和细化
-- 成就达成通知功能
-
-### v2.0.0 - 数据库迁移版本
-- 从JSON迁移到PostgreSQL/MySQL
-- 支持更大规模的用户和数据量
-- 数据库连接池和查询优化
-
-### v2.1.0 - 高级统计版本
-- 图表可视化统计数据
-- 趋势分析和预测功能
-- 导出统计报告
-
-### v3.0.0 - 社交游戏版本
-- PWA支持，离线游戏功能
-- OAuth用户系统和权限管理
-- 多人在线实时对战
+- **终局之战赛事页**（取代 `/tournament` 占位）：赛程、对阵、实时积分
+- **CSS 整理收尾**：把剩余页面全部迁移到 `base.html` + 抽组件类（`leaderboard-row`、`entity-badge`、`achievement-banner` 等），消除重复样式
+- **PWA / 离线支持**
+- **数据可视化增强**：更多趋势 / 对比图表
 
 ## 📄 许可证
 
-MIT License - 详见 [LICENSE](LICENSE) 文件
+MIT License — 详见 [LICENSE](./LICENSE)。
 
 ## 🤝 贡献
 
-欢迎提交 Issues 和 Pull Requests 来改进这个项目！
+欢迎 Issues 和 Pull Requests。
 
-### 当前版本: **v1.8.0** (2025-07-12)
-- � 全新成就系统，5种成就类型
-- 🎨 模块化架构重构，代码组织优化
-- 📊 成就统计和排行榜系统
-- 📱 响应式成就页面，移动端优化
-- 🔧 多败者记录支持和显示优化
+## 📞 联系
 
-## 📞 联系方式
-
-- **GitHub**: [xiaoyuin/EMSPoolGamble](https://github.com/xiaoyuin/EMSPoolGamble)
-- **文档**: 查看 `PROJECT_STATUS.md` 了解详细项目状态
-- **版本历史**: 查看 `CHANGELOG.md` 了解所有更新记录
+- GitHub: [xiaoyuin/EMSPoolGamble](https://github.com/xiaoyuin/EMSPoolGamble)
+- 项目状态：[PROJECT_STATUS.md](./PROJECT_STATUS.md)
+- 完整版本历史：[CHANGELOG.md](./CHANGELOG.md)
 
 ---
 
-**🎱 EMSPoolGamble v1.8.1 - 负面成就优化与术语改进，用户体验持续提升！**
+**🎱 EMS Pool v1.9.0 — 现代化前端基础上线，玩家详情可按时间维度回溯。**
