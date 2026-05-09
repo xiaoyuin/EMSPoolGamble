@@ -1,5 +1,24 @@
 # EMS Pool Gamble - 版本历史
 
+## v1.9.0 前端架构整理 + 玩家详情时间筛选（2026-05-09）
+- **🏗️ 前端基础设施**：
+  - 抽出 `templates/base.html`、`static/css/main.css`、`static/js/main.js`，作为后续页面迁移的基础（首页 index.html 已迁移作示范，其它页面暂保留各自内联样式，待后续 CSS 整理一并完成）
+  - `main.js` 提供 `EMS.showToast` 顶部提示组件和 `EMS.ajaxSubmit` AJAX 表单工具
+- **⚡ 计分不再整页刷新**：
+  - 游戏页计分入口（普胜/双吃/小金/大金/玩家行快速记分）全部改走 fetch + JSON
+  - `add_score` / `add_special_score` 检测 `X-Requested-With` 后返回 JSON，普通表单提交仍按原行为兼容
+  - 提交成功后自动复用现有 `refreshGameData()` 局部刷新分数表与记录列表，并显示 toast
+- **📅 玩家详情新增时间筛选**：
+  - 玩家详情页新增月份下拉 + 自定义日期范围 UI（与 /history 协议一致）
+  - 月份下拉仅列出该玩家有对局的月份；默认进入显示全时段
+  - 所有派生数据（统计、对手表、趋势图、特殊胜利计数）随筛选窗口重算
+  - 顶部姓名"小金/大金"光环仍按全时段身份显示，不受窗口影响
+- **🎨 UI 细节**：
+  - 全站标题从 "EMS Pool Gamble" 简化为 "EMS Pool"
+  - 修复小金达人 / 大金达人 / 大金传奇排行榜中长玩家名导致 badge 换行的问题（rank/badge 加 `flex-shrink:0`，名字走 ellipsis）
+- **🔧 工程化**：
+  - `.venv/` 加入 `.gitignore`
+
 ## v1.8.4 修复game页面和自定义时间的UI问题
 - 修复game页面的小字记录过长时会溢出的问题
 - 修复history自定义时间范围的时间选择器一行未正确分配空间的问题
