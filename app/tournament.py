@@ -520,6 +520,268 @@ def get_bracket(tournament_id: str) -> List[List[Dict]]:
         ''', (tournament_id,))
         rows = [dict(r) for r in cursor.fetchall()]
 
+    by_round: Dict[int, List[Dict]] = {}
+    for r in rows:
+        by_round.setdefault(r['round_index'], []).append(r)
+    return [by_round[i] for i in sorted(by_round.keys())]
+
+
+def get_match(match_id: str) -> Optional[Dict]:
+    """获取单场对阵的完整信息（含玩家名、轮信息、逐局历史）。"""
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT m.*,
+                   p1.name AS player1_name,
+                   p2.name AS player2_name,
+                   pw.name AS winner_name,
+                   r.round_name, r.best_of,
+                   t.name AS tournament_name, t.status AS tournament_status
+            FROM tournament_matches m
+            LEFT JOIN players p1 ON p1.player_id = m.player1_id
+            LEFT JOIN players p2 ON p2.player_id = m.player2_id
+            LEFT JOIN players pw ON pw.player_id = m.winner_id
+            JOIN tournament_rounds r ON r.tournament_id = m.tournament_id AND r.round_index = m.round_index
+            JOIN tournaments t ON t.tournament_id = m.tournament_id
+            WHERE m.match_id = ?
+        ''', (match_id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        match = dict(row)
+
+        # 取逐局历史
+        cursor.execute('''
+            SELECT mg.game_index, mg.winner_id, p.name AS winner_name
+            FROM tournament_match_games mg
+            LEFT JOIN players p ON p.player_id = mg.winner_id
+            WHERE mg.match_id = ?
+            ORDER BY mg.game_index
+        ''', (match_id,))
+        match['games'] = [dict(g) for g in cursor.fetchall()]
+        return match
+
+
+# ===== 录入比分 / 撤销（#4） =====
+
+def record_match_game(match_id: str, winner_side: int) -> Tuple[bool, str]:
+    """记录某场对阵的下一局结果。
+
+    winner_side: 1 表示 player1 赢这一局，2 表示 player2 赢。
+    返回 (success, message)。
+    自动判定整场胜负：任一方 games_won 达到 best_of 半数+1 时
+    设置 winner_id + 晋级到下一轮。
+    """
+    if winner_side not in (1, 2):
+        return False, '非法的 winner_side'
+
+    match = get_match(match_id)
+    if not match:
+        return False, 'match 不存在'
+    if match['is_bye']:
+        return False, 'bye 比赛无需录入'
+    if not match['player1_id'] or not match['player2_id']:
+        return False, '该 match 玩家未确定，无法录入'
+    if match['winner_id']:
+        return False, '该 match 已结束'
+
+    target = games_needed_to_win(match['best_of'])
+    new_p1 = match['player1_games_won'] + (1 if winner_side == 1 else 0)
+    new_p2 = match['player2_games_won'] + (1 if winner_side == 2 else 0)
+
+    if new_p1 > target or new_p2 > target:
+        return False, '比分超出 best-of 上限'
+
+    now = get_utc_timestamp()
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        # 计算新一局序号
+        next_game_idx = len(match['games']) + 1
+        winner_id = match['player1_id'] if winner_side == 1 else match['player2_id']
+        cursor.execute('''
+            INSERT INTO tournament_match_games (match_id, game_index, winner_id)
+            VALUES (?, ?, ?)
+        ''', (match_id, next_game_idx, winner_id))
+
+        # 更新 match 总比分
+        match_winner_id = None
+        if new_p1 >= target:
+            match_winner_id = match['player1_id']
+        elif new_p2 >= target:
+            match_winner_id = match['player2_id']
+
+        if match_winner_id:
+            cursor.execute('''
+                UPDATE tournament_matches
+                SET player1_games_won = ?, player2_games_won = ?,
+                    winner_id = ?, finished_at = ?,
+                    started_at = COALESCE(started_at, ?)
+                WHERE match_id = ?
+            ''', (new_p1, new_p2, match_winner_id, now, now, match_id))
+            # 晋级
+            _propagate_winner_to_next_round(
+                cursor, match['tournament_id'],
+                match['round_index'], match['slot_index'], match_winner_id)
+            # 检查是否决赛胜出 → 完成赛事
+            cursor.execute('''
+                SELECT MAX(round_index) AS final_round
+                FROM tournament_matches WHERE tournament_id = ?
+            ''', (match['tournament_id'],))
+            final_round = cursor.fetchone()['final_round']
+            if match['round_index'] == final_round:
+                cursor.execute('''
+                    UPDATE tournaments SET status = ?, completed_at = ?, updated_at = ?
+                    WHERE tournament_id = ?
+                ''', (STATUS_COMPLETED, now, now, match['tournament_id']))
+        else:
+            cursor.execute('''
+                UPDATE tournament_matches
+                SET player1_games_won = ?, player2_games_won = ?,
+                    started_at = COALESCE(started_at, ?)
+                WHERE match_id = ?
+            ''', (new_p1, new_p2, now, match_id))
+
+        conn.commit()
+    return True, '已记录'
+
+
+def record_match_result(match_id: str, p1_games: int, p2_games: int) -> Tuple[bool, str]:
+    """直接录入整场比赛的总比分（覆盖式，用于一次性输入最终结果）。
+
+    要求其中一方达到 best-of 胜局数，另一方少于胜局数。
+    覆盖时会清掉之前的逐局记录。
+    """
+    match = get_match(match_id)
+    if not match:
+        return False, 'match 不存在'
+    if match['is_bye']:
+        return False, 'bye 比赛无需录入'
+    if not match['player1_id'] or not match['player2_id']:
+        return False, '该 match 玩家未确定，无法录入'
+    if match['winner_id']:
+        return False, '该 match 已结束（如要修改请先撤销）'
+
+    if p1_games < 0 or p2_games < 0:
+        return False, '比分不能为负'
+    target = games_needed_to_win(match['best_of'])
+    if max(p1_games, p2_games) != target:
+        return False, f'胜方必须刚好达到 {target} 胜（best-of {match["best_of"]}）'
+    if min(p1_games, p2_games) >= target:
+        return False, '不能两方都达到胜局数'
+
+    winner_id = match['player1_id'] if p1_games > p2_games else match['player2_id']
+    now = get_utc_timestamp()
+
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        # 清掉之前的逐局记录（如果有）
+        cursor.execute('DELETE FROM tournament_match_games WHERE match_id = ?', (match_id,))
+
+        cursor.execute('''
+            UPDATE tournament_matches
+            SET player1_games_won = ?, player2_games_won = ?,
+                winner_id = ?, finished_at = ?,
+                started_at = COALESCE(started_at, ?)
+            WHERE match_id = ?
+        ''', (p1_games, p2_games, winner_id, now, now, match_id))
+
+        _propagate_winner_to_next_round(
+            cursor, match['tournament_id'],
+            match['round_index'], match['slot_index'], winner_id)
+
+        # 决赛 → 完成赛事
+        cursor.execute('''
+            SELECT MAX(round_index) AS final_round
+            FROM tournament_matches WHERE tournament_id = ?
+        ''', (match['tournament_id'],))
+        final_round = cursor.fetchone()['final_round']
+        if match['round_index'] == final_round:
+            cursor.execute('''
+                UPDATE tournaments SET status = ?, completed_at = ?, updated_at = ?
+                WHERE tournament_id = ?
+            ''', (STATUS_COMPLETED, now, now, match['tournament_id']))
+
+        conn.commit()
+    return True, '已记录'
+
+
+def reset_match(match_id: str) -> Tuple[bool, str]:
+    """撤销一场 match 的录入：清空 winner_id / 比分 / 逐局记录，
+    并把下一轮对应 slot 的 player1/player2 字段清掉（否则会显示错误的对手）。
+
+    拒绝条件：下一轮对应 match 已有 winner_id（已开打），不能撤销，
+    需要先撤销下一轮再回来撤这场。
+    """
+    match = get_match(match_id)
+    if not match:
+        return False, 'match 不存在'
+    if match['is_bye']:
+        return False, 'bye 不能撤销（请重新生成 bracket）'
+    if not match['winner_id']:
+        return False, '该 match 尚未结束'
+
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        # 检查下一轮是否已有结果
+        next_round = match['round_index'] + 1
+        next_slot = (match['slot_index'] + 1) // 2
+        cursor.execute('''
+            SELECT match_id, winner_id FROM tournament_matches
+            WHERE tournament_id = ? AND round_index = ? AND slot_index = ?
+        ''', (match['tournament_id'], next_round, next_slot))
+        next_match = cursor.fetchone()
+        if next_match and next_match['winner_id']:
+            return False, '下一轮对应 match 已有结果，请先撤销下一轮'
+
+        # 清掉下一轮的 player1 或 player2 字段
+        if next_match:
+            is_player1 = (match['slot_index'] % 2 == 1)
+            field = 'player1_id' if is_player1 else 'player2_id'
+            cursor.execute(f'''
+                UPDATE tournament_matches SET {field} = NULL
+                WHERE match_id = ?
+            ''', (next_match['match_id'],))
+
+        # 清掉本场的结果
+        cursor.execute('DELETE FROM tournament_match_games WHERE match_id = ?', (match_id,))
+        cursor.execute('''
+            UPDATE tournament_matches
+            SET winner_id = NULL, player1_games_won = 0, player2_games_won = 0,
+                finished_at = NULL
+            WHERE match_id = ?
+        ''', (match_id,))
+
+        # 如果该赛事此前是 completed（决赛被撤销），切回 in_progress
+        cursor.execute('''
+            UPDATE tournaments SET status = ?, completed_at = NULL, updated_at = ?
+            WHERE tournament_id = ? AND status = ?
+        ''', (STATUS_IN_PROGRESS, get_utc_timestamp(),
+              match['tournament_id'], STATUS_COMPLETED))
+
+        conn.commit()
+    return True, '已撤销'
+
+
+# ===== 玩家联动（#5 用） =====
+    """返回 [[round1_matches], [round2_matches], ...]，每场 match 含玩家名。"""
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT m.*,
+                   p1.name AS player1_name,
+                   p2.name AS player2_name,
+                   pw.name AS winner_name,
+                   r.round_name, r.best_of
+            FROM tournament_matches m
+            LEFT JOIN players p1 ON p1.player_id = m.player1_id
+            LEFT JOIN players p2 ON p2.player_id = m.player2_id
+            LEFT JOIN players pw ON pw.player_id = m.winner_id
+            JOIN tournament_rounds r ON r.tournament_id = m.tournament_id AND r.round_index = m.round_index
+            WHERE m.tournament_id = ?
+            ORDER BY m.round_index, m.slot_index
+        ''', (tournament_id,))
+        rows = [dict(r) for r in cursor.fetchall()]
+
     # 按 round_index 分组
     by_round: Dict[int, List[Dict]] = {}
     for r in rows:

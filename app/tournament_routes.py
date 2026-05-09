@@ -26,7 +26,8 @@ from .tournament import (
     create_tournament, list_tournaments, get_tournament,
     delete_tournament,
     add_participant, remove_participant, set_participant_seed,
-    generate_bracket, get_bracket,
+    generate_bracket, get_bracket, get_match,
+    record_match_game, record_match_result, reset_match,
     RESOURCE_BYE, _next_power_of_2,
     STATUS_DRAFT, STATUS_REGISTRATION, STATUS_IN_PROGRESS, STATUS_COMPLETED,
 )
@@ -280,3 +281,67 @@ def register_tournament_routes(app):
 
         flash('对阵已生成', 'success')
         return redirect(url_for('tournament_detail', tournament_id=tournament_id))
+
+    # ---------- 单场对阵详情（公开） ----------
+    @app.route('/tournament/<tournament_id>/match/<match_id>')
+    def tournament_match(tournament_id, match_id):
+        match = get_match(match_id)
+        if not match or match['tournament_id'] != tournament_id:
+            flash('对阵不存在', 'error')
+            return redirect(url_for('tournament_detail', tournament_id=tournament_id))
+        tournament = get_tournament(tournament_id)
+        return render_template(
+            'tournament_match.html',
+            tournament=tournament,
+            match=match,
+            app_version=APP_VERSION,
+        )
+
+    # ---------- 录入比分 - 逐局加（管理员） ----------
+    @app.route('/tournament/<tournament_id>/match/<match_id>/record_game', methods=['POST'])
+    @require_admin_auth
+    @require_csrf_protection
+    def tournament_match_record_game(tournament_id, match_id):
+        match = get_match(match_id)
+        if not match or match['tournament_id'] != tournament_id:
+            flash('对阵不存在', 'error')
+            return redirect(url_for('tournament_detail', tournament_id=tournament_id))
+        try:
+            winner_side = int(request.form.get('winner_side', '0'))
+        except ValueError:
+            winner_side = 0
+        ok, msg = record_match_game(match_id, winner_side)
+        flash(msg, 'success' if ok else 'error')
+        return redirect(url_for('tournament_match', tournament_id=tournament_id, match_id=match_id))
+
+    # ---------- 录入比分 - 一次性总比分（管理员） ----------
+    @app.route('/tournament/<tournament_id>/match/<match_id>/record_result', methods=['POST'])
+    @require_admin_auth
+    @require_csrf_protection
+    def tournament_match_record_result(tournament_id, match_id):
+        match = get_match(match_id)
+        if not match or match['tournament_id'] != tournament_id:
+            flash('对阵不存在', 'error')
+            return redirect(url_for('tournament_detail', tournament_id=tournament_id))
+        try:
+            p1 = int(request.form.get('p1_games', '0'))
+            p2 = int(request.form.get('p2_games', '0'))
+        except ValueError:
+            flash('比分必须是整数', 'error')
+            return redirect(url_for('tournament_match', tournament_id=tournament_id, match_id=match_id))
+        ok, msg = record_match_result(match_id, p1, p2)
+        flash(msg, 'success' if ok else 'error')
+        return redirect(url_for('tournament_match', tournament_id=tournament_id, match_id=match_id))
+
+    # ---------- 撤销录入（管理员） ----------
+    @app.route('/tournament/<tournament_id>/match/<match_id>/reset', methods=['POST'])
+    @require_admin_auth
+    @require_csrf_protection
+    def tournament_match_reset(tournament_id, match_id):
+        match = get_match(match_id)
+        if not match or match['tournament_id'] != tournament_id:
+            flash('对阵不存在', 'error')
+            return redirect(url_for('tournament_detail', tournament_id=tournament_id))
+        ok, msg = reset_match(match_id)
+        flash(msg, 'success' if ok else 'error')
+        return redirect(url_for('tournament_match', tournament_id=tournament_id, match_id=match_id))

@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block title %}{{ match.round_name }} - {{ tournament.name }}{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .breadcrumb { margin-top: 1em; font-size: 0.9em; color: #666; }
+    .breadcrumb a { color: #1890ff; text-decoration: none; }
+    .breadcrumb a:hover { text-decoration: underline; }
+
+    .match-hero {
+        background: linear-gradient(135deg, #722ed1 0%, #1890ff 100%);
+        color: white;
+        border-radius: 14px;
+        padding: 1.4em;
+        margin-top: 1em;
+        box-shadow: 0 4px 14px rgba(114,46,209,0.25);
+    }
+    .match-hero .round-tag {
+        display: inline-block; background: rgba(255,255,255,0.22);
+        padding: 2px 10px; border-radius: 10px; font-size: 0.78em; margin-bottom: 0.4em;
+    }
+    .match-hero h2 { margin: 0 0 0.2em 0; font-size: 1.2em; }
+    .match-hero .meta { font-size: 0.9em; opacity: 0.92; }
+
+    .scoreboard {
+        display: grid; grid-template-columns: 1fr auto 1fr;
+        gap: 1em; align-items: center;
+        padding: 1.2em 0.6em; margin-top: 1em;
+        background: white; border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .scoreboard .player-block {
+        text-align: center;
+    }
+    .scoreboard .player-block.is-winner { background: #f6ffed; border-radius: 8px; padding: 0.8em 0.4em; }
+    .scoreboard .player-name { font-weight: 600; font-size: 1.1em; color: #333; }
+    .scoreboard .player-name .player-link { color: #1890ff; text-decoration: none; }
+    .scoreboard .games-won { font-size: 2.6em; color: #722ed1; font-weight: 700; line-height: 1; margin-top: 0.4em; }
+    .scoreboard .vs { font-size: 1.4em; color: #bbb; padding: 0 0.4em; }
+
+    .target-info { color: #888; font-size: 0.85em; text-align: center; margin-top: 0.6em; }
+
+    .games-log { margin-top: 1em; }
+    .games-log h4 { margin: 0 0 0.5em 0; color: #333; font-size: 1em; }
+    .game-row {
+        display: flex; align-items: center; gap: 0.6em;
+        padding: 0.4em 0.6em;
+        background: #fafafa;
+        border-radius: 4px;
+        margin-bottom: 0.3em;
+        font-size: 0.9em;
+    }
+    .game-row .game-idx { color: #999; flex-shrink: 0; }
+    .game-row .game-winner { font-weight: 600; }
+
+    .admin-card { margin-top: 1em; background: #f9f0ff; border: 1px solid #d3adf7; border-radius: 8px; padding: 1em; }
+    .admin-card h4 { margin: 0 0 0.6em 0; color: #722ed1; }
+
+    .record-options { display: flex; flex-direction: column; gap: 0.8em; }
+    .record-block { background: white; padding: 0.8em; border-radius: 6px; border: 1px solid #e6d4ff; }
+    .record-block label { display: block; margin-bottom: 0.4em; font-weight: 600; font-size: 0.9em; color: #333; }
+    .record-block .help { color: #888; font-size: 0.85em; margin-top: 0.3em; }
+    .record-block button { padding: 0.6em 1em; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
+
+    .game-buttons { display: flex; gap: 0.5em; }
+    .game-buttons button { flex: 1; background: #722ed1; color: white; }
+    .game-buttons button:hover { background: #5b1fb0; }
+    .game-buttons button:disabled { background: #d9d9d9; cursor: not-allowed; }
+
+    .total-form { display: flex; gap: 0.5em; align-items: center; }
+    .total-form input { width: 4em; padding: 0.4em; border: 1px solid #d9d9d9; border-radius: 4px; text-align: center; }
+    .total-form button { background: #1890ff; color: white; }
+    .total-form button:hover { background: #40a9ff; }
+
+    .reset-form button { background: #fff1f0; color: #ff4d4f; border: 1px solid #ffa39e; }
+    .reset-form button:hover { background: #ffccc7; }
+
+    .placeholder-msg {
+        padding: 1.2em 1em; text-align: center; color: #888;
+        background: #fafafa; border-radius: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+    <a href="{{ url_for('tournament_index') }}">赛事</a>
+    &gt; <a href="{{ url_for('tournament_detail', tournament_id=tournament.tournament_id) }}">{{ tournament.name }}</a>
+    &gt; {{ match.round_name }} - 第 {{ match.slot_index }} 场
+</div>
+
+<div class="match-hero">
+    <div class="round-tag">{{ match.round_name }} · 第 {{ match.slot_index }} 场</div>
+    <h2>{{ match.best_of }} 局 {{ (match.best_of // 2) + 1 }} 胜</h2>
+    <div class="meta">
+        {% if match.is_bye %}
+            轮空（自动晋级）
+        {% elif match.winner_id %}
+            ✓ 已结束 · 胜者：{{ match.winner_name }}
+        {% elif match.player1_id and match.player2_id %}
+            进行中 / 待录入
+        {% else %}
+            等待上一轮胜者
+        {% endif %}
+    </div>
+</div>
+
+<div class="scoreboard">
+    <div class="player-block {% if match.winner_id == match.player1_id %}is-winner{% endif %}">
+        <div class="player-name">
+            {% if match.player1_id %}
+                <a href="{{ url_for('player_detail', player_id=match.player1_id) }}" class="player-link">{{ match.player1_name }}</a>
+            {% else %}<span style="color:#bbb;font-style:italic;">待定</span>{% endif %}
+        </div>
+        <div class="games-won">{{ match.player1_games_won }}</div>
+    </div>
+    <div class="vs">VS</div>
+    <div class="player-block {% if match.winner_id == match.player2_id %}is-winner{% endif %}">
+        <div class="player-name">
+            {% if match.is_bye %}
+                <span style="color:#bbb;font-style:italic;">— 轮空 —</span>
+            {% elif match.player2_id %}
+                <a href="{{ url_for('player_detail', player_id=match.player2_id) }}" class="player-link">{{ match.player2_name }}</a>
+            {% else %}<span style="color:#bbb;font-style:italic;">待定</span>{% endif %}
+        </div>
+        <div class="games-won">{{ match.player2_games_won }}</div>
+    </div>
+</div>
+<div class="target-info">
+    赢者先达到 {{ (match.best_of // 2) + 1 }} 局
+</div>
+
+{% if match.games %}
+<div class="card games-log">
+    <h4>逐局记录</h4>
+    {% for g in match.games %}
+    <div class="game-row">
+        <span class="game-idx">第 {{ g.game_index }} 局</span>
+        <span class="game-winner">{{ g.winner_name }}</span>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if is_admin_authenticated() and not match.is_bye and match.player1_id and match.player2_id %}
+<div class="admin-card">
+    <h4>🔓 管理员操作</h4>
+
+    {% if not match.winner_id %}
+    <div class="record-options">
+        <div class="record-block">
+            <label>逐局加分</label>
+            <div class="help">每点一次记一局，达到 {{ (match.best_of // 2) + 1 }} 胜自动判定胜负 + 晋级。</div>
+            <form method="post" action="{{ url_for('tournament_match_record_game', tournament_id=tournament.tournament_id, match_id=match.match_id) }}" class="game-buttons">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" name="winner_side" value="1">{{ match.player1_name }} 赢一局</button>
+                <button type="submit" name="winner_side" value="2">{{ match.player2_name }} 赢一局</button>
+            </form>
+        </div>
+
+        <div class="record-block">
+            <label>一次性录入总比分</label>
+            <div class="help">直接输入最终比分（如 3-1, 4-2）。</div>
+            <form method="post" action="{{ url_for('tournament_match_record_result', tournament_id=tournament.tournament_id, match_id=match.match_id) }}" class="total-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <span>{{ match.player1_name }}</span>
+                <input type="number" name="p1_games" min="0" max="{{ (match.best_of // 2) + 1 }}" required>
+                <span>:</span>
+                <input type="number" name="p2_games" min="0" max="{{ (match.best_of // 2) + 1 }}" required>
+                <span>{{ match.player2_name }}</span>
+                <button type="submit">提交</button>
+            </form>
+        </div>
+    </div>
+    {% else %}
+    <div class="record-block">
+        <label>撤销结果</label>
+        <div class="help">将清空本场比分并重置下一轮对应位置。如果下一轮已经开打，请先撤销下一轮。</div>
+        <form method="post"
+              action="{{ url_for('tournament_match_reset', tournament_id=tournament.tournament_id, match_id=match.match_id) }}"
+              class="reset-form"
+              onsubmit="return confirm('确定要撤销本场结果？');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit">撤销</button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+{% elif match.is_bye %}
+<div class="placeholder-msg">本场为轮空，无需录入比分</div>
+{% elif not match.player1_id or not match.player2_id %}
+<div class="placeholder-msg">等待上一轮胜者确定后才能录入</div>
+{% endif %}
+{% endblock %}
