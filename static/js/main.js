@@ -43,6 +43,71 @@
     window.EMS = window.EMS || {};
     window.EMS.convertUtcToLocal = convertUtcToLocal;
 
+    /* ---------- Toast 提示 ---------- */
+    function ensureToastContainer() {
+        let c = document.getElementById('ems-toast-container');
+        if (!c) {
+            c = document.createElement('div');
+            c.id = 'ems-toast-container';
+            c.style.cssText = 'position:fixed;top:1em;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:0.5em;pointer-events:none;';
+            document.body.appendChild(c);
+        }
+        return c;
+    }
+    function showToast(message, type) {
+        type = type || 'success';
+        const colors = {
+            success: { bg: '#f6ffed', border: '#b7eb8f', color: '#52c41a' },
+            error:   { bg: '#fff2f0', border: '#ffccc7', color: '#ff4d4f' },
+            info:    { bg: '#e6f7ff', border: '#91d5ff', color: '#1890ff' }
+        };
+        const c = colors[type] || colors.info;
+        const el = document.createElement('div');
+        el.textContent = message;
+        el.style.cssText = `background:${c.bg};border:1px solid ${c.border};color:${c.color};padding:10px 16px;border-radius:5px;font-size:0.95em;box-shadow:0 2px 8px rgba(0,0,0,0.1);pointer-events:auto;opacity:0;transform:translateY(-8px);transition:opacity .2s,transform .2s;max-width:90vw;`;
+        ensureToastContainer().appendChild(el);
+        requestAnimationFrame(() => { el.style.opacity = '1'; el.style.transform = 'translateY(0)'; });
+        setTimeout(() => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(-8px)';
+            setTimeout(() => el.remove(), 250);
+        }, 2200);
+    }
+    window.EMS.showToast = showToast;
+
+    /* ---------- AJAX 表单提交 ----------
+       用法：EMS.ajaxSubmit({ url, formData, onSuccess, onError })
+       后端接口必须能识别 X-Requested-With: XMLHttpRequest 并返回
+       { ok: true/false, message: string } 形式的 JSON。
+    */
+    async function ajaxSubmit(opts) {
+        try {
+            const res = await fetch(opts.url, {
+                method: opts.method || 'POST',
+                body: opts.formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            let data = null;
+            try { data = await res.json(); } catch (_) { /* non-JSON */ }
+            if (res.ok && data && data.ok) {
+                if (opts.onSuccess) opts.onSuccess(data);
+                else if (data.message) showToast(data.message, 'success');
+            } else {
+                const msg = (data && data.message) || `请求失败 (${res.status})`;
+                if (opts.onError) opts.onError(msg, data);
+                else showToast(msg, 'error');
+            }
+            return data;
+        } catch (e) {
+            const msg = '网络错误，请重试';
+            if (opts.onError) opts.onError(msg, null);
+            else showToast(msg, 'error');
+            console.error('ajaxSubmit error:', e);
+            return null;
+        }
+    }
+    window.EMS.ajaxSubmit = ajaxSubmit;
+
     document.addEventListener('DOMContentLoaded', function () {
         convertUtcToLocal();
     });

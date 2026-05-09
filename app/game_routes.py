@@ -1,7 +1,15 @@
 """
 游戏相关路由模块 - 游戏界面、计分、玩家管理等
 """
-from flask import render_template, request, redirect, url_for, session, flash
+from flask import render_template, request, redirect, url_for, session, flash, jsonify
+
+
+def _wants_json():
+    """检测当前请求是否为 AJAX/JSON 调用（通过 X-Requested-With 或 Accept 头）。"""
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return True
+    accept = request.headers.get('Accept', '')
+    return 'application/json' in accept and 'text/html' not in accept
 from .models import (sessions, players, save_data, 
                      get_player_by_name, get_player_name, get_or_create_player, create_player,
                      get_available_players, get_session,
@@ -221,68 +229,79 @@ def register_game_routes(app):
     @app.route('/add_score/<session_id>', methods=['POST'])
     def add_score(session_id):
         # 记分功能
+        is_ajax = _wants_json()
+
+        def _resp(ok, msg, status=200):
+            """统一返回：AJAX→JSON；普通→flash + redirect。"""
+            if is_ajax:
+                return jsonify({'ok': ok, 'message': msg}), (status if not ok else 200)
+            flash(msg, 'success' if ok else 'error')
+            if ok:
+                return redirect(url_for('game', session_id=session_id))
+            return redirect(url_for('index') if status == 404 else url_for('game', session_id=session_id))
+
         if session_id not in sessions:
-            flash('场次不存在', 'error')
-            return redirect(url_for('index'))
+            return _resp(False, '场次不存在', 404)
 
         game_session = get_session(session_id)
         if not game_session:
-            flash('场次不存在', 'error')
-            return redirect(url_for('index'))
+            return _resp(False, '场次不存在', 404)
 
         # 检查场次是否已被结束
         if not game_session.get('active', True):
-            flash('该场次已经结束', 'error')
-            return redirect(url_for('index'))
+            return _resp(False, '该场次已经结束', 400)
 
         winner = request.form['winner']
         loser = request.form['loser']
         score = int(request.form['score'])
         special_score = request.form.get('special_score', None)  # 获取特殊分数类型
-        
+
         # 如果special_score是空字符串，设为None
         if special_score == '':
             special_score = None
 
         # 验证
         if winner == loser:
-            flash('胜者和败者不能是同一个玩家', 'error')
-        elif winner not in game_session.get('players', set()) or loser not in game_session.get('players', set()):
-            flash('选择的玩家不在当前场次中', 'error')
-        else:
-            # 获取玩家ID
-            winner_id = get_player_by_name(winner)
-            loser_id = get_player_by_name(loser)
+            return _resp(False, '胜者和败者不能是同一个玩家', 400)
+        if winner not in game_session.get('players', set()) or loser not in game_session.get('players', set()):
+            return _resp(False, '选择的玩家不在当前场次中', 400)
 
-            # 添加计分记录（传递特殊分数类型）
-            add_game_record(session_id, winner_id, loser_id, score, special_score)
+        # 获取玩家ID
+        winner_id = get_player_by_name(winner)
+        loser_id = get_player_by_name(loser)
 
-            # 保存数据（数据库自动保存）
-            save_data()
-            
-            if special_score:
-                flash(f'成功记录{special_score}分数', 'success')
-            else:
-                flash('成功记录分数', 'success')
+        # 添加计分记录（传递特殊分数类型）
+        add_game_record(session_id, winner_id, loser_id, score, special_score)
 
-        return redirect(url_for('game', session_id=session_id))
+        # 保存数据（数据库自动保存）
+        save_data()
+
+        msg = f'成功记录{special_score}分数' if special_score else '成功记录分数'
+        return _resp(True, msg)
 
     @app.route('/add_special_score/<session_id>', methods=['POST'])
     def add_special_score(session_id):
         # 处理特殊分数（14分和20分）的记分功能
+        is_ajax = _wants_json()
+
+        def _resp(ok, msg, status=200):
+            if is_ajax:
+                return jsonify({'ok': ok, 'message': msg}), (status if not ok else 200)
+            flash(msg, 'success' if ok else 'error')
+            if status == 404:
+                return redirect(url_for('index'))
+            return redirect(url_for('game', session_id=session_id))
+
         if session_id not in sessions:
-            flash('场次不存在', 'error')
-            return redirect(url_for('index'))
+            return _resp(False, '场次不存在', 404)
 
         game_session = get_session(session_id)
         if not game_session:
-            flash('场次不存在', 'error')
-            return redirect(url_for('index'))
+            return _resp(False, '场次不存在', 404)
 
         # 检查场次是否已被结束
         if not game_session.get('active', True):
-            flash('该场次已经结束', 'error')
-            return redirect(url_for('index'))
+            return _resp(False, '该场次已经结束', 400)
 
         winner = request.form.get('winner')
         losers = request.form.getlist('losers')  # 获取多个败者
@@ -291,24 +310,20 @@ def register_game_routes(app):
 
         # 验证输入
         if not winner or not losers or total_score not in [8, 14, 20]:
-            flash('请选择胜者、败者和正确的分数', 'error')
-            return redirect(url_for('game', session_id=session_id))
+            return _resp(False, '请选择胜者、败者和正确的分数', 400)
 
         if winner in losers:
-            flash('胜者不能同时是败者', 'error')
-            return redirect(url_for('game', session_id=session_id))
+            return _resp(False, '胜者不能同时是败者', 400)
 
         if len(losers) != 2:
-            flash('特殊分数需要选择两个败者', 'error')
-            return redirect(url_for('game', session_id=session_id))
+            return _resp(False, '特殊分数需要选择两个败者', 400)
 
         # 检查所有玩家是否存在
         all_players = [winner] + losers
         game_players = game_session.get('players', set())
         for player in all_players:
             if player not in game_players:
-                flash(f'玩家 {player} 不在当前场次中', 'error')
-                return redirect(url_for('game', session_id=session_id))
+                return _resp(False, f'玩家 {player} 不在当前场次中', 400)
 
         # 获取玩家ID
         winner_id = get_player_by_name(winner)
@@ -319,11 +334,9 @@ def register_game_routes(app):
 
         # 保存数据（数据库自动保存）
         save_data()
-        
-        type_name = special_score if special_score else '特殊分数'
-        flash(f'成功记录{type_name}：{winner} 胜 {losers[0]}+{losers[1]} ({total_score}分)', 'success')
 
-        return redirect(url_for('game', session_id=session_id))
+        type_name = special_score if special_score else '特殊分数'
+        return _resp(True, f'成功记录{type_name}：{winner} 胜 {losers[0]}+{losers[1]} ({total_score}分)')
 
     @app.route('/delete_record/<session_id>/<int:record_index>', methods=['POST'])
     @require_admin_auth
