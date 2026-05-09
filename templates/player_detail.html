@@ -126,6 +126,78 @@
             color: #ff4d4f !important;
             font-weight: bold;
         }
+        /* 时间范围筛选器（复用 /history 的设计） */
+        .month-selector { margin-bottom: 1em; margin-top: 1em; }
+        .month-selector select {
+            width: 100%;
+            padding: 0.8em;
+            border: 1px solid #d9d9d9;
+            border-radius: 5px;
+            font-size: 1em;
+            background-color: white;
+            cursor: pointer;
+        }
+        .month-selector select:focus {
+            border-color: #1890ff;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+        }
+        .custom-date-range {
+            display: none;
+            margin-top: 1em;
+            padding: 1em;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #e9ecef;
+        }
+        .custom-date-range.show { display: block; }
+        .date-input-group {
+            display: flex;
+            gap: 1em;
+            margin-bottom: 1em;
+            flex-wrap: wrap;
+        }
+        .date-input-container {
+            flex: 1;
+            min-width: 0;
+            flex-basis: calc(50% - 0.5em);
+        }
+        @media (max-width: 480px) {
+            .date-input-group { gap: 0.8em; }
+            .date-input-container { flex-basis: calc(50% - 0.4em); min-width: 140px; }
+        }
+        .date-input-container label {
+            display: block;
+            margin-bottom: 0.5em;
+            color: #333;
+            font-weight: 500;
+        }
+        .date-input-container input {
+            width: 100%;
+            padding: 0.8em;
+            border: 1px solid #d9d9d9;
+            border-radius: 5px;
+            font-size: 1em;
+            box-sizing: border-box;
+        }
+        .date-input-container input:focus {
+            border-color: #1890ff;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+        }
+        .custom-date-actions { display: flex; gap: 0.5em; }
+        .btn-custom {
+            padding: 0.8em 1.5em;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .filter-period-tag { color: #666; font-size: 0.9em; font-weight: normal; margin-left: 0.5em; }
     </style>
 </head>
 <body>
@@ -149,9 +221,50 @@
         {% endif %}
     {% endwith %}
 
+    <!-- 时间范围筛选器 -->
+    <div class="month-selector">
+        <select id="month-selector" onchange="changeMonth()" title="选择时间范围">
+            <option value="all" {% if selected_month == 'all' %}selected{% endif %}>全时段 - {{ all_records_total }}场记录</option>
+            {% for month in available_months %}
+            <option value="{{ month.key }}" {% if selected_month == month.key %}selected{% endif %}>
+                {{ month.name }} - {{ month.count }}场
+            </option>
+            {% endfor %}
+            <option value="custom" {% if selected_month == 'custom' %}selected{% endif %}>自定义时间范围</option>
+        </select>
+    </div>
+
+    <!-- 自定义时间范围输入框 -->
+    <div class="custom-date-range" id="custom-date-range">
+        <div class="date-input-group">
+            <div class="date-input-container">
+                <label for="start-date">开始日期：</label>
+                <input type="date" id="start-date" name="start_date" value="{{ display_start_date or default_start_date or '' }}">
+            </div>
+            <div class="date-input-container">
+                <label for="end-date">结束日期：</label>
+                <input type="date" id="end-date" name="end_date" value="{{ display_end_date or default_end_date or '' }}">
+            </div>
+        </div>
+        <div class="custom-date-actions">
+            <button type="button" class="btn-custom btn-primary" onclick="applyCustomDateRange()">应用筛选</button>
+            <button type="button" class="btn-custom btn-secondary" onclick="clearCustomDateRange()">清除</button>
+        </div>
+    </div>
+
     <!-- 统计数据 -->
     <div class="card">
-        <h3>统计数据</h3>
+        <h3>统计数据
+            <span class="filter-period-tag">
+                {% if selected_month == 'all' %}
+                (全时段)
+                {% elif selected_month == 'custom' %}
+                (自定义时间范围)
+                {% else %}
+                ({{ selected_month.replace('-', '年') }}月)
+                {% endif %}
+            </span>
+        </h3>
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-number">{{ stats.total_games }}</div>
@@ -330,6 +443,75 @@
     </div>
 
 <script>
+// 时间范围筛选器（与 /history 协议一致：使用 URL query 中的 month / start_date / end_date）
+const selectedMonth = {{ (selected_month or '')|tojson }};
+
+function changeMonth() {
+    const selector = document.getElementById('month-selector');
+    const selectedValue = selector.value;
+    const customDateRange = document.getElementById('custom-date-range');
+
+    if (selectedValue === 'custom') {
+        customDateRange.classList.add('show');
+        return; // 不跳转，等待用户输入时间范围
+    } else {
+        customDateRange.classList.remove('show');
+    }
+
+    const currentUrl = new URL(window.location);
+    if (selectedValue && selectedValue !== 'custom') {
+        currentUrl.searchParams.set('month', selectedValue);
+    } else {
+        currentUrl.searchParams.delete('month');
+    }
+    currentUrl.searchParams.delete('start_date');
+    currentUrl.searchParams.delete('end_date');
+    window.location.href = currentUrl.toString();
+}
+
+function applyCustomDateRange() {
+    const startDate = document.getElementById('start-date').value;
+    const endDate = document.getElementById('end-date').value;
+    if (!startDate || !endDate) {
+        alert('请选择开始日期和结束日期');
+        return;
+    }
+    if (new Date(startDate) > new Date(endDate)) {
+        alert('开始日期不能晚于结束日期');
+        return;
+    }
+    const startDateTime = new Date(startDate + 'T00:00:00');
+    const endDateTime = new Date(endDate + 'T23:59:59');
+    const fmt = d => d.getFullYear() + '-' +
+                    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                    String(d.getDate()).padStart(2, '0') + 'T' +
+                    String(d.getHours()).padStart(2, '0') + ':' +
+                    String(d.getMinutes()).padStart(2, '0');
+    const currentUrl = new URL(window.location);
+    currentUrl.searchParams.set('month', 'custom');
+    currentUrl.searchParams.set('start_date', fmt(startDateTime));
+    currentUrl.searchParams.set('end_date', fmt(endDateTime));
+    window.location.href = currentUrl.toString();
+}
+
+function clearCustomDateRange() {
+    document.getElementById('start-date').value = '';
+    document.getElementById('end-date').value = '';
+    const currentUrl = new URL(window.location);
+    currentUrl.searchParams.delete('month');
+    currentUrl.searchParams.delete('start_date');
+    currentUrl.searchParams.delete('end_date');
+    window.location.href = currentUrl.toString();
+}
+
+// 进入页面时，如果是 custom 模式则展开输入框
+document.addEventListener('DOMContentLoaded', function() {
+    if (selectedMonth === 'custom') {
+        const customDateRange = document.getElementById('custom-date-range');
+        if (customDateRange) customDateRange.classList.add('show');
+    }
+});
+
 // 设置时区偏移量
 (function() {
     const timezoneOffset = -new Date().getTimezoneOffset();

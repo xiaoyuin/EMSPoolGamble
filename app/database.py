@@ -673,11 +673,11 @@ class DatabaseManager:
             conn.commit()
             return record_dict
 
-    def get_player_records(self, player_id: str) -> List[Dict]:
-        """获取玩家的所有对战记录"""
+    def get_player_records(self, player_id: str, start_date: str = None, end_date: str = None) -> List[Dict]:
+        """获取玩家的所有对战记录。可选按 created_at 范围过滤（闭区间）。"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute('''
+            sql = '''
                 SELECT gr.*, s.name as session_name,
                        pw.name as winner_name,
                        pl1.name as loser1_name,
@@ -687,9 +687,17 @@ class DatabaseManager:
                 JOIN players pw ON gr.winner_id = pw.player_id
                 JOIN players pl1 ON gr.loser_id = pl1.player_id
                 LEFT JOIN players pl2 ON gr.loser_id2 = pl2.player_id
-                WHERE gr.winner_id = ? OR gr.loser_id = ? OR gr.loser_id2 = ?
-                ORDER BY gr.created_at DESC
-            ''', (player_id, player_id, player_id))
+                WHERE (gr.winner_id = ? OR gr.loser_id = ? OR gr.loser_id2 = ?)
+            '''
+            params = [player_id, player_id, player_id]
+            if start_date:
+                sql += ' AND gr.created_at >= ?'
+                params.append(start_date)
+            if end_date:
+                sql += ' AND gr.created_at <= ?'
+                params.append(end_date)
+            sql += ' ORDER BY gr.created_at DESC'
+            cursor.execute(sql, params)
 
             records = []
             for row in cursor.fetchall():
@@ -908,6 +916,37 @@ class DatabaseManager:
                     'count': row['session_count']
                 })
 
+            return months
+
+    def get_available_months_for_player(self, player_id: str) -> List[Dict]:
+        """获取该玩家有对战记录的月份列表，统计每月该玩家参与的场次数量。"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                SELECT
+                    strftime('%Y-%m', s.created_at) as month_key,
+                    CAST(strftime('%Y', s.created_at) AS INTEGER) as year,
+                    CAST(strftime('%m', s.created_at) AS INTEGER) as month,
+                    COUNT(DISTINCT s.session_id) as session_count
+                FROM sessions s
+                WHERE EXISTS (
+                    SELECT 1 FROM game_records gr
+                    WHERE gr.session_id = s.session_id
+                      AND (gr.winner_id = ? OR gr.loser_id = ? OR gr.loser_id2 = ?)
+                )
+                GROUP BY strftime('%Y-%m', s.created_at)
+                ORDER BY month_key DESC
+            ''', (player_id, player_id, player_id))
+
+            months = []
+            for row in cursor.fetchall():
+                month_name = f"{row['year']}年{row['month']}月"
+                months.append({
+                    'key': row['month_key'],
+                    'name': month_name,
+                    'count': row['session_count']
+                })
             return months
 
     def get_player_effective_win_rate(self, player_id: str) -> Optional[float]:

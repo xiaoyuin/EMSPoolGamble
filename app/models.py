@@ -168,9 +168,9 @@ def delete_game_record(record_id: int) -> Optional[Dict]:
     return db.delete_game_record(record_id)
 
 
-def get_player_records(player_id: str) -> List[Dict]:
-    """获取玩家的所有对战记录"""
-    return db.get_player_records(player_id)
+def get_player_records(player_id: str, start_date: str = None, end_date: str = None) -> List[Dict]:
+    """获取玩家的所有对战记录。可选按 created_at 范围过滤（闭区间）。"""
+    return db.get_player_records(player_id, start_date, end_date)
 
 
 # ===== 统计查询 =====
@@ -188,6 +188,11 @@ def get_global_leaderboard(start_date: str = None, end_date: str = None) -> List
 def get_available_months() -> List[Dict]:
     """获取有数据的月份列表"""
     return db.get_available_months()
+
+
+def get_available_months_for_player(player_id: str) -> List[Dict]:
+    """获取该玩家有对局的月份列表"""
+    return db.get_available_months_for_player(player_id)
 
 
 def get_earliest_session_date() -> Optional[str]:
