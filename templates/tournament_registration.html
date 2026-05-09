@@ -32,6 +32,7 @@
         border-radius: 4px;
         font-size: 0.9em;
     }
+    .registered-row .row-remove-form { display: inline; margin: 0; flex-shrink: 0; }
     .remove-btn {
         background: #fff1f0; color: #ff4d4f; border: 1px solid #ffa39e;
         padding: 4px 10px; border-radius: 4px; font-size: 0.85em;
@@ -39,6 +40,14 @@
         flex-shrink: 0;
     }
     .remove-btn:hover { background: #ffccc7; }
+    .remove-btn-icon {
+        width: 28px; height: 28px; padding: 0;
+        background: white; color: #999; border: 1px solid #f0f0f0;
+        border-radius: 50%; font-size: 1.05em; line-height: 1;
+        display: inline-flex; align-items: center; justify-content: center;
+        cursor: pointer; flex-shrink: 0;
+    }
+    .remove-btn-icon:hover { background: #fff1f0; border-color: #ff4d4f; color: #ff4d4f; }
 
     .available-grid {
         display: flex; flex-wrap: wrap; gap: 0.5em;
@@ -133,31 +142,58 @@
     .mode-options { display: flex; gap: 1em; margin-bottom: 0.8em; }
     .mode-options label { font-size: 0.95em; }
 
-    .slot-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    /* 对阵编辑器：按 R1 配对分组（slot 1+2、3+4 …），让 R1 对手一目了然 */
+    .pairing-list {
+        display: flex; flex-direction: column;
         gap: 0.6em;
         margin: 1em 0;
     }
-    .slot-cell {
+    .pairing-card {
         background: white;
         border: 1px solid #e6d4ff;
-        border-radius: 6px;
-        padding: 0.5em 0.6em;
+        border-radius: 8px;
+        padding: 0.6em 0.7em;
     }
-    .slot-cell label {
-        display: block;
-        font-size: 0.8em;
+    .pairing-title {
+        font-size: 0.78em;
         color: #722ed1;
-        margin-bottom: 0.3em;
         font-weight: 600;
+        margin-bottom: 0.4em;
+        letter-spacing: 0.3px;
     }
-    .slot-cell select {
-        width: 100%;
+    .pairing-half-tag {
+        display: inline-block;
+        font-size: 0.7em;
+        font-weight: 500;
+        color: #888;
+        background: #f5f0ff;
+        border-radius: 8px;
+        padding: 1px 7px;
+        margin-left: 0.4em;
+        letter-spacing: 0;
+    }
+    .pairing-rows { display: flex; flex-direction: column; gap: 0.4em; }
+    .pairing-row {
+        display: flex; align-items: center; gap: 0.5em;
+    }
+    .pairing-row .pos-label {
+        flex-shrink: 0;
+        width: 3.4em;
+        font-size: 0.78em; color: #999;
+        text-align: right;
+    }
+    .pairing-row select {
+        flex: 1; min-width: 0;
         padding: 0.4em;
         border: 1px solid #e6d4ff;
         border-radius: 4px;
         font-size: 0.9em;
+    }
+    .pairing-vs {
+        text-align: center;
+        font-size: 0.7em; color: #bbb;
+        font-weight: 600;
+        letter-spacing: 0.5px;
     }
 </style>
 {% endblock %}
@@ -173,20 +209,24 @@
     <h3 class="section-title">已报名 ({{ tournament.participants|length }})</h3>
 
     {% if tournament.participants %}
-    <form method="post" action="{{ url_for('tournament_register_set_seed', tournament_id=tournament.tournament_id) }}">
+    <form method="post" action="{{ url_for('tournament_register_set_seed', tournament_id=tournament.tournament_id) }}" id="seed-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="help">设置 1-4 号种子（决定对阵表上的固定位置；其它位置随机或手动指定）</div>
+        <div class="help">设置 1-4 号种子（决定对阵表上的固定位置；同一种子号最多 1 人）</div>
         <div class="registered-list">
             {% for p in tournament.participants %}
             <div class="registered-row">
                 <span class="name">{{ p.player_name }}</span>
-                <select name="seed_{{ p.player_id }}">
+                <select name="seed_{{ p.player_id }}" class="seed-select" data-player-id="{{ p.player_id }}" onchange="enforceSeedExclusivity(this)">
                     <option value="" {% if not p.seed %}selected{% endif %}>非种子</option>
                     <option value="1" {% if p.seed == 1 %}selected{% endif %}>1 号种子</option>
                     <option value="2" {% if p.seed == 2 %}selected{% endif %}>2 号种子</option>
                     <option value="3" {% if p.seed == 3 %}selected{% endif %}>3 号种子</option>
                     <option value="4" {% if p.seed == 4 %}selected{% endif %}>4 号种子</option>
                 </select>
+                <button type="button"
+                        class="remove-btn-icon"
+                        title="从报名中移除 {{ p.player_name }}"
+                        onclick="removeParticipant('{{ p.player_id }}', '{{ p.player_name|e }}')">×</button>
             </div>
             {% endfor %}
         </div>
@@ -195,16 +235,13 @@
         </div>
     </form>
 
-    {% for p in tournament.participants %}
+    {# 隐藏的"移除参赛者"表单，由 removeParticipant() 注入 player_id 并提交 #}
     <form method="post"
           action="{{ url_for('tournament_register_remove', tournament_id=tournament.tournament_id) }}"
-          style="display:inline; margin-top: 0.4em;"
-          onsubmit="return confirm('从报名中移除 {{ p.player_name }} ?');">
+          id="remove-form" style="display:none;">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="player_id" value="{{ p.player_id }}">
-        <button type="submit" class="remove-btn">移除 {{ p.player_name }}</button>
+        <input type="hidden" name="player_id" value="">
     </form>
-    {% endfor %}
     {% else %}
         <div class="help">还没有人报名</div>
     {% endif %}
@@ -261,7 +298,7 @@
             <input type="text" name="new_player_name" id="modalPlayerName" placeholder="玩家名字" autocomplete="off" required>
             <div class="modal-buttons">
                 <button type="button" class="btn-cancel" onclick="hideNewPlayerModal()">取消</button>
-                <button type="submit" class="btn-create">创建并报名</button>
+                <button type="submit" class="btn-create">创建</button>
             </div>
         </form>
     </div>
@@ -282,25 +319,61 @@
     </div>
 
     <form method="post" action="{{ url_for('tournament_generate_bracket', tournament_id=tournament.tournament_id) }}"
-          onsubmit="return confirm('确认生成对阵？此后将无法修改报名名单。');">
+          id="generate-form"
+          onsubmit="return confirmGenerate(event);">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-        <div class="slot-grid">
-            {% for slot_idx in range(1, bracket_size + 1) %}
-            <div class="slot-cell">
-                <label>位置 {{ slot_idx }}</label>
-                <select name="slot_{{ slot_idx }}">
-                    <option value="random" selected>— 随机 —</option>
-                    <option value="__bye__">轮空</option>
-                    <optgroup label="参赛者">
-                    {% for p in tournament.participants %}
-                        <option value="{{ p.player_id }}">{{ p.player_name }}{% if p.seed %} (种子#{{ p.seed }}){% endif %}</option>
-                    {% endfor %}
-                    </optgroup>
-                </select>
+        {# 把所有 slot 按 R1 配对（1+2、3+4 …）显示。
+           4 人对阵：上下半区只有 2 个 pair；
+           8 人：上 2 + 下 2；
+           16 人：4 个 1/4 分区。
+           pair_idx 决定半区 / 1/4 分区的分组标签。 #}
+        {% set pair_count = bracket_size // 2 %}
+        <div class="pairing-list">
+            {% for pair_idx in range(pair_count) %}
+                {% set slot_a = pair_idx * 2 + 1 %}
+                {% set slot_b = pair_idx * 2 + 2 %}
+                {# 半区：前一半属于上半区，后一半下半区 #}
+                {% set is_upper_half = (pair_idx < pair_count // 2 if pair_count >= 2 else true) %}
+            <div class="pairing-card">
+                <div class="pairing-title">
+                    第 {{ loop.index }} 场首轮
+                    {% if pair_count >= 2 %}
+                    <span class="pairing-half-tag">{% if is_upper_half %}上半区{% else %}下半区{% endif %}</span>
+                    {% endif %}
+                </div>
+                <div class="pairing-rows">
+                    <div class="pairing-row">
+                        <span class="pos-label">位置 {{ slot_a }}</span>
+                        <select name="slot_{{ slot_a }}" class="slot-select" data-slot="{{ slot_a }}" onchange="enforceSlotExclusivity(this)">
+                            <option value="random" selected>— 随机 —</option>
+                            <option value="__bye__">轮空</option>
+                            <optgroup label="参赛者">
+                            {% for p in tournament.participants %}
+                                <option value="{{ p.player_id }}">{{ p.player_name }}{% if p.seed %} (种子#{{ p.seed }}){% endif %}</option>
+                            {% endfor %}
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div class="pairing-vs">VS</div>
+                    <div class="pairing-row">
+                        <span class="pos-label">位置 {{ slot_b }}</span>
+                        <select name="slot_{{ slot_b }}" class="slot-select" data-slot="{{ slot_b }}" onchange="enforceSlotExclusivity(this)">
+                            <option value="random" selected>— 随机 —</option>
+                            <option value="__bye__">轮空</option>
+                            <optgroup label="参赛者">
+                            {% for p in tournament.participants %}
+                                <option value="{{ p.player_id }}">{{ p.player_name }}{% if p.seed %} (种子#{{ p.seed }}){% endif %}</option>
+                            {% endfor %}
+                            </optgroup>
+                        </select>
+                    </div>
+                </div>
             </div>
             {% endfor %}
         </div>
+
+        <input type="hidden" id="n-byes-allowed" value="{{ n_byes }}">
 
         <div class="save-bar">
             <button type="submit" class="btn-success">生成对阵</button>
@@ -347,6 +420,57 @@ function submitAddSelected() {
         form.appendChild(input);
     });
     form.submit();
+}
+
+// 移除参赛者（每行的 × 按钮触发）
+function removeParticipant(playerId, playerName) {
+    if (!confirm(`从报名中移除 ${playerName}？`)) return;
+    const form = document.getElementById('remove-form');
+    if (!form) return;
+    form.querySelector('input[name="player_id"]').value = playerId;
+    form.submit();
+}
+
+// 种子互斥：当某个参赛者被设为 N 号种子，其他参赛者上之前的 N 号被自动清成"非种子"
+function enforceSeedExclusivity(changed) {
+    const newValue = changed.value;
+    if (!newValue) return; // 改成"非种子"，无冲突
+    document.querySelectorAll('.seed-select').forEach(sel => {
+        if (sel === changed) return;
+        if (sel.value === newValue) {
+            sel.value = '';  // 把别人占用的同一个种子号清掉
+        }
+    });
+}
+
+// 位置互斥：玩家不能同时被指定到两个位置；轮空总数不能超过 n_byes_allowed
+function enforceSlotExclusivity(changed) {
+    const newValue = changed.value;
+    if (newValue === 'random') return; // 留空不互斥
+
+    // 玩家位置互斥：清掉其它 select 中相同的 player_id
+    if (newValue !== '__bye__') {
+        document.querySelectorAll('.slot-select').forEach(sel => {
+            if (sel === changed) return;
+            if (sel.value === newValue) sel.value = 'random';
+        });
+        return;
+    }
+
+    // 轮空：总数不能超过 n_byes_allowed
+    const nByesAllowed = parseInt(document.getElementById('n-byes-allowed').value || '0', 10);
+    const byeSelects = Array.from(document.querySelectorAll('.slot-select')).filter(s => s.value === '__bye__');
+    if (byeSelects.length > nByesAllowed) {
+        // 找最早的（除了 changed 之外的第一个 bye）撤回
+        const earliest = byeSelects.find(s => s !== changed);
+        if (earliest) earliest.value = 'random';
+        // 给用户一个提示
+        alert(`最多只能有 ${nByesAllowed} 个轮空位。已自动取消之前的一处轮空。`);
+    }
+}
+
+function confirmGenerate(e) {
+    return confirm('确认生成对阵？此后将无法修改报名名单。');
 }
 
 // 新建玩家弹窗

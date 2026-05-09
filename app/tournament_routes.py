@@ -187,7 +187,8 @@ def register_tournament_routes(app):
     @require_admin_auth
     @require_csrf_protection
     def tournament_register_create_player(tournament_id):
-        """新建玩家并直接报名到本赛事（管理员快捷操作）。"""
+        """新建一个全局玩家（不直接加入本赛事报名）。
+        与 game.html 的"+"逻辑一致：创建后让管理员在可选玩家列表里手动选中加入。"""
         tournament = get_tournament(tournament_id)
         if not tournament:
             flash('赛事不存在', 'error')
@@ -201,22 +202,16 @@ def register_tournament_routes(app):
             flash('玩家名称不能为空', 'error')
             return redirect(url_for('tournament_registration', tournament_id=tournament_id))
 
-        # 已存在 → 直接当作"添加现有"处理
+        # 已存在 → 提示，让管理员从可选列表里手动加入
         existing_id = get_player_by_name(name)
         if existing_id:
-            already_registered = any(p['player_id'] == existing_id for p in tournament['participants'])
-            if already_registered:
-                flash(f'玩家 "{name}" 已在报名名单中', 'error')
-            else:
-                add_participant(tournament_id, existing_id, None)
-                flash(f'玩家 "{name}" 已存在，已加入报名', 'success')
+            flash(f'玩家 "{name}" 已存在，请在下方"添加参赛者"列表中选择', 'success')
             return redirect(url_for('tournament_registration', tournament_id=tournament_id))
 
-        # 创建新 player + 报名
-        new_id = create_global_player(name)
+        # 创建新玩家（不报名）
+        create_global_player(name)
         save_data()
-        add_participant(tournament_id, new_id, None)
-        flash(f'已创建玩家 "{name}" 并加入报名', 'success')
+        flash(f'已创建玩家 "{name}"，请在下方"添加参赛者"列表中选择以加入报名', 'success')
         return redirect(url_for('tournament_registration', tournament_id=tournament_id))
 
     @app.route('/tournament/<tournament_id>/registration/remove', methods=['POST'])
