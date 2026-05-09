@@ -922,19 +922,30 @@ def get_player_tournament_history(player_id: str) -> List[Dict]:
 
 def _compute_placement(tournament_id: str, player_id: str,
                        bracket_size: Optional[int], status: str) -> str:
-    """根据 matches 表推算选手在该赛事的最终名次描述。"""
+    """根据 matches 表推算选手在该赛事的当前名次描述。
+
+    定义"最深一轮" = 选手作为 player1 或 player2 出现的最大 round_index 的那场 match
+    （包括尚未结束的）。
+    - 该 match 没结束：选手还在打这一轮 → "X 强 (进行中)"，X = 该轮还存活的人数
+    - 该 match 已结束且 winner == player：
+        - 是决赛 → 冠军
+        - 不是决赛：选手晋级了，但还没到下一轮 match (理论上 propagate 时会把他放进下一轮)
+          这种情况多半是数据中下一轮 match 已存在但还没显示在他的 match 列表里 ——
+          为安全起见仍按"还存活"显示
+    - 该 match 已结束且 winner != player → 在这一轮被淘汰
+        - 是决赛 → 亚军
+        - 否则 → "X 强"，X = 该轮还存活的人数
+    """
     if status == STATUS_DRAFT or status == STATUS_REGISTRATION or not bracket_size:
         return '已报名'
 
     with db.get_connection() as conn:
         cursor = conn.cursor()
-        # 拿到该选手所有有结果的 match
         cursor.execute('''
-            SELECT round_index, winner_id, player1_id, player2_id
+            SELECT round_index, winner_id, player1_id, player2_id, is_bye
             FROM tournament_matches
             WHERE tournament_id = ?
               AND (player1_id = ? OR player2_id = ?)
-              AND winner_id IS NOT NULL
             ORDER BY round_index DESC
         ''', (tournament_id, player_id, player_id))
         matches = cursor.fetchall()
@@ -942,18 +953,29 @@ def _compute_placement(tournament_id: str, player_id: str,
         if not matches:
             return '未出场'
 
-        # 总轮数
         total_rounds = int(math.log2(bracket_size))
+        deepest = matches[0]
+        deepest_round = deepest['round_index']
+        # 该轮"还存活"的人数 = 2^(total_rounds - deepest_round + 1)
+        # 例：8 人 bracket (3 轮)，R1=8 强，R2=4 强，R3=决赛(2 强 = 决赛)
+        survivors_in_round = 2 ** (total_rounds - deepest_round + 1)
 
-        # 找最后一场（最深的一轮）
-        last_match = matches[0]
-        last_round = last_match['round_index']
+        if deepest['winner_id'] is None:
+            # 这一轮还没结束：选手还在打
+            if deepest_round == total_rounds:
+                return '决赛中'
+            return f'{survivors_in_round} 强 (进行中)'
 
-        if last_match['winner_id'] == player_id and last_round == total_rounds:
-            return '冠军'
-        if last_match['winner_id'] != player_id and last_round == total_rounds:
+        # 这一轮已结束
+        if deepest['winner_id'] == player_id:
+            # 选手赢了，应该已被 propagate 到下一轮 match —— 如果没出现在更深一轮，
+            # 通常意味着下一轮 match 还没建好（极少数情况）。按"已晋级到 N/2 强"显示。
+            if deepest_round == total_rounds:
+                return '冠军'
+            next_survivors = 2 ** (total_rounds - deepest_round)
+            return f'晋级 {next_survivors} 强'
+
+        # 选手在这一轮被淘汰
+        if deepest_round == total_rounds:
             return '亚军'
-        # 在第 last_round 轮被淘汰：剩下的对手数 = 2^(total_rounds - last_round + 1) → 多少强
-        # 例如 8 人 bracket（3 轮），第 1 轮被淘汰 → 8 强；第 2 轮 → 4 强
-        survived_to = 2 ** (total_rounds - last_round + 1)
-        return f'{survived_to} 强'
+        return f'{survivors_in_round} 强'
