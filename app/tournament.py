@@ -417,29 +417,29 @@ def _build_bracket_layout(participants: List[Dict],
 
 def preview_bracket_layout(tournament_id: str,
                            manual_slots: Optional[Dict[int, str]] = None
-                           ) -> Optional[Dict]:
+                           ) -> Tuple[Optional[Dict], str]:
     """Dry-run 计算首轮 slot 布局，不写库。返回
-    { 'bracket_size': N, 'slots': { '1': player_id_or_'__bye__', ... } }
-    或 None 表示失败（参赛人数不足、轮数不够、约束冲突等）。
+    (result_dict, '') 成功，或 (None, error_message) 失败。
     """
     tournament = get_tournament(tournament_id)
     if not tournament:
-        return None
+        return None, '赛事不存在'
     if tournament['status'] not in (STATUS_DRAFT, STATUS_REGISTRATION):
-        return None
+        return None, '赛事已生成对阵'
     participants = tournament['participants']
     if len(participants) < 2:
-        return None
+        return None, f'至少需要 2 名参赛者（当前 {len(participants)} 人）'
 
     bracket_size = max(4, _next_power_of_2(len(participants)))
     expected_rounds = int(math.log2(bracket_size))
     if len(tournament['rounds']) < expected_rounds:
-        return None
+        return None, (f'轮数配置不够：{len(participants)} 人需要 '
+                      f'{expected_rounds} 轮，但只配了 {len(tournament["rounds"])} 轮')
 
     try:
         slots = _build_bracket_layout(participants, bracket_size, manual_slots=manual_slots)
-    except ValueError:
-        return None
+    except ValueError as e:
+        return None, f'手动 slot 设置冲突：{e}'
 
     # 把 None 映射回 '__bye__' 标记，方便前端识别
     payload_slots = {}
@@ -447,11 +447,12 @@ def preview_bracket_layout(tournament_id: str,
         slot_1based = str(idx + 1)
         payload_slots[slot_1based] = RESOURCE_BYE if val is None else val
 
-    return {'bracket_size': bracket_size, 'slots': payload_slots}
+    return {'bracket_size': bracket_size, 'slots': payload_slots}, ''
 
 
 def generate_bracket(tournament_id: str,
-                     manual_slots: Optional[Dict[int, str]] = None) -> bool:
+                     manual_slots: Optional[Dict[int, str]] = None
+                     ) -> Tuple[bool, str]:
     """
     根据当前报名 + 种子设置 + 手动 slot 指定，生成全部 rounds 的对阵记录。
 
@@ -466,16 +467,19 @@ def generate_bracket(tournament_id: str,
 
     参数：
       manual_slots: dict[slot_index_1based] = player_id 或 RESOURCE_BYE
+
+    返回：
+      (ok, message) — ok=False 时 message 包含具体失败原因
     """
     tournament = get_tournament(tournament_id)
     if not tournament:
-        return False
+        return False, '赛事不存在'
     if tournament['status'] not in (STATUS_DRAFT, STATUS_REGISTRATION):
-        return False
+        return False, '赛事已生成对阵，不能重复生成'
 
     participants = tournament['participants']
     if len(participants) < 2:
-        return False
+        return False, f'至少需要 2 名参赛者（当前 {len(participants)} 人）'
 
     bracket_size = max(4, _next_power_of_2(len(participants)))
 
@@ -483,13 +487,13 @@ def generate_bracket(tournament_id: str,
         first_round_slots = _build_bracket_layout(
             participants, bracket_size, manual_slots=manual_slots)
     except ValueError as e:
-        # 让调用方 (route) 把错误反馈给用户
-        print(f'generate_bracket failed: {e}')
-        return False
+        return False, f'手动 slot 设置冲突：{e}'
 
     expected_rounds = int(math.log2(bracket_size))
     if len(tournament['rounds']) < expected_rounds:
-        return False
+        return False, (f'轮数配置不够：{len(participants)} 人需要 {bracket_size} '
+                       f'个位置的淘汰赛（{expected_rounds} 轮），'
+                       f'但只配了 {len(tournament["rounds"])} 轮')
 
     now = get_utc_timestamp()
     with db.get_connection() as conn:
@@ -555,7 +559,7 @@ def generate_bracket(tournament_id: str,
         ''', (bracket_size, STATUS_IN_PROGRESS, now, tournament_id))
 
         conn.commit()
-    return True
+    return True, ''
 
 
 def _propagate_winner_to_next_round(cursor, tournament_id: str,

@@ -297,9 +297,9 @@ def register_tournament_routes(app):
             if raw and raw != 'random':
                 manual_slots[slot_1based] = raw
 
-        result = preview_bracket_layout(tournament_id, manual_slots=manual_slots or None)
+        result, err = preview_bracket_layout(tournament_id, manual_slots=manual_slots or None)
         if not result:
-            return jsonify({'ok': False, 'message': '生成预览失败：约束冲突或配置不足'}), 400
+            return jsonify({'ok': False, 'message': f'生成预览失败：{err}'}), 400
         return jsonify({'ok': True, **result})
 
     # ---------- 生成 bracket（管理员） ----------
@@ -330,9 +330,9 @@ def register_tournament_routes(app):
                 continue
             manual_slots[slot_1based] = raw  # 后端会校验是否合法
 
-        ok = generate_bracket(tournament_id, manual_slots=manual_slots or None)
+        ok, msg = generate_bracket(tournament_id, manual_slots=manual_slots or None)
         if not ok:
-            flash('生成对阵失败：参赛人数不足、轮数配置不够、或手动 slot 设置冲突', 'error')
+            flash(f'生成对阵失败：{msg}', 'error')
             return redirect(url_for('tournament_registration', tournament_id=tournament_id))
 
         flash('对阵已生成', 'success')
