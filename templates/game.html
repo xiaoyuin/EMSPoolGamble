@@ -814,6 +814,13 @@
             form.appendChild(playerNameInput);
             form.appendChild(timezoneInput);
 
+            // CSRF 令牌（路由要求 @require_csrf_protection）
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrf_token';
+            csrfInput.value = '{{ csrf_token() }}';
+            form.appendChild(csrfInput);
+
             document.body.appendChild(form);
             form.submit();
         }
@@ -1130,7 +1137,9 @@
                     {% endif %}
                 </button>
                 {% endfor %}
-                <button type="button" class="add-new-btn" onclick="showNewPlayerModal()">+</button>
+                {% if is_admin_authenticated() %}
+                <button type="button" class="add-new-btn" onclick="showNewPlayerModal()" title="新建玩家（管理员）">+</button>
+                {% endif %}
             </div>
             <div class="quick-add-actions">
                 <button type="button" id="batch-add-btn" class="btn-primary" onclick="batchAddPlayers()" disabled>添加选中的玩家</button>

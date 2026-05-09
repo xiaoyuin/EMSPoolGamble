@@ -118,7 +118,13 @@ def register_game_routes(app):
             flash('该用户名已存在', 'error')
             return redirect(url_for('game', session_id=session_id))
 
-        # 获取或创建玩家
+        # 仅当玩家已存在于系统时任何人可加入；新建玩家需管理员（v1.10 起收紧）
+        existing_player_id = get_player_by_name(new_player_name)
+        if not existing_player_id and not session.get('admin_authenticated'):
+            flash(f'玩家 "{new_player_name}" 不存在；新建玩家需管理员权限', 'error')
+            return redirect(url_for('game', session_id=session_id))
+
+        # 获取或创建玩家（管理员未到这里时，玩家已存在；管理员到这里则可创建）
         player_id = get_or_create_player(new_player_name)
 
         # 添加玩家到场次
@@ -160,16 +166,24 @@ def register_game_routes(app):
         added_players = []
         existing_players = []
         failed_players = []
+        unknown_players = []  # 不存在且当前用户无权创建的玩家
+
+        is_admin = session.get('admin_authenticated', False)
 
         for player_name in player_names:
             if not player_name or not player_name.strip():
                 continue
-                
+
             player_name = player_name.strip()
-            
+
             # 检查玩家是否已在场次中
             if player_name in game_session.get('players', set()):
                 existing_players.append(player_name)
+                continue
+
+            # 玩家系统中不存在 + 非管理员 → 拒绝创建（v1.10 起收紧）
+            if get_player_by_name(player_name) is None and not is_admin:
+                unknown_players.append(player_name)
                 continue
 
             try:
@@ -210,14 +224,20 @@ def register_game_routes(app):
             else:
                 messages.append(f'{len(failed_players)} 个玩家添加失败：{", ".join(failed_players)}')
 
+        if unknown_players:
+            if len(unknown_players) == 1:
+                messages.append(f'玩家 "{unknown_players[0]}" 不存在；新建玩家需管理员权限')
+            else:
+                messages.append(f'{len(unknown_players)} 个玩家不存在（需管理员创建）：{", ".join(unknown_players)}')
+
         # 根据结果类型显示消息
-        if added_players and not existing_players and not failed_players:
+        if added_players and not existing_players and not failed_players and not unknown_players:
             # 全部成功
             flash(messages[0], 'success')
         elif added_players:
             # 部分成功
             flash('，'.join(messages), 'success')
-        elif existing_players and not failed_players:
+        elif existing_players and not failed_players and not unknown_players:
             # 全部已存在
             flash('，'.join(messages), 'error')
         else:
@@ -410,8 +430,10 @@ def register_game_routes(app):
         return redirect(url_for('history'))
 
     @app.route('/create_and_select_player/<session_id>', methods=['POST'])
+    @require_admin_auth
+    @require_csrf_protection
     def create_and_select_player(session_id):
-        # 创建新玩家但不直接添加到场次，而是刷新页面让用户选择
+        # 创建新玩家（仅管理员，v1.10 起收紧）
         if session_id not in sessions:
             flash('场次不存在', 'error')
             return redirect(url_for('index'))
