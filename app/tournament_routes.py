@@ -62,16 +62,37 @@ def register_tournament_routes(app):
         )
 
     # ---------- 创建赛事（管理员） ----------
+    def _default_round_name(round_index: int, total_rounds: int, bracket_size: int) -> str:
+        """根据轮次和 bracket 大小生成默认轮次名。
+        最后一轮=决赛，倒数第二轮=半决赛，其余=N进M。
+        """
+        if round_index == total_rounds:
+            return '决赛'
+        if round_index == total_rounds - 1:
+            return '半决赛'
+        players_before = bracket_size // (2 ** (round_index - 1))
+        players_after = players_before // 2
+        return f'{players_before}进{players_after}'
+
+    def _default_rounds(total_rounds: int = 4, bracket_size: int = 16) -> list:
+        """生成默认轮次配置。"""
+        rounds = []
+        for i in range(1, total_rounds + 1):
+            name = _default_round_name(i, total_rounds, bracket_size)
+            # 决赛 BO9，半决赛 BO7，其余 BO5
+            if i == total_rounds:
+                best_of = 9
+            elif i == total_rounds - 1:
+                best_of = 7
+            else:
+                best_of = 5
+            rounds.append({'name': name, 'best_of': best_of})
+        return rounds
+
     @app.route('/tournament/new', methods=['GET'])
     @require_admin_auth
     def tournament_new():
-        # 默认提一个常见赛制建议（4 轮：16进8 → 8进4 → 半决赛 → 决赛）
-        default_rounds = [
-            {'name': '16进8', 'best_of': 5},
-            {'name': '8进4',  'best_of': 7},
-            {'name': '半决赛', 'best_of': 7},
-            {'name': '决赛',   'best_of': 9},
-        ]
+        default_rounds = _default_rounds(total_rounds=4, bracket_size=16)
         return render_template(
             'tournament_new.html',
             default_rounds=default_rounds,

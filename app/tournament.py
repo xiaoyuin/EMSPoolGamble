@@ -45,6 +45,7 @@ def create_tournament(name: str, rounds_config: List[Dict]) -> str:
          {'name': '8进4',  'best_of': 7},
          {'name': '半决赛', 'best_of': 7},
          {'name': '决赛',   'best_of': 9}]
+    轮次名命名规则：最后一轮=决赛，倒数第二轮=半决赛，其余=N进M。
 
     返回新建的 tournament_id。bracket_size 此时为 NULL，等到生成 bracket 时由
     报名人数决定（next power of 2，最小 4）。
