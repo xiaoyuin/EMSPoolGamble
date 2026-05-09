@@ -87,12 +87,13 @@
     .game-buttons button:hover { background: #5b1fb0; }
     .game-buttons button:disabled { background: #d9d9d9; cursor: not-allowed; }
 
-    .total-form { display: flex; gap: 0.5em; align-items: center; }
+    .total-form { display: flex; gap: 0.5em; align-items: center; justify-content: center; }
     .total-form input { width: 4em; padding: 0.5em; border: 1px solid #d9d9d9; border-radius: 4px; text-align: center; }
-    .total-form button { background: #1890ff; color: white; }
+    .total-form button { background: #1890ff; color: white; width: 100%; margin-top: 0.6em; }
     .total-form button:hover { background: #40a9ff; }
+    .total-form { flex-wrap: wrap; }
 
-    .reset-form button { background: #fff1f0; color: #ff4d4f; border: 1px solid #ffa39e; }
+    .reset-form button { background: #fff1f0; color: #ff4d4f; border: 1px solid #ffa39e; width: 100%; }
     .reset-form button:hover { background: #ffccc7; }
 
     .placeholder-msg {
