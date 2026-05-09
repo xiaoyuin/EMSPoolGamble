@@ -183,6 +183,7 @@ class DatabaseManager:
 
         # 检查并执行数据库升级
         self.upgrade_to_multi_loser_support()
+        self._migrate_round_names()
 
     def upgrade_to_multi_loser_support(self):
         """升级数据库以支持多败者记录"""
@@ -325,6 +326,22 @@ class DatabaseManager:
 
             conn.commit()
             print("数据库升级完成！")
+
+    def _migrate_round_names(self):
+        """将旧版轮次名 '1/8 决赛' → '16进8'，'1/4 决赛' → '8进4'。"""
+        renames = {
+            '1/8 决赛': '16进8',
+            '1/4 决赛': '8进4',
+        }
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            for old, new in renames.items():
+                cursor.execute(
+                    'UPDATE tournament_rounds SET round_name = ? WHERE round_name = ?',
+                    (new, old))
+                if cursor.rowcount > 0:
+                    print(f'轮次名迁移："{old}" → "{new}"（{cursor.rowcount} 条）')
+            conn.commit()
 
     # ===== 玩家相关操作 =====
 
