@@ -201,16 +201,18 @@
         </div>
     </div>
     {% elif match.winner_id %}
-    <div class="record-block">
-        <label>撤销结果</label>
-        <div class="help">将清空本场比分并重置下一轮对应位置。如果下一轮已经开打，请先撤销下一轮。</div>
-        <form method="post"
-              action="{{ url_for('tournament_match_reset', tournament_id=tournament.tournament_id, match_id=match.match_id) }}"
-              class="reset-form"
-              onsubmit="return confirm('确定要撤销本场结果？');">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit">撤销</button>
-        </form>
+    <div class="record-options">
+        <div class="record-block">
+            <label>撤销结果</label>
+            <div class="help">将清空本场比分并重置下一轮对应位置。如果下一轮已经开打，请先撤销下一轮。</div>
+            <form method="post"
+                  action="{{ url_for('tournament_match_reset', tournament_id=tournament.tournament_id, match_id=match.match_id) }}"
+                  class="reset-form"
+                  onsubmit="return confirm('确定要撤销本场结果？');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit">撤销</button>
+            </form>
+        </div>
     </div>
     {% endif %}
 
