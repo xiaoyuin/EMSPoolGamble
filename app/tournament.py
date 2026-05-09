@@ -355,38 +355,29 @@ def _build_bracket_layout(participants: List[Dict],
     # 总 bye 数 = bracket_size - 参赛人数
     total_byes = bracket_size - n
 
-    # 目标：让上下半区各自的 bye 总数（已锁 + 待分配）尽量均等
-    # 先算理想目标，再根据已锁 bye 和可用 slot 做 clamp
-    if total_byes > 0:
-        # 奇数 bye 时多出的 1 个给剩余空 slot 更多的那个半区（打破随机性）
-        if total_byes % 2 == 1:
-            if upper_remaining_slot_count >= lower_remaining_slot_count:
-                target_upper_byes = total_byes // 2 + 1
-            else:
-                target_upper_byes = total_byes // 2
-        else:
-            target_upper_byes = total_byes // 2
-    else:
-        target_upper_byes = 0
-    target_lower_byes = total_byes - target_upper_byes
+    # 目标：让上下半区各自的 bye 总数（已锁 + 待分配）尽量均等，
+    # 但必须受限于各半区实际剩余 slot 数。
+    #
+    # 当管理员手动填完所有选手后，剩余 slot 可能全部集中在同一半区，
+    # 这时 bye 只能全部放到那个半区，不能硬往没有空位的半区分配。
 
-    # 各半区"还需要放置"的 bye 数 = 目标 - 已被手动锁定的
-    # 已锁 bye 超过目标时 clamp 到 0，多余的由另一半区补
-    upper_bye_to_place = max(0, target_upper_byes - upper_locked_byes)
-    lower_bye_to_place = max(0, target_lower_byes - lower_locked_byes)
+    # Step 1: 算出各半区"还需要放置"的理想 bye 数
+    ideal_upper = max(0, (total_byes + 1) // 2 - upper_locked_byes)
+    ideal_lower = max(0, total_byes // 2 - lower_locked_byes)
 
-    # 校正：clamp 可能导致总数不够，把差额分给有空间的半区
+    # Step 2: clamp 到各半区实际可用 slot 数
+    upper_bye_to_place = min(ideal_upper, upper_remaining_slot_count)
+    lower_bye_to_place = min(ideal_lower, lower_remaining_slot_count)
+
+    # Step 3: 校正——clamp 后总数可能不够，把差额给有空间的半区
     placed = upper_bye_to_place + lower_bye_to_place
-    if placed != n_byes_needed:
+    if placed < n_byes_needed:
         delta = n_byes_needed - placed
-        # 优先放到有更多空余 slot 的半区
         upper_capacity = upper_remaining_slot_count - upper_bye_to_place
         lower_capacity = lower_remaining_slot_count - lower_bye_to_place
-        if delta > 0:
-            give_upper = min(delta, upper_capacity)
-            give_upper = max(0, give_upper)
-            upper_bye_to_place += give_upper
-            lower_bye_to_place += delta - give_upper
+        give_upper = min(delta, upper_capacity)
+        upper_bye_to_place += give_upper
+        lower_bye_to_place += delta - give_upper
 
     # 各半区分别构建池子（玩家 + bye），洗牌后依次填该半区剩余 slot
     upper_remaining_slot_idx = [i for i in remaining_slots if upper_half(i)]
