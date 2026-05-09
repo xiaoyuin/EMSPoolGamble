@@ -112,6 +112,8 @@
             display: flex;
             align-items: center;
             gap: 1em;
+            flex: 1;
+            min-width: 0;
         }
 
         .master-rank {
@@ -126,6 +128,7 @@
             font-weight: bold;
             font-size: 1em;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            flex-shrink: 0;
         }
 
         .master-rank.top-3 {
@@ -137,6 +140,17 @@
             font-weight: bold;
             color: #333;
             font-size: 1.2em;
+            display: flex;
+            align-items: center;
+            gap: 0.5em;
+            min-width: 0;
+        }
+
+        .player-name-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
         }
 
         .master-title {
@@ -145,7 +159,8 @@
             padding: 2px 8px;
             border-radius: 10px;
             font-size: 0.75em;
-            margin-left: 0.5em;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .master-stats {
@@ -329,7 +344,7 @@
                     <div class="master-rank {% if loop.index <= 3 %}top-3{% endif %}">{{ loop.index }}</div>
                     <div>
                         <div class="master-name">
-                            {{ player.name }}
+                            <span class="player-name-text">{{ player.name }}</span>
                             <span class="master-title">达人</span>
                         </div>
                     </div>

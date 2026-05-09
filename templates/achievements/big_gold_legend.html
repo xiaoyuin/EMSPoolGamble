@@ -113,6 +113,8 @@
             display: flex;
             align-items: center;
             gap: 1em;
+            flex: 1;
+            min-width: 0;
         }
 
         .legend-rank {
@@ -127,6 +129,7 @@
             font-weight: bold;
             font-size: 1.1em;
             box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+            flex-shrink: 0;
         }
 
         .legend-rank.supreme {
@@ -139,6 +142,17 @@
             font-weight: bold;
             color: #333;
             font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 0.5em;
+            min-width: 0;
+        }
+
+        .player-name-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
         }
 
         .legend-title {
@@ -147,7 +161,8 @@
             padding: 3px 10px;
             border-radius: 12px;
             font-size: 0.8em;
-            margin-left: 0.5em;
+            white-space: nowrap;
+            flex-shrink: 0;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
 
@@ -306,7 +321,7 @@
                     <div class="legend-rank {% if loop.index == 1 %}supreme{% endif %}">{{ loop.index }}</div>
                     <div>
                         <div class="legend-name">
-                            {{ player.name }}
+                            <span class="player-name-text">{{ player.name }}</span>
                             <span class="legend-title">传奇</span>
                         </div>
                     </div>
