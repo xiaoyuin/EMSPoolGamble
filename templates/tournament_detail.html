@@ -101,35 +101,33 @@
     /* Bracket tab 视图 */
     .round-tabs {
         display: flex;
-        gap: 0;
+        gap: 0.4em;
         margin-bottom: 1em;
         overflow-x: auto;
         scrollbar-width: none;        /* Firefox */
         -ms-overflow-style: none;     /* IE/Edge legacy */
-        border-bottom: 2px solid #f0f0f0;
     }
     .round-tabs::-webkit-scrollbar { display: none; }   /* Chrome/Safari */
     .round-tab {
         flex-shrink: 0;
         background: none; border: none;
-        padding: 0.7em 1em;
+        padding: 0.5em 0.9em;
         font-size: 0.9em;
         color: #888;
         cursor: pointer;
         white-space: nowrap;
-        transition: color 0.15s, border-color 0.15s;
+        transition: color 0.15s, background 0.15s;
         display: flex; align-items: center; gap: 0.4em;
-        border-bottom: 2px solid transparent;
-        margin-bottom: -2px;
+        border-radius: 6px;
     }
-    .round-tab:hover { color: #722ed1; }
+    .round-tab:hover { color: #555; background: #f5f5f5; }
     .round-tab.active {
         color: #722ed1;
         font-weight: 600;
-        border-bottom-color: #722ed1;
+        background: #f0e6ff;
     }
     .round-tab.tab-done { color: #999; }
-    .round-tab.tab-done.active { color: #722ed1; border-bottom-color: #722ed1; }
+    .round-tab.tab-done.active { color: #722ed1; background: #f0e6ff; }
     .round-tab .tab-progress {
         font-size: 0.75em;
         background: #f0f0f0;
