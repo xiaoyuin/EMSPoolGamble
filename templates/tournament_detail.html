@@ -179,6 +179,22 @@
         color: #722ed1; font-weight: 600;
     }
     .match-bye-row .match-player { color: #999; }
+    .seed-tag {
+        display: inline-block;
+        margin-left: 0.4em;
+        font-size: 0.7em;
+        color: #fa8c16;
+        background: #fff7e6;
+        border: 1px solid #ffd591;
+        border-radius: 8px;
+        padding: 0 6px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+    }
+    .match-side.side-winner .seed-tag {
+        background: rgba(250, 140, 22, 0.15);
+        border-color: rgba(250, 140, 22, 0.4);
+    }
     .match-card-link {
         display: block; text-decoration: none; color: inherit;
         margin-bottom: 0.5em;
@@ -261,7 +277,7 @@
                 <div class="match-side {% if m.winner_id == m.player1_id %}side-winner{% endif %}">
                     <span class="match-player">
                         {% if m.player1_id %}
-                            {{ m.player1_name }}
+                            {{ m.player1_name }}{% if m.player1_seed %}<span class="seed-tag">{{ m.player1_seed }} 号种子</span>{% endif %}
                         {% elif m.prev_p1_number %}
                             <span class="match-tbd">对阵 {{ m.prev_p1_number }} 胜者</span>
                         {% else %}
@@ -281,7 +297,7 @@
                 <div class="match-side {% if m.winner_id == m.player2_id %}side-winner{% endif %}">
                     <span class="match-player">
                         {% if m.player2_id %}
-                            {{ m.player2_name }}
+                            {{ m.player2_name }}{% if m.player2_seed %}<span class="seed-tag">{{ m.player2_seed }} 号种子</span>{% endif %}
                         {% elif m.prev_p2_number %}
                             <span class="match-tbd">对阵 {{ m.prev_p2_number }} 胜者</span>
                         {% else %}

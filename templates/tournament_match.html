@@ -44,6 +44,20 @@
     .scoreboard .games-won { font-size: 2.6em; color: #722ed1; font-weight: 700; line-height: 1; margin-top: 0.4em; }
     .scoreboard .vs { font-size: 1.4em; color: #bbb; padding: 0 0.4em; }
 
+    .seed-tag {
+        display: inline-block;
+        margin-left: 0.4em;
+        font-size: 0.62em;
+        color: #fa8c16;
+        background: #fff7e6;
+        border: 1px solid #ffd591;
+        border-radius: 8px;
+        padding: 1px 6px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        vertical-align: middle;
+    }
+
     .target-info { color: #888; font-size: 0.85em; text-align: center; margin-top: 0.6em; }
 
     .games-log { margin-top: 1em; }
@@ -115,7 +129,7 @@
     <div class="player-block {% if match.winner_id == match.player1_id %}is-winner{% endif %}">
         <div class="player-name">
             {% if match.player1_id %}
-                <a href="{{ url_for('player_detail', player_id=match.player1_id) }}" class="player-link">{{ match.player1_name }}</a>
+                <a href="{{ url_for('player_detail', player_id=match.player1_id) }}" class="player-link">{{ match.player1_name }}</a>{% if match.player1_seed %}<span class="seed-tag">{{ match.player1_seed }} 号种子</span>{% endif %}
             {% elif match.prev_p1_number %}
                 <span style="color:#bbb;font-style:italic;">对阵 {{ match.prev_p1_number }} 胜者</span>
             {% else %}<span style="color:#bbb;font-style:italic;">待定</span>{% endif %}
@@ -128,7 +142,7 @@
             {% if match.is_bye %}
                 <span style="color:#bbb;font-style:italic;">— 轮空 —</span>
             {% elif match.player2_id %}
-                <a href="{{ url_for('player_detail', player_id=match.player2_id) }}" class="player-link">{{ match.player2_name }}</a>
+                <a href="{{ url_for('player_detail', player_id=match.player2_id) }}" class="player-link">{{ match.player2_name }}</a>{% if match.player2_seed %}<span class="seed-tag">{{ match.player2_seed }} 号种子</span>{% endif %}
             {% elif match.prev_p2_number %}
                 <span style="color:#bbb;font-style:italic;">对阵 {{ match.prev_p2_number }} 胜者</span>
             {% else %}<span style="color:#bbb;font-style:italic;">待定</span>{% endif %}

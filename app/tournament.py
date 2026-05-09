@@ -542,6 +542,7 @@ def get_bracket(tournament_id: str) -> List[List[Dict]]:
       - match_number: 全局序号（按 round_index, slot_index 顺序累加）
       - prev_p1_number / prev_p2_number: 上一轮对应那场的 match_number，
         仅在玩家未确定时用于 UI 显示「对阵 N 胜者」占位。
+      - player1_seed / player2_seed: 该玩家在本赛事的种子号（1-4 或 None）
     """
     with db.get_connection() as conn:
         cursor = conn.cursor()
@@ -550,11 +551,17 @@ def get_bracket(tournament_id: str) -> List[List[Dict]]:
                    p1.name AS player1_name,
                    p2.name AS player2_name,
                    pw.name AS winner_name,
+                   tp1.seed AS player1_seed,
+                   tp2.seed AS player2_seed,
                    r.round_name, r.best_of
             FROM tournament_matches m
             LEFT JOIN players p1 ON p1.player_id = m.player1_id
             LEFT JOIN players p2 ON p2.player_id = m.player2_id
             LEFT JOIN players pw ON pw.player_id = m.winner_id
+            LEFT JOIN tournament_participants tp1
+                ON tp1.tournament_id = m.tournament_id AND tp1.player_id = m.player1_id
+            LEFT JOIN tournament_participants tp2
+                ON tp2.tournament_id = m.tournament_id AND tp2.player_id = m.player2_id
             JOIN tournament_rounds r ON r.tournament_id = m.tournament_id AND r.round_index = m.round_index
             WHERE m.tournament_id = ?
             ORDER BY m.round_index, m.slot_index
@@ -600,12 +607,18 @@ def get_match(match_id: str) -> Optional[Dict]:
                    p1.name AS player1_name,
                    p2.name AS player2_name,
                    pw.name AS winner_name,
+                   tp1.seed AS player1_seed,
+                   tp2.seed AS player2_seed,
                    r.round_name, r.best_of,
                    t.name AS tournament_name, t.status AS tournament_status
             FROM tournament_matches m
             LEFT JOIN players p1 ON p1.player_id = m.player1_id
             LEFT JOIN players p2 ON p2.player_id = m.player2_id
             LEFT JOIN players pw ON pw.player_id = m.winner_id
+            LEFT JOIN tournament_participants tp1
+                ON tp1.tournament_id = m.tournament_id AND tp1.player_id = m.player1_id
+            LEFT JOIN tournament_participants tp2
+                ON tp2.tournament_id = m.tournament_id AND tp2.player_id = m.player2_id
             JOIN tournament_rounds r ON r.tournament_id = m.tournament_id AND r.round_index = m.round_index
             JOIN tournaments t ON t.tournament_id = m.tournament_id
             WHERE m.match_id = ?
