@@ -198,6 +198,51 @@
             justify-content: center;
         }
         .filter-period-tag { color: #666; font-size: 0.9em; font-weight: normal; margin-left: 0.5em; }
+
+        /* 杯赛战绩 */
+        .tournament-history-list { display: flex; flex-direction: column; gap: 0.5em; }
+        .tournament-history-row {
+            display: flex; align-items: center; gap: 0.8em;
+            padding: 0.7em 0.8em;
+            background: #fafafa;
+            border-radius: 6px;
+            border-left: 4px solid #722ed1;
+            text-decoration: none;
+            color: inherit;
+            transition: background 0.15s;
+        }
+        .tournament-history-row:hover { background: #f5edff; text-decoration: none; color: inherit; }
+        .th-name {
+            flex: 1; min-width: 0;
+            font-weight: 600; color: #333;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .th-seed {
+            display: inline-block;
+            background: #fa8c16; color: white;
+            border-radius: 8px; padding: 1px 6px;
+            font-size: 0.7em; margin-left: 0.4em; font-weight: 600;
+        }
+        .th-meta {
+            font-size: 0.8em; color: #888;
+            flex-shrink: 0;
+        }
+        .th-placement {
+            font-weight: 700; font-size: 0.95em;
+            padding: 4px 10px; border-radius: 8px;
+            background: #f0f0f0; color: #666;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+        .th-placement--冠军     { background: linear-gradient(135deg, #ffd700, #ffa500); color: white; }
+        .th-placement--亚军     { background: #d3adf7; color: #531dab; }
+        .th-placement--已报名   { background: #e6f7ff; color: #1890ff; }
+        .th-placement--未出场   { background: #f5f5f5; color: #999; }
+        @media (max-width: 480px) {
+            .tournament-history-row { flex-wrap: wrap; }
+            .th-name { flex-basis: 100%; }
+            .th-meta, .th-placement { font-size: 0.8em; }
+        }
     </style>
 </head>
 <body>
@@ -352,6 +397,34 @@
             注意：更改名字会影响所有历史记录中的显示
         </div>
     </div>
+
+    <!-- 杯赛战绩 -->
+    {% if tournament_history %}
+    <div class="card">
+        <h3>🏆 杯赛战绩</h3>
+        <div class="tournament-history-list">
+            {% for t in tournament_history %}
+            <a href="/tournament/{{ t.tournament_id }}" class="tournament-history-row">
+                <div class="th-name">
+                    {{ t.name }}
+                    {% if t.seed %}<span class="th-seed">#{{ t.seed }} 种子</span>{% endif %}
+                </div>
+                <div class="th-meta">
+                    {% if t.completed_at %}
+                    <span data-utc-time="{{ t.completed_at }}">{{ t.completed_at }}</span>
+                    {% else %}
+                    <span data-utc-time="{{ t.created_at }}">{{ t.created_at }}</span>
+                    {% endif %}
+                    · {{ t.status }}
+                </div>
+                <div class="th-placement th-placement--{{ t.placement|replace(' ','') }}">
+                    {{ t.placement }}
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 
     <!-- 对手统计 -->
     {% if opponents %}

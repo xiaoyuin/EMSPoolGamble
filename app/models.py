@@ -195,6 +195,12 @@ def get_available_months_for_player(player_id: str) -> List[Dict]:
     return db.get_available_months_for_player(player_id)
 
 
+def get_player_tournament_history(player_id: str) -> List[Dict]:
+    """获取该玩家参与过的所有杯赛及最终成绩。"""
+    from .tournament import get_player_tournament_history as _impl
+    return _impl(player_id)
+
+
 def get_earliest_session_date() -> Optional[str]:
     """获取最早的会话日期（用于默认日期范围）"""
     sessions = db.get_all_sessions()

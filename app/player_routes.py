@@ -9,7 +9,8 @@ from .models import (sessions, players, save_data,
                      get_player_by_name, get_player_name, get_or_create_player,
                      update_player_name, get_player_by_id, get_player_records,
                      get_player_stats, get_player_special_wins, get_players_special_wins_batch,
-                     get_available_months_for_player)
+                     get_available_months_for_player,
+                     get_player_tournament_history)
 from .security import require_admin_auth, require_csrf_protection
 from . import APP_VERSION
 
@@ -236,6 +237,9 @@ def register_player_routes(app):
                 'is_winner': record['is_winner']
             })
 
+        # 杯赛战绩（始终全时段，与时间筛选解耦——杯赛是离散活动）
+        tournament_history = get_player_tournament_history(player_id)
+
         return render_template(
             'player_detail.html',
             player=player,
@@ -255,6 +259,7 @@ def register_player_routes(app):
             default_start_date=default_start_date,
             default_end_date=default_end_date,
             all_sessions_total=all_sessions_total,
+            tournament_history=tournament_history,
             app_version=APP_VERSION
         )
 
