@@ -20,7 +20,7 @@ Tournament 路由模块（v1.10）
 from flask import render_template, request, redirect, url_for, flash
 from .security import require_admin_auth, require_csrf_protection
 from . import APP_VERSION
-from .models import players, get_player_by_id
+from .models import players, get_player_by_id, get_player_by_name, create_player as create_global_player, save_data
 from .database import db
 from .tournament import (
     create_tournament, list_tournaments, get_tournament,
@@ -181,6 +181,42 @@ def register_tournament_routes(app):
             flash(f'成功添加 {added} 名参赛者', 'success')
         else:
             flash('未添加任何参赛者', 'error')
+        return redirect(url_for('tournament_registration', tournament_id=tournament_id))
+
+    @app.route('/tournament/<tournament_id>/registration/create_player', methods=['POST'])
+    @require_admin_auth
+    @require_csrf_protection
+    def tournament_register_create_player(tournament_id):
+        """新建玩家并直接报名到本赛事（管理员快捷操作）。"""
+        tournament = get_tournament(tournament_id)
+        if not tournament:
+            flash('赛事不存在', 'error')
+            return redirect(url_for('tournament_index'))
+        if tournament['status'] not in (STATUS_DRAFT, STATUS_REGISTRATION):
+            flash('赛事已生成对阵，无法再修改报名', 'error')
+            return redirect(url_for('tournament_detail', tournament_id=tournament_id))
+
+        name = request.form.get('new_player_name', '').strip()
+        if not name:
+            flash('玩家名称不能为空', 'error')
+            return redirect(url_for('tournament_registration', tournament_id=tournament_id))
+
+        # 已存在 → 直接当作"添加现有"处理
+        existing_id = get_player_by_name(name)
+        if existing_id:
+            already_registered = any(p['player_id'] == existing_id for p in tournament['participants'])
+            if already_registered:
+                flash(f'玩家 "{name}" 已在报名名单中', 'error')
+            else:
+                add_participant(tournament_id, existing_id, None)
+                flash(f'玩家 "{name}" 已存在，已加入报名', 'success')
+            return redirect(url_for('tournament_registration', tournament_id=tournament_id))
+
+        # 创建新 player + 报名
+        new_id = create_global_player(name)
+        save_data()
+        add_participant(tournament_id, new_id, None)
+        flash(f'已创建玩家 "{name}" 并加入报名', 'success')
         return redirect(url_for('tournament_registration', tournament_id=tournament_id))
 
     @app.route('/tournament/<tournament_id>/registration/remove', methods=['POST'])

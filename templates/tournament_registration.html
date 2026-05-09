@@ -73,6 +73,45 @@
     .quick-add-actions .btn-secondary:disabled { background: #f5f5f5; color: #bfbfbf; cursor: not-allowed; }
     .selection-count { font-size: 0.85em; color: #888; }
 
+    /* 新建玩家"+"按钮（参考 game.html 的 add-new-btn） */
+    .add-new-btn {
+        background: #f9f9f9; color: #666;
+        border: 2px dashed #d9d9d9; border-radius: 5px;
+        padding: 0.5em 0.9em; font-size: 1.2em;
+        cursor: pointer; transition: all 0.2s;
+        display: inline-flex; align-items: center; justify-content: center;
+        min-height: 2.6em;
+        box-sizing: border-box;
+    }
+    .add-new-btn:hover { background: #e6f7ff; border-color: #1890ff; color: #1890ff; }
+
+    /* 新建玩家弹窗 */
+    .new-player-modal {
+        display: none;
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5); z-index: 1000;
+    }
+    .new-player-modal .modal-content {
+        position: absolute; top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        background: white; padding: 1.5em;
+        border-radius: 10px; min-width: 280px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .new-player-modal .modal-header { font-size: 1.1em; font-weight: 600; margin-bottom: 1em; }
+    .new-player-modal input[type=text] {
+        width: 100%; padding: 0.6em;
+        border: 1px solid #d9d9d9; border-radius: 4px;
+        font-size: 1em; box-sizing: border-box;
+        margin-bottom: 1em;
+    }
+    .new-player-modal .modal-buttons { display: flex; gap: 0.5em; justify-content: flex-end; }
+    .new-player-modal .modal-buttons button {
+        padding: 0.5em 1.2em; border-radius: 4px; border: none; cursor: pointer; font-weight: 500;
+    }
+    .new-player-modal .btn-cancel { background: #f5f5f5; color: #595959; border: 1px solid #d9d9d9; }
+    .new-player-modal .btn-create { background: #722ed1; color: white; }
+
     .save-bar { display: flex; gap: 0.5em; margin-top: 0.8em; }
     .save-bar button { flex: 1; padding: 0.7em; border-radius: 5px; border: none; font-weight: 600; cursor: pointer; }
     .btn-primary { background: #1890ff; color: white; }
@@ -174,10 +213,14 @@
 <div class="card">
     <h3 class="section-title">添加参赛者</h3>
     <div class="help">
-        点击玩家选中/取消选中。如果赛事需要的玩家还不在系统里，
-        请先<a href="/game" target="_blank">在某个场次中创建</a>（需管理员权限），然后回到此页。
+        点击玩家选中/取消选中。
+        {% if is_admin_authenticated() %}
+        如果赛事需要的玩家还不在系统里，点击列表末尾的 <strong>+</strong> 按钮直接新建。
+        {% else %}
+        如果赛事需要的玩家还不在系统里，需要管理员权限来创建。
+        {% endif %}
     </div>
-    {% if available_players %}
+    {% if available_players or is_admin_authenticated() %}
     <form method="post" action="{{ url_for('tournament_register_add', tournament_id=tournament.tournament_id) }}" id="add-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="available-grid" id="available-grid">
@@ -188,7 +231,11 @@
                 {{ p.name }}
             </button>
             {% endfor %}
+            {% if is_admin_authenticated() %}
+            <button type="button" class="add-new-btn" onclick="showNewPlayerModal()" title="新建玩家">+</button>
+            {% endif %}
         </div>
+        {% if available_players %}
         <div class="quick-add-actions">
             <button type="button" id="batch-add-btn" class="btn-primary" onclick="submitAddSelected()" disabled>
                 添加选中 <span id="selection-count" class="selection-count"></span>
@@ -197,11 +244,29 @@
                 清空选择
             </button>
         </div>
+        {% endif %}
     </form>
     {% else %}
         <div class="help">所有已存在玩家都已报名</div>
     {% endif %}
 </div>
+
+{# 新建玩家弹窗（管理员可见） #}
+{% if is_admin_authenticated() %}
+<div id="newPlayerModal" class="new-player-modal">
+    <div class="modal-content">
+        <div class="modal-header">新建玩家</div>
+        <form method="post" action="{{ url_for('tournament_register_create_player', tournament_id=tournament.tournament_id) }}" id="newPlayerForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="text" name="new_player_name" id="modalPlayerName" placeholder="玩家名字" autocomplete="off" required>
+            <div class="modal-buttons">
+                <button type="button" class="btn-cancel" onclick="hideNewPlayerModal()">取消</button>
+                <button type="submit" class="btn-create">创建并报名</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
 
 {% if tournament.participants|length >= 2 %}
 <div class="card generate-bracket-card">
@@ -283,5 +348,34 @@ function submitAddSelected() {
     });
     form.submit();
 }
+
+// 新建玩家弹窗
+function showNewPlayerModal() {
+    const modal = document.getElementById('newPlayerModal');
+    if (!modal) return;
+    modal.style.display = 'block';
+    const input = document.getElementById('modalPlayerName');
+    if (input) {
+        input.value = '';
+        setTimeout(() => input.focus(), 50);
+    }
+}
+function hideNewPlayerModal() {
+    const modal = document.getElementById('newPlayerModal');
+    if (modal) modal.style.display = 'none';
+}
+document.addEventListener('DOMContentLoaded', function() {
+    // ESC 关闭
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') hideNewPlayerModal();
+    });
+    // 点击 backdrop 关闭
+    const modal = document.getElementById('newPlayerModal');
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) hideNewPlayerModal();
+        });
+    }
+});
 </script>
 {% endblock %}
