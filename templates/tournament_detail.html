@@ -98,17 +98,52 @@
         margin-top: 1em;
     }
 
-    /* Bracket 展示 */
-    .bracket-round { margin-bottom: 1.5em; }
-    .bracket-round:last-child { margin-bottom: 0; }
-    .bracket-round-title {
-        font-weight: 600;
-        color: #722ed1;
-        margin-bottom: 0.6em;
-        padding-bottom: 0.3em;
+    /* Bracket tab 视图 */
+    .round-tabs {
+        display: flex;
+        gap: 0;
         border-bottom: 2px solid #f0e6ff;
+        margin-bottom: 1em;
+        overflow-x: auto;
+        scrollbar-width: thin;
     }
-    .bracket-round-title .round-meta { color: #888; font-weight: normal; font-size: 0.85em; margin-left: 0.5em; }
+    .round-tab {
+        flex-shrink: 0;
+        background: none; border: none;
+        padding: 0.6em 0.9em;
+        font-size: 0.9em;
+        color: #888;
+        cursor: pointer;
+        white-space: nowrap;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px; /* 让选中态的下划线盖住容器的 border */
+        transition: all 0.15s;
+        display: flex; align-items: center; gap: 0.4em;
+    }
+    .round-tab:hover { color: #722ed1; }
+    .round-tab.active {
+        color: #722ed1;
+        font-weight: 600;
+        border-bottom-color: #722ed1;
+    }
+    .round-tab.tab-done { color: #999; }
+    .round-tab.tab-done.active { color: #722ed1; }
+    .round-tab .tab-progress {
+        font-size: 0.75em;
+        background: #f0f0f0;
+        color: #888;
+        padding: 1px 6px;
+        border-radius: 8px;
+        font-weight: 500;
+    }
+    .round-tab.active .tab-progress { background: #f0e6ff; color: #722ed1; }
+    .round-tab.tab-done.active .tab-progress { background: #f6ffed; color: #52c41a; }
+    .round-tab .tab-check { color: #52c41a; font-size: 0.95em; }
+
+    .round-pane { display: none; }
+    .round-pane.active { display: block; }
+    .round-meta-line { color: #888; font-size: 0.85em; margin-bottom: 0.6em; }
+
     .match-card {
         background: #fafafa;
         border: 1px solid #f0f0f0;
@@ -165,11 +200,48 @@
 <div class="card">
     <h3 class="section-title">对阵</h3>
     {% if bracket %}
+        {# 计算每轮完成情况，决定默认显示哪个 tab + tab 上的徽章 #}
+        {% set round_stats = [] %}
         {% for round_matches in bracket %}
-        <div class="bracket-round">
-            <div class="bracket-round-title">
-                {{ round_matches[0].round_name }}
-                <span class="round-meta">{{ round_matches[0].best_of }} 局 {{ (round_matches[0].best_of // 2) + 1 }} 胜</span>
+            {% set ns = namespace(done=0) %}
+            {% for m in round_matches %}{% if m.winner_id %}{% set ns.done = ns.done + 1 %}{% endif %}{% endfor %}
+            {% set _ = round_stats.append({'done': ns.done, 'total': round_matches|length}) %}
+        {% endfor %}
+        {# 默认 tab：第一个未完成的轮；若全部完成，默认到最后一个（决赛） #}
+        {% set default_ns = namespace(idx=-1) %}
+        {% for s in round_stats %}
+            {% if default_ns.idx == -1 and s.done < s.total %}
+                {% set default_ns.idx = loop.index0 %}
+            {% endif %}
+        {% endfor %}
+        {% if default_ns.idx == -1 %}
+            {% set default_ns.idx = bracket|length - 1 %}
+        {% endif %}
+
+        <div class="round-tabs" role="tablist">
+            {% for round_matches in bracket %}
+                {% set s = round_stats[loop.index0] %}
+                {% set is_round_done = s.done == s.total %}
+            <button type="button"
+                    class="round-tab {% if loop.index0 == default_ns.idx %}active{% endif %} {% if is_round_done %}tab-done{% endif %}"
+                    data-round-idx="{{ loop.index0 }}"
+                    onclick="selectRoundTab(this)">
+                <span>{{ round_matches[0].round_name }}</span>
+                {% if is_round_done %}
+                <span class="tab-check">✓</span>
+                {% else %}
+                <span class="tab-progress">{{ s.done }}/{{ s.total }}</span>
+                {% endif %}
+            </button>
+            {% endfor %}
+        </div>
+
+        {% for round_matches in bracket %}
+        <div class="round-pane {% if loop.index0 == default_ns.idx %}active{% endif %}"
+             data-round-idx="{{ loop.index0 }}">
+            <div class="round-meta-line">
+                {{ round_matches[0].best_of }} 局 {{ (round_matches[0].best_of // 2) + 1 }} 胜
+                · 共 {{ round_matches|length }} 场
             </div>
             {% for m in round_matches %}
             <a href="{{ url_for('tournament_match', tournament_id=tournament.tournament_id, match_id=m.match_id) }}"
@@ -257,4 +329,14 @@
     </div>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function selectRoundTab(btn) {
+    const idx = btn.dataset.roundIdx;
+    document.querySelectorAll('.round-tab').forEach(t => t.classList.toggle('active', t.dataset.roundIdx === idx));
+    document.querySelectorAll('.round-pane').forEach(p => p.classList.toggle('active', p.dataset.roundIdx === idx));
+}
+</script>
 {% endblock %}
