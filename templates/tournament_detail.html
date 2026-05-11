@@ -209,6 +209,11 @@
     }
     .match-card.match-done { background: #fff; border-color: #d3adf7; }
     .match-card.match-bye  { opacity: 0.75; }
+    .match-card.match-live {
+        background: #fff;
+        border-color: #ffd591;
+        box-shadow: 0 0 0 1px rgba(250, 140, 22, 0.25), 0 1px 3px rgba(250, 140, 22, 0.15);
+    }
     .match-card-header {
         display: flex; align-items: center; justify-content: space-between;
         padding: 0.3em 0.7em;
@@ -235,6 +240,25 @@
     .match-side .match-score {
         flex-shrink: 0; min-width: 1.6em; text-align: right;
         color: #722ed1; font-weight: 600;
+    }
+    .match-side .match-score.live {
+        color: #fa8c16;
+        position: relative;
+        padding-right: 0.6em;
+    }
+    .match-side .match-score.live::after {
+        content: '';
+        position: absolute;
+        right: 0; top: 50%;
+        width: 6px; height: 6px;
+        background: #fa8c16;
+        border-radius: 50%;
+        transform: translateY(-50%);
+        animation: live-pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes live-pulse {
+        0%, 100% { opacity: 1; transform: translateY(-50%) scale(1); }
+        50% { opacity: 0.3; transform: translateY(-50%) scale(0.7); }
     }
     .match-bye-row .match-player { color: #999; }
     .seed-tag {
@@ -338,7 +362,11 @@
             {% endif %}
             <a href="{{ url_for('tournament_match', tournament_id=tournament.tournament_id, match_id=m.match_id) }}"
                class="match-card-link {% if m.is_bye %}match-bye-link{% endif %}">
-            <div class="match-card {% if m.winner_id %}match-done{% endif %} {% if m.is_bye %}match-bye{% endif %}">
+            {# 比赛是否在进行中（双方已确定 + 已有局数 + 还没结束） #}
+            {% set is_live = (not m.winner_id) and (not m.is_bye)
+                             and m.player1_id and m.player2_id
+                             and (m.player1_games_won + m.player2_games_won) > 0 %}
+            <div class="match-card {% if m.winner_id %}match-done{% endif %} {% if m.is_bye %}match-bye{% endif %} {% if is_live %}match-live{% endif %}">
                 <div class="match-card-header"><span>对阵 {{ m.match_number }}</span><span>比分</span></div>
                 <div class="match-side {% if m.winner_id == m.player1_id %}side-winner{% endif %}">
                     <span class="match-player">
@@ -350,8 +378,10 @@
                             <span class="match-tbd">待定</span>
                         {% endif %}
                     </span>
-                    <span class="match-score">
-                        {% if m.winner_id and not m.is_bye %}{{ m.player1_games_won }}{% endif %}
+                    <span class="match-score {% if is_live %}live{% endif %}">
+                        {% if m.winner_id and not m.is_bye %}{{ m.player1_games_won }}
+                        {% elif is_live %}{{ m.player1_games_won }}
+                        {% endif %}
                     </span>
                 </div>
                 {% if m.is_bye %}
@@ -370,8 +400,10 @@
                             <span class="match-tbd">待定</span>
                         {% endif %}
                     </span>
-                    <span class="match-score">
-                        {% if m.winner_id %}{{ m.player2_games_won }}{% endif %}
+                    <span class="match-score {% if is_live %}live{% endif %}">
+                        {% if m.winner_id %}{{ m.player2_games_won }}
+                        {% elif is_live %}{{ m.player2_games_won }}
+                        {% endif %}
                     </span>
                 </div>
                 {% endif %}
