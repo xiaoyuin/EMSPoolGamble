@@ -16,6 +16,7 @@ Tournament 模块 - 杯赛系统（v1.10）
 import uuid
 import math
 import random
+import re
 from typing import List, Dict, Optional, Tuple
 
 from .database import db
@@ -839,6 +840,64 @@ def record_match_result(match_id: str, p1_games: int, p2_games: int) -> Tuple[bo
 
         conn.commit()
     return True, '已记录'
+
+
+def set_match_video_url(match_id: str, video_url: str) -> Tuple[bool, str]:
+    """更新某场对阵的视频 iframe src；传空字符串则清除。
+    只接受白名单域的 https URL，防止 XSS / 任意嵌套。"""
+    url = (video_url or '').strip()
+    if url:
+        ok, normalized_or_msg = _validate_iframe_src(url)
+        if not ok:
+            return False, normalized_or_msg
+        url = normalized_or_msg
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT match_id FROM tournament_matches WHERE match_id = ?', (match_id,))
+        if not cursor.fetchone():
+            return False, 'match 不存在'
+        cursor.execute('UPDATE tournament_matches SET video_url = ? WHERE match_id = ?',
+                       (url or None, match_id))
+        conn.commit()
+    return True, ('视频链接已更新' if url else '视频链接已清除')
+
+
+# iframe src 白名单：只放行常见视频平台的播放器域名
+_IFRAME_HOST_WHITELIST = {
+    'player.bilibili.com',
+    'www.youtube.com',
+    'youtube.com',
+    'youtube-nocookie.com',
+    'www.youtube-nocookie.com',
+}
+
+
+def _validate_iframe_src(url: str) -> Tuple[bool, str]:
+    """检查并规范化 iframe src。
+    返回 (ok, value)；ok=True 时 value 是规范后的 URL，ok=False 时是错误说明。"""
+    from urllib.parse import urlparse
+    # 允许用户贴 // 前缀的 protocol-relative URL，统一升 https
+    if url.startswith('//'):
+        url = 'https:' + url
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return False, '无效的 URL'
+    if parsed.scheme not in ('https', 'http'):
+        return False, '链接必须以 https:// 开头'
+    if not parsed.netloc:
+        return False, '无效的 URL'
+    host = parsed.netloc.lower()
+    # 去掉端口
+    if ':' in host:
+        host = host.split(':', 1)[0]
+    if host not in _IFRAME_HOST_WHITELIST:
+        allowed = ', '.join(sorted(_IFRAME_HOST_WHITELIST))
+        return False, f'仅支持以下域名的播放器：{allowed}'
+    # 强制 https
+    if parsed.scheme == 'http':
+        url = 'https://' + url[len('http://'):]
+    return True, url
 
 
 def reset_match(match_id: str) -> Tuple[bool, str]:

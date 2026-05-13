@@ -157,6 +157,7 @@ class DatabaseManager:
                     player2_games_won INTEGER NOT NULL DEFAULT 0,
                     started_at TEXT,
                     finished_at TEXT,
+                    video_url TEXT,
                     FOREIGN KEY (tournament_id) REFERENCES tournaments (tournament_id) ON DELETE CASCADE,
                     FOREIGN KEY (player1_id) REFERENCES players (player_id),
                     FOREIGN KEY (player2_id) REFERENCES players (player_id),
@@ -184,6 +185,7 @@ class DatabaseManager:
         # 检查并执行数据库升级
         self.upgrade_to_multi_loser_support()
         self._migrate_round_names()
+        self._migrate_match_video_columns()
 
     def upgrade_to_multi_loser_support(self):
         """升级数据库以支持多败者记录"""
@@ -341,6 +343,17 @@ class DatabaseManager:
                     (new, old))
                 if cursor.rowcount > 0:
                     print(f'轮次名迁移："{old}" → "{new}"（{cursor.rowcount} 条）')
+            conn.commit()
+
+    def _migrate_match_video_columns(self):
+        """tournament_matches 加 video_url 列（v1.9.3，存 B 站等视频链接）。"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA table_info(tournament_matches)")
+            columns = {row[1] for row in cursor.fetchall()}
+            if 'video_url' not in columns:
+                cursor.execute('ALTER TABLE tournament_matches ADD COLUMN video_url TEXT')
+                print('tournament_matches 加列：video_url')
             conn.commit()
 
     # ===== 玩家相关操作 =====

@@ -28,6 +28,7 @@ from .tournament import (
     add_participant, remove_participant, set_participant_seed,
     generate_bracket, preview_bracket_layout, get_bracket, get_match,
     record_match_game, record_match_result, reset_match, undo_last_game,
+    set_match_video_url,
     RESOURCE_BYE, _next_power_of_2,
     STATUS_DRAFT, STATUS_REGISTRATION, STATUS_IN_PROGRESS, STATUS_COMPLETED,
 )
@@ -373,6 +374,20 @@ def register_tournament_routes(app):
             match=match,
             app_version=APP_VERSION,
         )
+
+    # ---------- 设置视频链接（管理员） ----------
+    @app.route('/tournament/<tournament_id>/match/<match_id>/set_video', methods=['POST'])
+    @require_admin_auth
+    @require_csrf_protection
+    def tournament_match_set_video(tournament_id, match_id):
+        match = get_match(match_id)
+        if not match or match['tournament_id'] != tournament_id:
+            flash('对阵不存在', 'error')
+            return redirect(url_for('tournament_detail', tournament_id=tournament_id))
+        url = request.form.get('video_url', '').strip()
+        ok, msg = set_match_video_url(match_id, url)
+        flash(msg, 'success' if ok else 'error')
+        return redirect(url_for('tournament_match', tournament_id=tournament_id, match_id=match_id))
 
     # ---------- 录入比分 - 逐局加（所有用户） ----------
     @app.route('/tournament/<tournament_id>/match/<match_id>/record_game', methods=['POST'])

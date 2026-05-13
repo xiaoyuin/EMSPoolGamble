@@ -100,6 +100,50 @@
         padding: 1.2em 1em; text-align: center; color: #888;
         background: #fafafa; border-radius: 8px;
     }
+
+    /* 视频卡片 */
+    .video-card { margin-top: 1em; }
+    .video-card h4 { margin: 0 0 0.6em 0; color: #333; font-size: 1em; }
+    .video-frame-wrap {
+        position: relative;
+        width: 100%;
+        padding-top: 56.25%; /* 16:9 */
+        background: #000;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .video-frame-wrap iframe {
+        position: absolute; top: 0; left: 0;
+        width: 100%; height: 100%;
+        border: 0;
+    }
+    .video-fallback-link {
+        display: block; text-align: center;
+        margin-top: 0.5em; font-size: 0.85em; color: #888;
+    }
+    .video-fallback-link a { color: #1890ff; text-decoration: none; }
+    .video-fallback-link a:hover { text-decoration: underline; }
+
+    .video-edit-card {
+        margin-top: 1em;
+        background: #f9f0ff;
+        border: 1px solid #d3adf7;
+        border-radius: 8px;
+        padding: 1em;
+    }
+    .video-edit-card h4 { margin: 0 0 0.6em 0; color: #722ed1; font-size: 1em; }
+    .video-edit-card .help { color: #888; font-size: 0.85em; margin-bottom: 0.8em; }
+    .video-edit-form { display: flex; gap: 0.5em; }
+    .video-edit-form input[type=text] {
+        flex: 1; min-width: 0;
+        padding: 0.6em; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 0.9em;
+    }
+    .video-edit-form button {
+        flex-shrink: 0;
+        background: #722ed1; color: white;
+        padding: 0.6em 1em; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;
+    }
+    .video-edit-form button:hover { background: #5b1fb0; }
 </style>
 {% endblock %}
 
@@ -221,5 +265,40 @@
 <div class="placeholder-msg">本场为轮空，无需录入比分</div>
 {% elif not match.player1_id or not match.player2_id %}
 <div class="placeholder-msg">等待上一轮胜者确定后才能录入</div>
+{% endif %}
+
+{# ---------- 比赛录像 ---------- #}
+{% if match.video_url %}
+<div class="card video-card">
+    <h4>📺 比赛录像</h4>
+    <div class="video-frame-wrap">
+        <iframe src="{{ match.video_url }}"
+                allowfullscreen
+                scrolling="no"
+                referrerpolicy="no-referrer"
+                sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation"></iframe>
+    </div>
+</div>
+{% endif %}
+
+{% if is_admin_authenticated() and not match.is_bye %}
+<div class="video-edit-card">
+    <h4>🔓 设置比赛录像</h4>
+    <div class="help">
+        贴一个视频播放器的 iframe src（只支持
+        <code>player.bilibili.com</code> 或 <code>youtube.com / youtube-nocookie.com</code>）。
+        留空提交即清除。
+        <br><small>B 站：打开视频 → 分享 → 嵌入代码 → 取 src 里的 URL。</small>
+    </div>
+    <form method="post"
+          action="{{ url_for('tournament_match_set_video', tournament_id=tournament.tournament_id, match_id=match.match_id) }}"
+          class="video-edit-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="text" name="video_url"
+               value="{{ match.video_url or '' }}"
+               placeholder="https://player.bilibili.com/player.html?bvid=BV...">
+        <button type="submit">保存</button>
+    </form>
+</div>
 {% endif %}
 {% endblock %}
