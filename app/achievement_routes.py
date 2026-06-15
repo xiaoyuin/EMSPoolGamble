@@ -74,7 +74,7 @@ def register_achievement_routes(app):
             {
                 'id': 'best_buddy',
                 'name': '好兄弟',
-                'description': '给谁送了最多犯规罚分？',
+                'description': '给谁送了最多1分？',
                 'icon': '🤝',
                 'count': None,
                 'category': 'fun'
@@ -251,9 +251,9 @@ def register_achievement_routes(app):
         achievement_config = {
             'id': 'best_buddy',
             'name': '好兄弟',
-            'description': '每个玩家给谁送了最多的犯规罚分（1分）？犯规虽小，但日积月累，你的好兄弟是谁一目了然。',
+            'description': '每个玩家给谁送了最多的1分？1分虽小，但日积月累，你的好兄弟是谁一目了然。',
             'icon': '🤝',
-            'rule': '统计每位玩家赢得1分（犯规罚分）时，对手出现最多的人',
+            'rule': '统计每位玩家赢得1分时，对手出现最多的人',
             'difficulty': '趣味统计',
             'color_theme': 'buddy'
         }
