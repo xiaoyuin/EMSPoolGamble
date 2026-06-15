@@ -4,7 +4,7 @@ EMS Pool Application
 """
 
 # 应用版本信息
-APP_VERSION = "v1.9.3"
+APP_VERSION = "v1.10.0"
 APP_NAME = "EMS Pool"
 VERSION_DATE = "2026-06-15"
 
