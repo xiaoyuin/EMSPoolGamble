@@ -30,6 +30,7 @@
                 <button class="overflow-menu-btn" onclick="document.getElementById('overflow-dropdown').classList.toggle('show')" aria-label="菜单">⋮</button>
                 <div id="overflow-dropdown" class="overflow-dropdown">
                     <a href="#" id="pwa-install-item" style="display: none;" onclick="installPWA(); return false;">📲 安装到主屏幕</a>
+                    <a href="#" id="pwa-ios-hint" style="display: none;" onclick="showIOSHint(); return false;">📲 安装到主屏幕</a>
                     <a href="https://github.com/xiaoyuin/EMSPoolGamble" target="_blank" rel="noopener">GitHub</a>
                 </div>
             </div>
@@ -91,14 +92,27 @@
         navigator.serviceWorker.register('/static/sw.js').catch(() => {});
     }
 
-    // PWA install
+    // PWA install — Android (beforeinstallprompt) vs iOS (manual hint)
     let _deferredPrompt = null;
+    const _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const _isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+    if (_isIOS && !_isStandalone) {
+        // iOS: show hint item (Safari share → Add to Home Screen)
+        const iosItem = document.getElementById('pwa-ios-hint');
+        if (iosItem) iosItem.style.display = '';
+    }
+
     window.addEventListener('beforeinstallprompt', function(e) {
         e.preventDefault();
         _deferredPrompt = e;
         const item = document.getElementById('pwa-install-item');
         if (item) item.style.display = '';
+        // Hide iOS hint if Android prompt is available
+        const iosItem = document.getElementById('pwa-ios-hint');
+        if (iosItem) iosItem.style.display = 'none';
     });
+
     function installPWA() {
         if (!_deferredPrompt) return;
         _deferredPrompt.prompt();
@@ -108,6 +122,13 @@
         const dd = document.getElementById('overflow-dropdown');
         if (dd) dd.classList.remove('show');
     }
+
+    function showIOSHint() {
+        const dd = document.getElementById('overflow-dropdown');
+        if (dd) dd.classList.remove('show');
+        alert('点击浏览器的分享按钮 ⬆，选择「添加到主屏幕」');
+    }
+
     window.addEventListener('appinstalled', function() {
         const item = document.getElementById('pwa-install-item');
         if (item) item.style.display = 'none';
