@@ -1660,5 +1660,50 @@ class DatabaseManager:
             result.sort(key=lambda x: x['gift_count'], reverse=True)
             return result
 
+    def get_duo_loser_stats(self) -> List[Dict]:
+        """获取"有难同当"统计：一起被大金/双吃的组合
+
+        loser_id 和 loser_id2 顺序不固定，需要归一化后合并计数。
+        返回列表，每项包含两个败者信息和被吃次数。
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                SELECT gr.loser_id, l1.name as loser1_name,
+                       gr.loser_id2, l2.name as loser2_name,
+                       COUNT(*) as duo_count
+                FROM game_records gr
+                JOIN players l1 ON gr.loser_id = l1.player_id
+                JOIN players l2 ON gr.loser_id2 = l2.player_id
+                WHERE gr.loser_id2 IS NOT NULL
+                GROUP BY gr.loser_id, gr.loser_id2
+            ''')
+
+            # 归一化：(A,B) 和 (B,A) 算同一组合
+            pair_map = {}
+            for row in cursor.fetchall():
+                r = dict(row)
+                key = tuple(sorted([r['loser_id'], r['loser_id2']]))
+                if key not in pair_map:
+                    # 保持字母序靠前的在前面
+                    if key[0] == r['loser_id']:
+                        pair_map[key] = {
+                            'player1_id': r['loser_id'], 'player1_name': r['loser1_name'],
+                            'player2_id': r['loser_id2'], 'player2_name': r['loser2_name'],
+                            'duo_count': 0
+                        }
+                    else:
+                        pair_map[key] = {
+                            'player1_id': r['loser_id2'], 'player1_name': r['loser2_name'],
+                            'player2_id': r['loser_id'], 'player2_name': r['loser1_name'],
+                            'duo_count': 0
+                        }
+                pair_map[key]['duo_count'] += r['duo_count']
+
+            result = list(pair_map.values())
+            result.sort(key=lambda x: x['duo_count'], reverse=True)
+            return result
+
 # 全局数据库实例
 db = DatabaseManager()

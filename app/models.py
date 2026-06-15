@@ -301,6 +301,11 @@ def get_best_buddy_stats() -> List[Dict]:
     return db.get_best_buddy_stats()
 
 
+def get_duo_loser_stats() -> List[Dict]:
+    """获取有难同当统计"""
+    return db.get_duo_loser_stats()
+
+
 # ===== 兼容性变量 - 用于保持与原有代码的兼容性 =====
 
 class SessionsProxy:

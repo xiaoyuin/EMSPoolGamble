@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#1890ff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
+    <title>{{ achievement.name }} - 特殊记录</title>
+    <style>
+        body { font-family: sans-serif; max-width: 700px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
+        .card { background: #ffffff; border-radius: 10px; padding: 1.2em; margin-top: 1.5em; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .links { margin-top: 1em; text-align: center; }
+        .links a { color: #1890ff; text-decoration: none; margin: 0 0.5em; }
+        .links a:hover { text-decoration: underline; }
+        .footer { margin-top: 2em; text-align: center; font-size: 0.8em; color: #888; }
+
+        .achievement-header {
+            text-align: center;
+            padding: 2.5em 1em;
+            background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%);
+            color: #8b3a3a;
+            border-radius: 15px;
+            margin-bottom: 2em;
+            box-shadow: 0 4px 20px rgba(255, 154, 158, 0.3);
+        }
+
+        .achievement-icon { font-size: 4em; margin-bottom: 0.5em; display: block; }
+        .achievement-name { font-size: 2em; font-weight: bold; margin-bottom: 0.5em; }
+        .achievement-description { font-size: 1.1em; opacity: 0.95; margin-bottom: 1em; line-height: 1.5; }
+        .achievement-rule { background: rgba(139, 58, 58, 0.1); padding: 0.8em; border-radius: 10px; font-size: 1em; border: 1px solid rgba(139, 58, 58, 0.15); }
+
+        .duo-list {
+            background: #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .duo-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.2em;
+            border-bottom: 1px solid #f0f0f0;
+            transition: all 0.3s ease;
+        }
+
+        .duo-item:last-child { border-bottom: none; }
+
+        .duo-item:hover {
+            background: linear-gradient(90deg, #fff5f5 0%, #ffffff 100%);
+            transform: translateX(5px);
+        }
+
+        .duo-info {
+            display: flex;
+            align-items: center;
+            gap: 1em;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .duo-rank {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%);
+            color: #8b3a3a;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1em;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            flex-shrink: 0;
+        }
+
+        .duo-rank.top-3 {
+            background: linear-gradient(135deg, #ffd700 0%, #ff8c00 100%);
+            transform: scale(1.1);
+        }
+
+        .duo-names { min-width: 0; }
+
+        .duo-plus {
+            color: #ff9a9e;
+            margin: 0 0.3em;
+            font-weight: bold;
+        }
+
+        .duo-stats {
+            text-align: right;
+            flex-shrink: 0;
+            margin-left: 1em;
+        }
+
+        .duo-count {
+            font-weight: bold;
+            color: #e8596e;
+            font-size: 1.3em;
+        }
+
+        .duo-label {
+            font-size: 0.8em;
+            color: #999;
+        }
+
+        .player-link { color: #1890ff; text-decoration: none; font-weight: bold; font-size: 1.1em; }
+        .player-link:hover { text-decoration: underline; }
+
+        .no-data { text-align: center; color: #999; font-style: italic; padding: 3em; }
+        .no-data-icon { font-size: 3em; margin-bottom: 0.5em; opacity: 0.5; }
+
+        @media (max-width: 768px) {
+            body { padding: 0.8em; }
+            .achievement-header { padding: 2em 1em; }
+            .achievement-icon { font-size: 3em; }
+            .achievement-name { font-size: 1.5em; }
+            .duo-item { padding: 1em; }
+            .player-link { font-size: 1em; }
+        }
+    </style>
+</head>
+<body>
+    <div class="achievement-header">
+        <span class="achievement-icon">{{ achievement.icon }}</span>
+        <div class="achievement-name">{{ achievement.name }}</div>
+        <div class="achievement-description">{{ achievement.description }}</div>
+        <div class="achievement-rule">{{ achievement.rule }}</div>
+    </div>
+
+    <div class="card">
+        <h3>🫂 有难同当排行</h3>
+        {% if duo_stats %}
+        <div class="duo-list">
+            {% for item in duo_stats %}
+            <div class="duo-item">
+                <div class="duo-info">
+                    <div class="duo-rank {% if loop.index <= 3 %}top-3{% endif %}">{{ loop.index }}</div>
+                    <div class="duo-names">
+                        <a href="/player/{{ item.player1_id }}" class="player-link">{{ item.player1_name }}</a>
+                        <span class="duo-plus">+</span>
+                        <a href="/player/{{ item.player2_id }}" class="player-link">{{ item.player2_name }}</a>
+                    </div>
+                </div>
+                <div class="duo-stats">
+                    <div class="duo-count">{{ item.duo_count }}</div>
+                    <div class="duo-label">次同败</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="no-data">
+            <div class="no-data-icon">🤷</div>
+            <p>暂无多败者记录</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="links">
+        <a href="/achievements">返回特殊记录</a> |
+        <a href="/">返回首页</a> |
+        <a href="/history">历史统计</a>
+    </div>
+
+    <div class="footer">
+        <p>© 2025-2026 EMS Pool</p>
+    </div>
+
+<script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/static/sw.js").catch(()=>{});</script>
+</body>
+</html>

@@ -5,7 +5,7 @@ from flask import render_template, request, redirect, url_for, flash
 from .models import (get_achievement_players, get_achievement_records,
                      get_achievement_stats, get_achievement_master_players,
                      get_negative_achievement_players, get_negative_achievement_records,
-                     get_best_buddy_stats)
+                     get_best_buddy_stats, get_duo_loser_stats)
 from . import APP_VERSION
 
 
@@ -76,6 +76,14 @@ def register_achievement_routes(app):
                 'name': '好兄弟',
                 'description': '给谁送了最多1分？',
                 'icon': '🤝',
+                'count': None,
+                'category': 'fun'
+            },
+            {
+                'id': 'duo_loser',
+                'name': '有难同当',
+                'description': '一起被大金/双吃的组合',
+                'icon': '🫂',
                 'count': None,
                 'category': 'fun'
             }
@@ -261,6 +269,26 @@ def register_achievement_routes(app):
         return render_template('achievements/best_buddy.html',
                              achievement=achievement_config,
                              buddy_stats=buddy_stats,
+                             app_version=APP_VERSION)
+
+    @app.route('/achievement/duo_loser')
+    def achievement_duo_loser():
+        """有难同当详情页"""
+        duo_stats = get_duo_loser_stats()
+
+        achievement_config = {
+            'id': 'duo_loser',
+            'name': '有难同当',
+            'description': '哪些组合最常一起被大金或双吃？同甘共苦的兄弟情。',
+            'icon': '🫂',
+            'rule': '统计在大金（20分）和双吃中，一起作为败者的玩家组合出现次数',
+            'difficulty': '趣味统计',
+            'color_theme': 'duo'
+        }
+
+        return render_template('achievements/duo_loser.html',
+                             achievement=achievement_config,
+                             duo_stats=duo_stats,
                              app_version=APP_VERSION)
 
     @app.route('/achievement/<achievement_id>')
