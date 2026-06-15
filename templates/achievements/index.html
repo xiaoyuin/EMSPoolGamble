@@ -222,7 +222,7 @@
     <!-- 成就列表 -->
     <div class="achievements-grid">
         {% for achievement in achievements %}
-        <div class="achievement-card {{ 'negative' if achievement.category == 'negative' else '' }}" onclick="location.href='/achievement/{{ achievement.id }}'">
+        <div class="achievement-card {{ achievement.category }}" onclick="location.href='/achievement/{{ achievement.id }}'">
             <div class="achievement-header">
                 <div class="achievement-title-flex">
                     <span class="achievement-icon">{{ achievement.icon }}</span>
@@ -236,7 +236,8 @@
 
             <div class="achievement-stats">
                 <div>
-                    {% if achievement.count > 0 %}
+                    {% if achievement.count is none %}
+                    {% elif achievement.count > 0 %}
                         <span class="achievers-count">{{ achievement.count }} 位玩家达成</span>
                     {% else %}
                         <span class="no-achievers">暂无玩家达成</span>
