@@ -880,13 +880,13 @@ class DatabaseManager:
 
                 # 判断当前玩家在这场比赛中的角色
                 is_winner = (record['winner_id'] == player_id or
-                             record.get('winner_id2') == player_id)
+                             record['winner_id2'] == player_id)
 
                 if is_winner:
                     record['is_winner'] = True
 
                     # 多赢家时每人得一半分数
-                    if record.get('winner_id2'):
+                    if record['winner_id2']:
                         record['score'] = record['score'] // 2
                     # 否则赢家得全部分数（默认）
 
@@ -913,7 +913,7 @@ class DatabaseManager:
                     record['is_winner'] = False
 
                     # 多败者时当前玩家只承担一半分数；多赢家时输家承担全部
-                    if record.get('loser_id2'):
+                    if record['loser_id2']:
                         record['score'] = record['score'] // 2
                     # 否则败者承担全部分数（默认）
 
@@ -957,16 +957,16 @@ class DatabaseManager:
 
             for record in cursor.fetchall():
                 is_winner = (record['winner_id'] == player_id or
-                             record.get('winner_id2') == player_id)
+                             record['winner_id2'] == player_id)
                 if is_winner:
                     wins += 1
                     total_games += 1
                     # 多赢家时每人得一半分数
-                    if record.get('winner_id2'):
+                    if record['winner_id2']:
                         total_score += record['score'] // 2
                     else:
                         total_score += record['score']
-                elif record['loser_id'] == player_id or record.get('loser_id2') == player_id:
+                elif record['loser_id'] == player_id or record['loser_id2'] == player_id:
                     # 玩家是败者
                     losses += 1
                     total_games += 1
@@ -1033,12 +1033,12 @@ class DatabaseManager:
 
                 for record in cursor.fetchall():
                     is_winner = (record['winner_id'] == player_id or
-                                 record.get('winner_id2') == player_id)
+                                 record['winner_id2'] == player_id)
                     if is_winner:
                         wins += 1
                         total_games += 1
                         # 多赢家时每人得一半分数
-                        if record.get('winner_id2'):
+                        if record['winner_id2']:
                             total_score += record['score'] // 2
                         else:
                             total_score += record['score']
@@ -1048,13 +1048,13 @@ class DatabaseManager:
                             effective_games += 1
                             effective_wins += 1
 
-                    elif record['loser_id'] == player_id or record.get('loser_id2') == player_id:
+                    elif record['loser_id'] == player_id or record['loser_id2'] == player_id:
                         # 玩家是败者
                         losses += 1
                         total_games += 1
 
                         # 如果有两个败者，只承担一半分数
-                        if record.get('loser_id2'):
+                        if record['loser_id2']:
                             total_score -= record['score'] // 2
                         else:
                             total_score -= record['score']
@@ -1315,7 +1315,7 @@ class DatabaseManager:
             for win in special_wins:
                 special_score = win['special_score']
                 # 检查 winner_id 和 winner_id2 是否在目标列表中
-                for wid in [win['winner_id'], win.get('winner_id2')]:
+                for wid in [win['winner_id'], win['winner_id2']]:
                     if wid and wid in result:
                         if special_score == '小金':
                             result[wid]['has_small_gold'] = True
