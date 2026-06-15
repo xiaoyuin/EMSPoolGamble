@@ -167,7 +167,11 @@
             <tr>
                 <td>{{ records|length - loop.index0 }}</td>
                 <td>
-                    {% if r.winner_id %}
+                    {% if r.is_multi_winner %}
+                        {% for w in r.winners %}
+                            <a href="/player/{{ w.id }}" class="player-link">{{ w.name }}</a>{% if not loop.last %} + {% endif %}
+                        {% endfor %}
+                    {% elif r.winner_id %}
                     <a href="/player/{{ r.winner_id }}" class="player-link">{{ r.winner }}</a>
                     {% else %}
                     {{ r.winner }}

@@ -147,9 +147,10 @@ def get_session_players(session_id: str) -> List[Dict]:
 # ===== 计分记录管理 =====
 
 def add_game_record(session_id: str, winner_id: str, loser_id: str,
-                   score: int, special_score: str = None, loser_id2: str = None) -> int:
-    """添加计分记录，支持单败者和多败者"""
-    return db.add_game_record(session_id, winner_id, loser_id, score, special_score, loser_id2)
+                   score: int, special_score: str = None,
+                   loser_id2: str = None, winner_id2: str = None) -> int:
+    """添加计分记录，支持单败者、多败者和多赢家"""
+    return db.add_game_record(session_id, winner_id, loser_id, score, special_score, loser_id2, winner_id2)
 
 
 def add_multi_loser_record(session_id: str, winner_id: str, loser_id1: str,

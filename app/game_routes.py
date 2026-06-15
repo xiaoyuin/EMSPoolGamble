@@ -358,6 +358,64 @@ def register_game_routes(app):
         type_name = special_score if special_score else '特殊分数'
         return _resp(True, f'成功记录{type_name}：{winner} 胜 {losers[0]}+{losers[1]} ({total_score}分)')
 
+    @app.route('/add_reverse_double/<session_id>', methods=['POST'])
+    def add_reverse_double(session_id):
+        """处理反向双吃（1个输家 + 2个赢家）"""
+        is_ajax = _wants_json()
+
+        def _resp(ok, msg, status=200):
+            if is_ajax:
+                return jsonify({'ok': ok, 'message': msg}), (status if not ok else 200)
+            flash(msg, 'success' if ok else 'error')
+            if status == 404:
+                return redirect(url_for('index'))
+            return redirect(url_for('game', session_id=session_id))
+
+        if session_id not in sessions:
+            return _resp(False, '场次不存在', 404)
+
+        game_session = get_session(session_id)
+        if not game_session:
+            return _resp(False, '场次不存在', 404)
+
+        if not game_session.get('active', True):
+            return _resp(False, '该场次已经结束', 400)
+
+        winners = request.form.getlist('winners')
+        loser = request.form.get('loser')
+        total_score = int(request.form.get('score', 0))
+        special_score = request.form.get('special_score', None)
+
+        # 验证输入
+        if not winners or not loser or total_score not in [8, 14]:
+            return _resp(False, '请选择赢家、输家和正确的分数', 400)
+
+        if len(winners) != 2:
+            return _resp(False, '反向双吃需要选择两个赢家', 400)
+
+        if loser in winners:
+            return _resp(False, '输家不能同时是赢家', 400)
+
+        # 检查所有玩家是否存在
+        all_players = winners + [loser]
+        game_players = game_session.get('players', set())
+        for player in all_players:
+            if player not in game_players:
+                return _resp(False, f'玩家 {player} 不在当前场次中', 400)
+
+        # 获取玩家ID
+        winner_ids = [get_player_by_name(w) for w in winners]
+        loser_id = get_player_by_name(loser)
+
+        # 写入一条记录：winner_id + winner_id2 + loser_id
+        add_game_record(session_id, winner_ids[0], loser_id, total_score,
+                        special_score, winner_id2=winner_ids[1])
+
+        save_data()
+
+        type_name = special_score if special_score else '反向双吃'
+        return _resp(True, f'成功记录{type_name}：{winners[0]}+{winners[1]} 胜 {loser} ({total_score}分)')
+
     @app.route('/delete_record/<session_id>/<int:record_index>', methods=['POST'])
     @require_admin_auth
     @require_csrf_protection

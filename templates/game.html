@@ -216,10 +216,12 @@
         let selectedScore = null;
         let selectedWinner = null;
         let selectedLosers = [];  // 支持多个败者
+        let selectedWinners = []; // 支持多个赢家（反向双吃）
         let isSpecialScore = false;  // 是否是特殊分数
         let selectedGameType = null;  // 当前选择的游戏种类
         let currentSpecialScore = null;  // 当前特殊分数类型（如"双吃"、"小金"、"大金"）
         let currentLosersCount = 1;  // 当前分数对应的败者数量
+        let currentWinnersCount = 1; // 当前分数对应的赢家数量
 
         // 切换玩家展开状态
         function togglePlayerExpand(playerName) {
@@ -327,7 +329,12 @@
             },
             double: {
                 name: '双吃',
-                scores: [8, 14],
+                scores: [
+                    { value: 8, label: '+8', losersCount: 2, winnersCount: 1 },
+                    { value: 14, label: '+14', losersCount: 2, winnersCount: 1 },
+                    { value: 8, label: '-8', losersCount: 1, winnersCount: 2 },
+                    { value: 14, label: '-14', losersCount: 1, winnersCount: 2 }
+                ],
                 losersCount: 2,
                 specialScore: '双吃'
             },
@@ -383,6 +390,8 @@
 
             if (selectedGameType === 'big') {
                 hintElement.textContent = `${config.name}：请选择分数（10分：1胜1败，20分：1胜2败），然后选择对应的胜者和败者`;
+            } else if (selectedGameType === 'double') {
+                hintElement.textContent = `${config.name}：+分 = 1胜2败（正向），-分 = 2胜1败（反向）`;
             } else if (config.losersCount === 2) {
                 hintElement.textContent = `${config.name}：请选择分数，然后选择一个胜者和两个败者`;
             } else {
@@ -398,20 +407,21 @@
             container.innerHTML = '';
 
             // 生成新的分数按钮
-            scores.forEach(score => {
+            scores.forEach((score, idx) => {
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.className = 'score-btn';
                 // 处理新的分数格式（可能是数字或对象）
-                const scoreValue = typeof score === 'object' ? score.value : score;
-                button.textContent = scoreValue;
-                button.onclick = () => selectScore(score);
+                const label = typeof score === 'object' ? (score.label || score.value) : score;
+                button.textContent = label;
+                button.dataset.scoreIdx = idx; // 用索引区分相同 value 的按钮
+                button.onclick = () => selectScore(score, idx);
                 container.appendChild(button);
             });
         }
 
-        function selectScore(score) {
-            console.log('selectScore called with:', score);
+        function selectScore(score, btnIdx) {
+            console.log('selectScore called with:', score, 'idx:', btnIdx);
 
             if (!selectedGameType) {
                 alert('请先选择游戏种类');
@@ -420,27 +430,27 @@
 
             // 处理新的分数格式
             const scoreValue = typeof score === 'object' ? score.value : score;
-            const losersCount = typeof score === 'object' ? score.losersCount : gameTypeConfig[selectedGameType].losersCount;
+            const losersCount = typeof score === 'object' ? (score.losersCount != null ? score.losersCount : gameTypeConfig[selectedGameType].losersCount) : gameTypeConfig[selectedGameType].losersCount;
+            const winnersCount = typeof score === 'object' ? (score.winnersCount || 1) : 1;
 
             // 移除所有分数按钮的选中状态
             document.querySelectorAll('.score-btn').forEach(btn => {
                 btn.classList.remove('selected');
             });
 
-            // 选中当前按钮
+            // 用索引精确选中按钮（避免相同 value 的按钮冲突）
             const scoreButtons = document.querySelectorAll('.score-btn');
-            scoreButtons.forEach(btn => {
-                if (btn.textContent.trim() === scoreValue.toString()) {
-                    btn.classList.add('selected');
-                }
-            });
+            if (btnIdx != null && scoreButtons[btnIdx]) {
+                scoreButtons[btnIdx].classList.add('selected');
+            }
 
             selectedScore = scoreValue;
             currentLosersCount = losersCount;
+            currentWinnersCount = winnersCount;
             const config = gameTypeConfig[selectedGameType];
-            isSpecialScore = losersCount === 2;
+            isSpecialScore = losersCount === 2 || winnersCount === 2;
 
-            console.log('Selected score:', selectedScore, 'losersCount:', losersCount, 'isSpecial:', isSpecialScore, 'type:', selectedGameType);
+            console.log('Selected score:', selectedScore, 'losersCount:', losersCount, 'winnersCount:', winnersCount, 'type:', selectedGameType);
 
             // 显示玩家操作按钮并更新分数显示
             document.querySelectorAll('.player-actions').forEach(actions => {
@@ -448,41 +458,40 @@
             });
 
             // 更新分数显示
-            updatePlayerActionScores(config, losersCount);
+            updatePlayerActionScores(config, losersCount, winnersCount);
 
             // 更新提示文字
-            updateScoreHint(config, scoreValue, losersCount);
+            updateScoreHint(config, scoreValue, losersCount, winnersCount);
 
             // 重置玩家选择
             resetPlayerSelection();
         }
 
-        function updatePlayerActionScores(config, losersCount = null) {
+        function updatePlayerActionScores(config, losersCount = null, winnersCount = null) {
             const actualLosersCount = losersCount || config.losersCount || 1;
-            if (actualLosersCount === 2) {
-                // 多败者情况：胜者得全分，败者各得一半负分
-                const halfScore = selectedScore / 2;
-                document.querySelectorAll('.action-score').forEach(span => {
-                    if (span.parentElement.classList.contains('plus-btn')) {
-                        span.textContent = selectedScore;
-                    } else {
-                        span.textContent = halfScore;
-                    }
-                });
-            } else {
-                // 单败者情况：都是全分
-                document.querySelectorAll('.action-score').forEach(span => {
-                    span.textContent = selectedScore;
-                });
-            }
+            const actualWinnersCount = winnersCount || 1;
+
+            document.querySelectorAll('.action-score').forEach(span => {
+                if (span.parentElement.classList.contains('plus-btn')) {
+                    // 多赢家时每人得一半
+                    span.textContent = actualWinnersCount === 2 ? selectedScore / 2 : selectedScore;
+                } else {
+                    // 多败者时每人承担一半
+                    span.textContent = actualLosersCount === 2 ? selectedScore / 2 : selectedScore;
+                }
+            });
         }
 
-        function updateScoreHint(config, score, losersCount = null) {
+        function updateScoreHint(config, score, losersCount = null, winnersCount = null) {
             const hintElement = document.getElementById('score-hint');
             if (!hintElement) return;
 
             const actualLosersCount = losersCount || config.losersCount || 1;
-            if (actualLosersCount === 2) {
+            const actualWinnersCount = winnersCount || 1;
+
+            if (actualWinnersCount === 2) {
+                hintElement.textContent = `已选择 ${config.name} ${score} 分（反向），两个玩家各 +${score/2} 分，一个玩家 -${score} 分`;
+            } else if (actualLosersCount === 2) {
                 hintElement.textContent = `已选择 ${config.name} ${score} 分，一个玩家 +${score} 分，两个玩家各 -${score/2} 分`;
             } else {
                 hintElement.textContent = `已选择 ${config.name} ${score} 分，一个玩家 +${score} 分，一个玩家 -${score} 分`;
@@ -492,9 +501,11 @@
         function resetAllSelections() {
             selectedScore = null;
             selectedWinner = null;
+            selectedWinners = [];
             selectedLosers = [];
             isSpecialScore = false;
             currentLosersCount = 1;
+            currentWinnersCount = 1;
 
             // 重置所有按钮状态
             document.querySelectorAll('.score-btn').forEach(btn => {
@@ -553,69 +564,85 @@
 
             if (action === 'plus') {
                 // 处理加分按钮
-                if (selectedWinner === playerName) {
-                    // 如果已经选中，则取消选择
-                    console.log('取消选中胜者:', playerName);
-                    selectedWinner = null;
-                    targetButton.classList.remove('selected');
+                if (currentWinnersCount === 2) {
+                    // 多赢家模式（反向双吃）
+                    if (selectedWinners.includes(playerName)) {
+                        console.log('取消选中赢家:', playerName);
+                        selectedWinners = selectedWinners.filter(w => w !== playerName);
+                        targetButton.classList.remove('selected');
+                    } else if (selectedWinners.length < currentWinnersCount) {
+                        console.log('选中赢家:', playerName);
+                        selectedWinners.push(playerName);
+                        targetButton.classList.add('selected');
+
+                        // 从败者列表中移除这个玩家
+                        if (selectedLosers.includes(playerName)) {
+                            selectedLosers = selectedLosers.filter(l => l !== playerName);
+                            const minusBtn = playerRow.querySelector('.minus-btn');
+                            if (minusBtn) minusBtn.classList.remove('selected');
+                        }
+                    } else {
+                        alert(`${config.name}只能选择${currentWinnersCount}个赢家`);
+                        return;
+                    }
+                    // 同步 selectedWinner 为第一个（兼容）
+                    selectedWinner = selectedWinners[0] || null;
                 } else {
-                    // 移除其他所有玩家的plus选中状态
-                    document.querySelectorAll('.plus-btn').forEach(btn => {
-                        btn.classList.remove('selected');
-                    });
+                    // 单赢家模式（原逻辑）
+                    if (selectedWinner === playerName) {
+                        console.log('取消选中胜者:', playerName);
+                        selectedWinner = null;
+                        selectedWinners = [];
+                        targetButton.classList.remove('selected');
+                    } else {
+                        document.querySelectorAll('.plus-btn').forEach(btn => {
+                            btn.classList.remove('selected');
+                        });
 
-                    // 选中当前按钮
-                    console.log('选中胜者:', playerName);
-                    selectedWinner = playerName;
-                    targetButton.classList.add('selected');
+                        console.log('选中胜者:', playerName);
+                        selectedWinner = playerName;
+                        selectedWinners = [playerName];
+                        targetButton.classList.add('selected');
 
-                    // 从败者列表中移除这个玩家（如果存在）
-                    if (selectedLosers.includes(playerName)) {
-                        selectedLosers = selectedLosers.filter(loser => loser !== playerName);
-                        // 移除该玩家的minus按钮选中状态
-                        const minusBtn = playerRow.querySelector('.minus-btn');
-                        if (minusBtn) {
-                            minusBtn.classList.remove('selected');
+                        // 从败者列表中移除这个玩家
+                        if (selectedLosers.includes(playerName)) {
+                            selectedLosers = selectedLosers.filter(loser => loser !== playerName);
+                            const minusBtn = playerRow.querySelector('.minus-btn');
+                            if (minusBtn) minusBtn.classList.remove('selected');
                         }
                     }
                 }
             } else {
                 // 处理减分按钮
                 if (currentLosersCount === 2) {
-                    // 多败者：允许最多选择指定数量的败者
+                    // 多败者模式
                     if (selectedLosers.includes(playerName)) {
-                        // 如果已选择，则取消选择
                         console.log('取消选中败者:', playerName);
                         selectedLosers = selectedLosers.filter(loser => loser !== playerName);
                         targetButton.classList.remove('selected');
                     } else if (selectedLosers.length < currentLosersCount) {
-                        // 如果未选择且未达到上限，则添加
                         console.log('选中败者:', playerName);
                         selectedLosers.push(playerName);
                         targetButton.classList.add('selected');
 
                         // 如果这个玩家是胜者，清除胜者状态
-                        if (selectedWinner === playerName) {
+                        if (selectedWinner === playerName || selectedWinners.includes(playerName)) {
                             selectedWinner = null;
+                            selectedWinners = selectedWinners.filter(w => w !== playerName);
                             const plusBtn = playerRow.querySelector('.plus-btn');
-                            if (plusBtn) {
-                                plusBtn.classList.remove('selected');
-                            }
+                            if (plusBtn) plusBtn.classList.remove('selected');
                         }
                     } else {
-                        // 已达到上限，不允许选择更多
                         alert(`${config.name}只能选择${currentLosersCount}个败者`);
                         return;
                     }
                 } else {
-                    // 单败者：只允许一个败者
+                    // 单败者模式
                     if (selectedLosers.includes(playerName)) {
-                        // 如果已选择，则取消选择
                         console.log('取消选中败者:', playerName);
                         selectedLosers = [];
                         targetButton.classList.remove('selected');
                     } else {
-                        // 移除其他所有玩家的minus选中状态
                         document.querySelectorAll('.minus-btn').forEach(btn => {
                             btn.classList.remove('selected');
                         });
@@ -625,18 +652,17 @@
                         targetButton.classList.add('selected');
 
                         // 如果这个玩家是胜者，清除胜者状态
-                        if (selectedWinner === playerName) {
+                        if (selectedWinner === playerName || selectedWinners.includes(playerName)) {
                             selectedWinner = null;
+                            selectedWinners = selectedWinners.filter(w => w !== playerName);
                             const plusBtn = playerRow.querySelector('.plus-btn');
-                            if (plusBtn) {
-                                plusBtn.classList.remove('selected');
-                            }
+                            if (plusBtn) plusBtn.classList.remove('selected');
                         }
                     }
                 }
             }
 
-            console.log('当前状态 - 胜者:', selectedWinner, '败者:', selectedLosers); // 调试日志
+            console.log('当前状态 - 赢家:', selectedWinners, '败者:', selectedLosers);
 
             // 检查是否可以提交
             checkCanSubmit();
@@ -644,6 +670,7 @@
 
         function resetPlayerSelection() {
             selectedWinner = null;
+            selectedWinners = [];
             selectedLosers = [];
             document.querySelectorAll('.action-btn').forEach(btn => {
                 btn.classList.remove('selected');
@@ -653,6 +680,7 @@
         }        function checkCanSubmit() {
             const config = gameTypeConfig[selectedGameType];
             const requiredLosers = currentLosersCount || 1;
+            const requiredWinners = currentWinnersCount || 1;
             const recordBtn = document.getElementById('record-btn');
             const scoreForm = document.getElementById('score-form');
 
@@ -661,20 +689,25 @@
                 scoreForm.style.display = 'block';
             }
 
-            if (selectedScore && selectedWinner && selectedLosers.length === requiredLosers) {
-                // 检查胜者不在败者列表中
-                if (!selectedLosers.includes(selectedWinner)) {
-                    // 启用按钮
-                    if (recordBtn) {
-                        recordBtn.disabled = false;
-                        if (currentLosersCount === 2) {
-                            recordBtn.textContent = `记录${config.name}：${selectedWinner} +${selectedScore}，${selectedLosers.join('、')} 各 -${selectedScore/2}`;
-                        } else {
-                            recordBtn.textContent = `记录${config ? config.name : ''}：${selectedWinner} +${selectedScore}，${selectedLosers[0]} -${selectedScore}`;
-                        }
+            const actualWinners = requiredWinners === 2 ? selectedWinners : (selectedWinner ? [selectedWinner] : []);
+            const winnersReady = actualWinners.length === requiredWinners;
+            const losersReady = selectedLosers.length === requiredLosers;
+            // 检查赢家和败者没有交叉
+            const noOverlap = !actualWinners.some(w => selectedLosers.includes(w));
+
+            if (selectedScore && winnersReady && losersReady && noOverlap) {
+                if (recordBtn) {
+                    recordBtn.disabled = false;
+                    if (requiredWinners === 2) {
+                        // 反向双吃
+                        recordBtn.textContent = `记录${config.name}：${actualWinners.join('、')} 各 +${selectedScore/2}，${selectedLosers[0]} -${selectedScore}`;
+                    } else if (requiredLosers === 2) {
+                        recordBtn.textContent = `记录${config.name}：${actualWinners[0]} +${selectedScore}，${selectedLosers.join('、')} 各 -${selectedScore/2}`;
+                    } else {
+                        recordBtn.textContent = `记录${config ? config.name : ''}：${actualWinners[0]} +${selectedScore}，${selectedLosers[0]} -${selectedScore}`;
                     }
-                    return;
                 }
+                return;
             }
 
             // 禁用按钮并显示提示信息
@@ -682,14 +715,22 @@
                 recordBtn.disabled = true;
                 if (!selectedScore) {
                     recordBtn.textContent = '请先选择分数';
-                } else if (!selectedWinner) {
-                    recordBtn.textContent = '请选择胜者';
-                } else if (selectedLosers.length === 0) {
-                    recordBtn.textContent = requiredLosers === 2 ? '请选择2个败者' : '请选择败者';
-                } else if (selectedLosers.length < requiredLosers) {
-                    recordBtn.textContent = `请再选择${requiredLosers - selectedLosers.length}个败者`;
-                } else if (selectedLosers.includes(selectedWinner)) {
-                    recordBtn.textContent = '胜者和败者不能相同';
+                } else if (!winnersReady) {
+                    if (requiredWinners === 2) {
+                        const remaining = requiredWinners - actualWinners.length;
+                        recordBtn.textContent = remaining === requiredWinners ? `请选择${requiredWinners}个赢家` : `请再选择${remaining}个赢家`;
+                    } else {
+                        recordBtn.textContent = '请选择胜者';
+                    }
+                } else if (!losersReady) {
+                    if (requiredLosers === 2) {
+                        const remaining = requiredLosers - selectedLosers.length;
+                        recordBtn.textContent = remaining === requiredLosers ? `请选择${requiredLosers}个败者` : `请再选择${remaining}个败者`;
+                    } else {
+                        recordBtn.textContent = '请选择败者';
+                    }
+                } else if (!noOverlap) {
+                    recordBtn.textContent = '赢家和败者不能相同';
                 } else {
                     recordBtn.textContent = '请完成选择';
                 }
@@ -942,7 +983,15 @@
 
                     // 构造 FormData 与目标 URL
                     let url, fd;
-                    if (currentLosersCount === 2) {
+                    if (currentWinnersCount === 2) {
+                        // 多赢家（反向双吃）：调用 add_reverse_double
+                        url = `/add_reverse_double/{{ session_id }}`;
+                        fd = new FormData();
+                        selectedWinners.forEach(w => fd.append('winners', w));
+                        fd.append('loser', selectedLosers[0] || '');
+                        fd.append('score', selectedScore);
+                        fd.append('special_score', currentSpecialScore || config.specialScore || '');
+                    } else if (currentLosersCount === 2) {
                         // 多败者：调用 add_special_score
                         url = `/add_special_score/{{ session_id }}`;
                         fd = new FormData();
@@ -1179,7 +1228,15 @@
                 <div class="record-item">
                     <div class="record-content">
                         <div>
-                            <b><a href="/player/{{ r.winner_id }}" class="record-player-link">{{ r.winner }}</a></b> 胜 <b>
+                            <b>
+                            {% if r.is_multi_winner %}
+                                {% for w in r.winners %}
+                                    <a href="/player/{{ w.id }}" class="record-player-link">{{ w.name }}</a>{% if not loop.last %} + {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <a href="/player/{{ r.winner_id }}" class="record-player-link">{{ r.winner }}</a>
+                            {% endif %}
+                            </b> 胜 <b>
                             {% if r.is_multi_loser %}
                                 {% for loser in r.losers %}
                                     <a href="/player/{{ loser.id }}" class="record-player-link">{{ loser.name }}</a>{% if not loop.last %} + {% endif %}
