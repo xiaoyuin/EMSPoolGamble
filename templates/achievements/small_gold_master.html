@@ -327,9 +327,29 @@
             {% endif %}
         {% endfor %}
 
+        {% set master_names = [] %}
+        {% for p in achievement_players %}
+            {% set _ = master_names.append(p.name) %}
+        {% endfor %}
+
+        {% set approaching = [] %}
+        {% for name, count in player_counts.items() %}
+            {% if count < achievement.requirement_count and name not in master_names %}
+                {% set _ = approaching.append({'name': name, 'count': count}) %}
+            {% endif %}
+        {% endfor %}
+
         <div class="stats-overview">
             <strong>距离达人最近的玩家：</strong>
+            {% if approaching %}
+            <div class="near-master">
+                {% for p in approaching|sort(attribute='count', reverse=true) %}
+                <span>{{ p.name }}（{{ p.count }}/{{ achievement.requirement_count }}）</span>{% if not loop.last %}、{% endif %}
+                {% endfor %}
+            </div>
+            {% else %}
             <div class="near-master">暂无玩家接近达人门槛</div>
+            {% endif %}
         </div>
     </div>
     {% endif %}
