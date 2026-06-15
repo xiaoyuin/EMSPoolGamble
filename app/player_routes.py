@@ -10,7 +10,8 @@ from .models import (sessions, players, save_data,
                      update_player_name, get_player_by_id, get_player_records,
                      get_player_stats, get_player_special_wins, get_players_special_wins_batch,
                      get_available_months_for_player,
-                     get_player_tournament_history)
+                     get_player_tournament_history,
+                     retire_player, comeback_player, is_player_retired, get_retired_player_ids)
 from .security import require_admin_auth, require_csrf_protection
 from . import APP_VERSION
 
@@ -245,11 +246,11 @@ def register_player_routes(app):
             player=player,
             player_id=player_id,
             stats=stats,
-            records=player_records[:50],  # 只显示最近50场
+            records=player_records[:50],
             opponents=opponent_list,
             score_trend_data=score_trend_data,
-            special_wins=special_wins,  # 传递特殊胜利记录（全时段身份徽章）
-            special_wins_counts=special_wins_counts,  # 筛选区间内的特殊胜利次数
+            special_wins=special_wins,
+            special_wins_counts=special_wins_counts,
             available_months=available_months,
             selected_month=selected_month,
             custom_start_date=custom_start_date,
@@ -260,6 +261,8 @@ def register_player_routes(app):
             default_end_date=default_end_date,
             all_sessions_total=all_sessions_total,
             tournament_history=tournament_history,
+            is_retired=is_player_retired(player_id),
+            retired_player_ids=get_retired_player_ids(),
             app_version=APP_VERSION
         )
 
@@ -295,4 +298,32 @@ def register_player_routes(app):
         else:
             flash('更新玩家名字失败', 'error')
 
+        return redirect(url_for('player_detail', player_id=player_id))
+
+    @app.route('/player/<player_id>/retire', methods=['POST'])
+    @require_admin_auth
+    @require_csrf_protection
+    def player_retire(player_id):
+        """退役玩家"""
+        if player_id not in players:
+            flash('玩家不存在', 'error')
+            return redirect(url_for('index'))
+
+        name = get_player_name(player_id)
+        retire_player(player_id)
+        flash(f'玩家 "{name}" 已退役', 'success')
+        return redirect(url_for('player_detail', player_id=player_id))
+
+    @app.route('/player/<player_id>/comeback', methods=['POST'])
+    @require_admin_auth
+    @require_csrf_protection
+    def player_comeback(player_id):
+        """复出玩家"""
+        if player_id not in players:
+            flash('玩家不存在', 'error')
+            return redirect(url_for('index'))
+
+        name = get_player_name(player_id)
+        comeback_player(player_id)
+        flash(f'玩家 "{name}" 已复出', 'success')
         return redirect(url_for('player_detail', player_id=player_id))

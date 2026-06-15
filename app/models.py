@@ -306,6 +306,26 @@ def get_duo_loser_stats() -> List[Dict]:
     return db.get_duo_loser_stats()
 
 
+def retire_player(player_id: str):
+    """退役玩家"""
+    db.retire_player(player_id)
+
+
+def comeback_player(player_id: str):
+    """复出玩家"""
+    db.comeback_player(player_id)
+
+
+def is_player_retired(player_id: str) -> bool:
+    """检查玩家是否退役"""
+    return db.is_player_retired(player_id)
+
+
+def get_retired_player_ids() -> set:
+    """获取所有退役玩家ID"""
+    return db.get_retired_player_ids()
+
+
 # ===== 兼容性变量 - 用于保持与原有代码的兼容性 =====
 
 class SessionsProxy:

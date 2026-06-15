@@ -53,6 +53,7 @@
         .no-records-message { text-align: center; color: #666; }
         .player-link { color: #1890ff; text-decoration: none; }
         .player-link:hover { text-decoration: underline; }
+        .player-link.retired { color: #999 !important; -webkit-text-fill-color: #999 !important; text-shadow: none !important; background: none !important; -webkit-background-clip: unset !important; background-clip: unset !important; }
         .special-score-tag {
             font-size: 0.7em;
             color: #fa8c16;
@@ -146,7 +147,7 @@
                 <td>{{ loop.index }}</td>
                 <td>
                     {% if player.id %}
-                    <a href="/player/{{ player.id }}" class="player-link{% if player.has_big_gold %} has-big-gold{% elif player.has_small_gold %} has-small-gold{% endif %}">{{ player.name }}</a>
+                    <a href="/player/{{ player.id }}" class="player-link{% if player.id in retired_player_ids %} retired{% elif player.has_big_gold %} has-big-gold{% elif player.has_small_gold %} has-small-gold{% endif %}">{{ player.name }}</a>
                     {% else %}
                     {{ player.name }}
                     {% endif %}

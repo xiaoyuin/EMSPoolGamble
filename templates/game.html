@@ -88,6 +88,7 @@
         .delete-record-btn:hover { background: #ff7875; }
         .delete-form { display: inline; }
         .timestamp { font-size: 0.8em; color: #999; }
+        .player-name.retired, .player-name.retired a, .record-player-link.retired { color: #999 !important; -webkit-text-fill-color: #999 !important; text-shadow: none !important; background: none !important; }
         .timestamp-row { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
         .special-score-tag {
             font-size: 0.7em;
@@ -1111,7 +1112,7 @@
                 <div class="player-row">
                     <div class="player-main">
                         <div class="player-info" onclick="togglePlayerExpand('{{ player.name }}')">
-                            <span class="player-name{% if player.has_big_gold %} has-big-gold{% elif player.has_small_gold %} has-small-gold{% endif %}">
+                            <span class="player-name{% if player.id in retired_player_ids %} retired{% elif player.has_big_gold %} has-big-gold{% elif player.has_small_gold %} has-small-gold{% endif %}">
                                 {% if player.id %}
                                 <a href="/player/{{ player.id }}">{{ player.name }}</a>
                                 {% else %}

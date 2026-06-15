@@ -68,6 +68,7 @@
         .footer { margin-top: 2em; text-align: center; font-size: 0.8em; color: #888; }
         .player-link { color: #1890ff; text-decoration: none; }
         .player-link:hover { text-decoration: underline; }
+        .retired, .player-link.retired, .player-name.retired { color: #999 !important; -webkit-text-fill-color: #999 !important; text-shadow: none !important; background: none !important; -webkit-background-clip: unset !important; background-clip: unset !important; }
         .section-title { margin-top: 1.5em; margin-bottom: 1em; color: #666; }
         .stat-orange { color: #ff9500; }
         .stat-green { color: #52c41a; }
@@ -252,7 +253,7 @@
 <body>
     <div class="header">
         <h2>EMS Pool - 玩家详情</h2>
-        <div class="player-name{% if special_wins.has_big_gold %} has-big-gold{% elif special_wins.has_small_gold %} has-small-gold{% endif %}">{{ player.name }}</div>
+        <div class="player-name{% if is_retired %} retired{% elif special_wins.has_big_gold %} has-big-gold{% elif special_wins.has_small_gold %} has-small-gold{% endif %}">{{ player.name }}{% if is_retired %} <span style="font-size: 0.5em; vertical-align: middle;">🏖️ 已退役</span>{% endif %}</div>
         <div class="player-info">
             创建时间: <span data-utc-time="{{ player.created_at }}">{{ player.created_at }}</span>
             {% if player.updated_at != player.created_at %}
@@ -457,7 +458,7 @@
                 {% for opponent in opponents %}
                 <tr>
                     <td>
-                        <a href="/player/{{ opponent.id }}" class="player-link{% if opponent.has_big_gold %} has-big-gold{% elif opponent.has_small_gold %} has-small-gold{% endif %}">{{ opponent.name }}</a>
+                        <a href="/player/{{ opponent.id }}" class="player-link{% if opponent.id in retired_player_ids %} retired{% elif opponent.has_big_gold %} has-big-gold{% elif opponent.has_small_gold %} has-small-gold{% endif %}">{{ opponent.name }}</a>
                     </td>
                     <td>{{ opponent.total_games }}</td>
                     <td class="win">{{ opponent.wins }}</td>
@@ -518,6 +519,25 @@
                 <p>暂无对战记录</p>
             {% endif %}
         </div>
+    </div>
+
+    <!-- 退役/复出卡片 -->
+    <div class="card">
+        {% if is_retired %}
+        <div style="text-align: center; color: #999; margin-bottom: 1em;">
+            <span style="font-size: 1.5em;">🏖️</span>
+            <div style="font-weight: bold; margin-top: 0.3em;">该玩家已退役</div>
+        </div>
+        <form action="/player/{{ player_id }}/comeback" method="post" onsubmit="return confirm('确定要让该玩家复出吗？')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary" style="width: 100%;">玩家复出</button>
+        </form>
+        {% else %}
+        <form action="/player/{{ player_id }}/retire" method="post" onsubmit="return confirm('确定要退役该玩家吗？退役后将不会出现在新场次的玩家列表中。')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-danger" style="width: 100%;">玩家退役</button>
+        </form>
+        {% endif %}
     </div>
 
     <div class="links">

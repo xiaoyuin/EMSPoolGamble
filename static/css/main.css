@@ -197,3 +197,16 @@ button:hover { background: var(--color-primary-hover); }
     margin-left: 8px;
 }
 .logout-btn:hover { background: var(--color-danger-hover); color: white; text-decoration: none; }
+
+/* 退役玩家灰色名字 */
+.retired,
+.player-link.retired,
+.player-name.retired,
+.record-player-link.retired {
+    color: #999 !important;
+    -webkit-text-fill-color: #999 !important;
+    text-shadow: none !important;
+    background: none !important;
+    -webkit-background-clip: unset !important;
+    background-clip: unset !important;
+}

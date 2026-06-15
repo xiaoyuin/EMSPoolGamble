@@ -38,6 +38,7 @@
         .timestamp { font-size: 0.8em; color: #999; margin-top: 5px; }
         .player-link { color: #1890ff; text-decoration: none; }
         .player-link:hover { text-decoration: underline; }
+        .player-link.retired { color: #999 !important; -webkit-text-fill-color: #999 !important; text-shadow: none !important; background: none !important; -webkit-background-clip: unset !important; background-clip: unset !important; }
         /* 特殊胜利高亮样式 */
         .player-link.has-small-gold {
             color: #fa8c16 !important;
@@ -269,7 +270,7 @@
                 <td>{{ loop.index }}</td>
                 <td>
                     {% if player.id %}
-                    <a href="/player/{{ player.id }}" class="player-link{% if player.has_big_gold %} has-big-gold{% elif player.has_small_gold %} has-small-gold{% endif %}">{{ player.name }}</a>
+                    <a href="/player/{{ player.id }}" class="player-link{% if player.id in retired_player_ids %} retired{% elif player.has_big_gold %} has-big-gold{% elif player.has_small_gold %} has-small-gold{% endif %}">{{ player.name }}</a>
                     {% else %}
                     {{ player.name }}
                     {% endif %}
@@ -330,7 +331,7 @@
             <div class="score-item">
                 <span>
                     {% if player.id %}
-                    <a href="/player/{{ player.id }}" class="player-link{% if player.has_big_gold %} has-big-gold{% elif player.has_small_gold %} has-small-gold{% endif %}">{{ player.name }}</a>：
+                    <a href="/player/{{ player.id }}" class="player-link{% if player.id in retired_player_ids %} retired{% elif player.has_big_gold %} has-big-gold{% elif player.has_small_gold %} has-small-gold{% endif %}">{{ player.name }}</a>：
                     {% else %}
                     {{ player.name }}：
                     {% endif %}

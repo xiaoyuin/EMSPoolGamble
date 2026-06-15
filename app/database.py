@@ -179,12 +179,24 @@ class DatabaseManager:
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_tournament_matches_tid ON tournament_matches (tournament_id, round_index, slot_index)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_tournament_participants_player ON tournament_participants (player_id)')
 
+            # 退役记录表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS player_retirement_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    player_id TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY (player_id) REFERENCES players (player_id)
+                )
+            ''')
+
             conn.commit()
             print(f"数据库初始化完成: {self.db_path}")
 
         # 检查并执行数据库升级
         self.upgrade_to_multi_loser_support()
         self.upgrade_to_multi_winner_support()
+        self._upgrade_player_retirement()
         self._migrate_round_names()
         self._migrate_match_video_columns()
 
@@ -346,6 +358,19 @@ class DatabaseManager:
             conn.commit()
             print("添加了 winner_id2 列")
 
+    def _upgrade_player_retirement(self):
+        """升级 players 表以支持退役状态"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA table_info(players)")
+            columns = [column[1] for column in cursor.fetchall()]
+            if 'is_retired' in columns:
+                return
+            print("添加 is_retired 列...")
+            cursor.execute('ALTER TABLE players ADD COLUMN is_retired INTEGER DEFAULT 0')
+            conn.commit()
+            print("添加了 is_retired 列")
+
     def _migrate_round_names(self):
         """将旧版轮次名 '1/8 决赛' → '16进8'，'1/4 决赛' → '8进4'。"""
         renames = {
@@ -438,7 +463,7 @@ class DatabaseManager:
             return [dict(row) for row in cursor.fetchall()]
 
     def get_available_players(self, exclude_session_id: str = None) -> List[Dict]:
-        """获取所有可用玩家，可排除指定场次中的玩家，包含有效胜率信息"""
+        """获取所有可用玩家（排除退役），可排除指定场次中的玩家，包含有效胜率信息"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
 
@@ -449,12 +474,14 @@ class DatabaseManager:
                     WHERE p.player_id NOT IN (
                         SELECT player_id FROM session_players WHERE session_id = ?
                     )
+                    AND (p.is_retired = 0 OR p.is_retired IS NULL)
                     ORDER BY p.name
                 ''', (exclude_session_id,))
             else:
                 cursor.execute('''
                     SELECT p.player_id, p.name
                     FROM players p
+                    WHERE p.is_retired = 0 OR p.is_retired IS NULL
                     ORDER BY p.name
                 ''')
 
@@ -1720,6 +1747,47 @@ class DatabaseManager:
             result = list(pair_map.values())
             result.sort(key=lambda x: x['duo_count'], reverse=True)
             return result
+
+    # ===== 退役相关 =====
+
+    def retire_player(self, player_id: str):
+        """将玩家标记为退役，并记录日志"""
+        current_time = get_utc_timestamp()
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('UPDATE players SET is_retired = 1 WHERE player_id = ?', (player_id,))
+            cursor.execute('''
+                INSERT INTO player_retirement_log (player_id, action, created_at)
+                VALUES (?, 'retire', ?)
+            ''', (player_id, current_time))
+            conn.commit()
+
+    def comeback_player(self, player_id: str):
+        """将玩家标记为复出，并记录日志"""
+        current_time = get_utc_timestamp()
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('UPDATE players SET is_retired = 0 WHERE player_id = ?', (player_id,))
+            cursor.execute('''
+                INSERT INTO player_retirement_log (player_id, action, created_at)
+                VALUES (?, 'comeback', ?)
+            ''', (player_id, current_time))
+            conn.commit()
+
+    def is_player_retired(self, player_id: str) -> bool:
+        """检查玩家是否已退役"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT is_retired FROM players WHERE player_id = ?', (player_id,))
+            row = cursor.fetchone()
+            return bool(row and row['is_retired'])
+
+    def get_retired_player_ids(self) -> set:
+        """获取所有已退役玩家的 ID 集合"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT player_id FROM players WHERE is_retired = 1')
+            return {row['player_id'] for row in cursor.fetchall()}
 
 # 全局数据库实例
 db = DatabaseManager()

@@ -10,12 +10,13 @@ def _wants_json():
         return True
     accept = request.headers.get('Accept', '')
     return 'application/json' in accept and 'text/html' not in accept
-from .models import (sessions, players, save_data, 
+from .models import (sessions, players, save_data,
                      get_player_by_name, get_player_name, get_or_create_player, create_player,
                      get_available_players, get_session,
                      add_player_to_session, add_game_record, delete_game_record,
                      end_session, delete_session, add_multi_loser_record,
-                     get_players_special_wins_batch)
+                     get_players_special_wins_batch,
+                     get_retired_player_ids)
 from .utils import get_utc_timestamp
 from .security import require_admin_auth, require_csrf_protection
 from . import DEFAULT_SCORE_OPTIONS, APP_VERSION
@@ -87,7 +88,8 @@ def register_game_routes(app):
             session=game_session,
             score_options=DEFAULT_SCORE_OPTIONS,
             sorted_players=sorted_players,
-            recent_players=available_player_data,  # 传递包含ID的可用玩家列表
+            recent_players=available_player_data,
+            retired_player_ids=get_retired_player_ids(),
             app_version=APP_VERSION
         )
 

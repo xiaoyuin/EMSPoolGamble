@@ -13,7 +13,8 @@ from .models import (sessions, players, save_data, get_player_by_name, get_playe
                      get_players_special_wins_batch, get_session_players,
                      get_achievement_players, get_achievement_records,
                      get_achievement_stats, get_achievement_master_players,
-                     get_earliest_session_date, get_available_months)
+                     get_earliest_session_date, get_available_months,
+                     get_retired_player_ids)
 from .utils import get_utc_timestamp, generate_session_name
 from .security import require_admin_auth, require_csrf_protection
 from . import APP_VERSION, APP_NAME, VERSION_DATE
@@ -297,7 +298,8 @@ def register_main_routes(app):
                               display_start_date=display_start_date,
                               display_end_date=display_end_date,
                               default_start_date=default_start_date,
-                              default_end_date=default_end_date)
+                              default_end_date=default_end_date,
+                              retired_player_ids=get_retired_player_ids())
 
     @app.route('/api/load_more_sessions')
     def load_more_sessions():
@@ -461,6 +463,7 @@ def register_main_routes(app):
                              session_data=session_data,
                              sorted_players=sorted_players,
                              records=records_with_ids,
+                             retired_player_ids=get_retired_player_ids(),
                              app_version=APP_VERSION)
 
     @app.route('/delete_session/<session_id>', methods=['POST'])
