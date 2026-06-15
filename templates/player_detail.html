@@ -253,7 +253,7 @@
 <body>
     <div class="header">
         <h2>EMS Pool - 玩家详情</h2>
-        <div class="player-name{% if is_retired %} retired{% elif special_wins.has_big_gold %} has-big-gold{% elif special_wins.has_small_gold %} has-small-gold{% endif %}">{{ player.name }}{% if is_retired %} <span style="font-size: 0.5em; vertical-align: middle;">🏖️ 已退役</span>{% endif %}</div>
+        <div class="player-name{% if is_retired %} retired{% elif special_wins.has_big_gold %} has-big-gold{% elif special_wins.has_small_gold %} has-small-gold{% endif %}">{{ player.name }}{% if is_retired %} <span style="font-size: 0.5em; vertical-align: middle;">🧓 已退役</span>{% endif %}</div>
         <div class="player-info">
             创建时间: <span data-utc-time="{{ player.created_at }}">{{ player.created_at }}</span>
             {% if player.updated_at != player.created_at %}
@@ -525,7 +525,7 @@
     <div class="card">
         {% if is_retired %}
         <div style="text-align: center; color: #999; margin-bottom: 1em;">
-            <span style="font-size: 1.5em;">🏖️</span>
+            <span style="font-size: 1.5em;">🧓</span>
             <div style="font-weight: bold; margin-top: 0.3em;">该玩家已退役</div>
         </div>
         <form action="/player/{{ player_id }}/comeback" method="post" onsubmit="return confirm('确定要让该玩家复出吗？')">

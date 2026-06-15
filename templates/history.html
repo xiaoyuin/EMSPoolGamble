@@ -450,6 +450,7 @@ const searchQuery = {{ (search_query or '')|tojson }};
 const selectedMonth = {{ (selected_month or '')|tojson }};
 const customStartDate = {{ (custom_start_date or '')|tojson }};
 const customEndDate = {{ (custom_end_date or '')|tojson }};
+const retiredPlayerIds = new Set({{ retired_player_ids|list|tojson }});
 
 function changeMonth() {
     const selector = document.getElementById('month-selector');
@@ -648,7 +649,7 @@ function createSessionCard(sessionId, sessionData) {
     if (sessionData.players_with_ids) {
         sessionData.players_with_ids.forEach(player => {
             const scoreClass = player.score > 0 ? 'positive' : (player.score < 0 ? 'negative' : 'neutral');
-            const playerLinkClass = player.has_big_gold ? ' has-big-gold' : (player.has_small_gold ? ' has-small-gold' : '');
+            const playerLinkClass = (player.id && retiredPlayerIds.has(player.id)) ? ' retired' : (player.has_big_gold ? ' has-big-gold' : (player.has_small_gold ? ' has-small-gold' : ''));
             const playerLink = player.id ?
                 `<a href="/player/${player.id}" class="player-link${playerLinkClass}">${player.name}</a>` :
                 player.name;
