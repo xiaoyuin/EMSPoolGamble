@@ -48,6 +48,14 @@ def register_achievement_routes(app):
                 'category': 'master'
             },
             {
+                'id': 'small_gold_legend',
+                'name': '小金传奇',
+                'description': '获得20次或以上小金胜利的玩家',
+                'icon': '🏛️',
+                'count': stats['small_gold_legends'],
+                'category': 'legend'
+            },
+            {
                 'id': 'big_gold_master',
                 'name': '大金达人',
                 'description': '获得5次或以上大金胜利的玩家',
@@ -223,6 +231,28 @@ def register_achievement_routes(app):
                              achievement=achievement_config,
                              achievement_players=achievement_players,
                              all_records=all_big_gold_records,
+                             app_version=APP_VERSION)
+
+    @app.route('/achievement/small_gold_legend')
+    def achievement_small_gold_legend():
+        """小金传奇详情"""
+        achievement_players = get_achievement_master_players('small_gold_legend')
+        all_small_gold_records = get_achievement_records('small_gold')
+
+        achievement_config = {
+            'id': 'small_gold_legend',
+            'name': '小金传奇',
+            'description': '获得20次或以上小金胜利的玩家。小金路上的终极里程碑。',
+            'icon': '🏛️',
+            'rule': '累计获得20次或以上小金胜利',
+            'color_theme': 'legend',
+            'requirement_count': 20
+        }
+
+        return render_template('achievements/small_gold_legend.html',
+                             achievement=achievement_config,
+                             achievement_players=achievement_players,
+                             all_records=all_small_gold_records,
                              app_version=APP_VERSION)
 
     @app.route('/achievement/gold_loser')

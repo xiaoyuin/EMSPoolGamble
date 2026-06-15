@@ -1491,6 +1491,19 @@ class DatabaseManager:
             ''')
             stats['big_gold_legends'] = cursor.fetchone()['player_count']
 
+            # 小金传奇统计（小金次数 >= 20）
+            cursor.execute('''
+                SELECT COUNT(*) as player_count
+                FROM (
+                    SELECT winner_id, COUNT(*) as achievement_count
+                    FROM game_records
+                    WHERE special_score = '小金'
+                    GROUP BY winner_id
+                    HAVING COUNT(*) >= 20
+                ) as small_gold_legends
+            ''')
+            stats['small_gold_legends'] = cursor.fetchone()['player_count']
+
             # 大吃一金统计（被大小金痛击过的玩家）
             # 用 UNION 收集 loser_id 和 loser_id2，再 COUNT DISTINCT
             cursor.execute('''
@@ -1516,6 +1529,9 @@ class DatabaseManager:
             if achievement_type == 'small_gold_master':
                 special_score = '小金'
                 min_count = 10
+            elif achievement_type == 'small_gold_legend':
+                special_score = '小金'
+                min_count = 20
             elif achievement_type == 'big_gold_master':
                 special_score = '大金'
                 min_count = 5

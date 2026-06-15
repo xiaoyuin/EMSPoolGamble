@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#1890ff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
+    <title>{{ achievement.name }} - 成就详情</title>
+    <style>
+        body { font-family: sans-serif; max-width: 700px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
+        .card { background: #ffffff; border-radius: 10px; padding: 1.2em; margin-top: 1.5em; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .links { margin-top: 1em; text-align: center; }
+        .links a { color: #1890ff; text-decoration: none; margin: 0 0.5em; }
+        .links a:hover { text-decoration: underline; }
+        .footer { margin-top: 2em; text-align: center; font-size: 0.8em; color: #888; }
+
+        .achievement-header {
+            text-align: center;
+            padding: 2.5em 1em;
+            background: linear-gradient(135deg, #8B4513 0%, #DAA520 50%, #FFD700 100%);
+            color: white;
+            border-radius: 15px;
+            margin-bottom: 2em;
+            box-shadow: 0 4px 20px rgba(218, 165, 32, 0.4);
+            border: 2px solid #DAA520;
+        }
+
+        .achievement-icon {
+            font-size: 4em;
+            margin-bottom: 0.5em;
+            display: block;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { text-shadow: 0 0 10px rgba(255, 255, 255, 0.5); }
+            to { text-shadow: 0 0 20px rgba(255, 255, 255, 0.8); }
+        }
+
+        .achievement-name {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 0.5em;
+        }
+
+        .achievement-description {
+            font-size: 1.1em;
+            opacity: 0.95;
+            margin-bottom: 1em;
+            line-height: 1.5;
+        }
+
+        .achievement-rule {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 0.8em;
+            border-radius: 10px;
+            font-size: 1em;
+            margin-bottom: 0.5em;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1em;
+            margin-bottom: 2em;
+        }
+
+        .stat-card {
+            background: #FFF8DC;
+            padding: 1.5em;
+            border-radius: 10px;
+            text-align: center;
+            border-left: 4px solid #DAA520;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #DAA520;
+            margin-bottom: 0.2em;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        .legends-list {
+            background: #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .legend-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5em;
+            border-bottom: 1px solid #f0f0f0;
+            transition: all 0.3s ease;
+        }
+
+        .legend-item:last-child {
+            border-bottom: none;
+        }
+
+        .legend-item:hover {
+            background: linear-gradient(90deg, #FFF8DC 0%, #ffffff 100%);
+            transform: translateX(5px);
+        }
+
+        .legend-info {
+            display: flex;
+            align-items: center;
+            gap: 1em;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .legend-rank {
+            background: linear-gradient(135deg, #DAA520 0%, #FFD700 100%);
+            color: white;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.1em;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+            flex-shrink: 0;
+        }
+
+        .legend-rank.supreme {
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            transform: scale(1.2);
+            box-shadow: 0 4px 8px rgba(255, 215, 0, 0.6);
+        }
+
+        .legend-name {
+            font-weight: bold;
+            color: #333;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 0.5em;
+            min-width: 0;
+        }
+
+        .player-name-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+
+        .legend-title {
+            background: linear-gradient(45deg, #DAA520, #FFD700);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            white-space: nowrap;
+            flex-shrink: 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .legend-stats {
+            text-align: right;
+            color: #666;
+        }
+
+        .achievement-count {
+            font-weight: bold;
+            color: #DAA520;
+            font-size: 1.4em;
+        }
+
+        .first-time {
+            font-size: 0.8em;
+            margin-top: 0.3em;
+        }
+
+        .requirement-info {
+            background: linear-gradient(135deg, #FFF8DC 0%, #FFFACD 100%);
+            border-radius: 10px;
+            padding: 1.5em;
+            margin-bottom: 2em;
+            border-left: 4px solid #DAA520;
+        }
+
+        .requirement-title {
+            font-weight: bold;
+            color: #DAA520;
+            margin-bottom: 0.5em;
+            font-size: 1.1em;
+        }
+
+        .requirement-text {
+            color: #666;
+            line-height: 1.5;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #999;
+            font-style: italic;
+            padding: 4em;
+        }
+
+        .no-data-icon {
+            font-size: 4em;
+            margin-bottom: 0.5em;
+            opacity: 0.5;
+        }
+
+        .flash-message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .flash-success {
+            background-color: #f6ffed;
+            border: 1px solid #b7eb8f;
+            color: #52c41a;
+        }
+        .flash-error {
+            background-color: #fff2f0;
+            border: 1px solid #ffccc7;
+            color: #ff4d4f;
+        }
+
+        /* 移动端样式优化 */
+        @media (max-width: 768px) {
+            body { padding: 0.8em; }
+
+            .achievement-header {
+                padding: 2em 1em;
+            }
+
+            .achievement-icon {
+                font-size: 3em;
+            }
+
+            .achievement-name {
+                font-size: 1.5em;
+            }
+
+            .achievement-description {
+                font-size: 1em;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 0.8em;
+            }
+
+            .stat-card {
+                padding: 1.2em;
+            }
+
+            .legend-item {
+                padding: 1.2em;
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .legend-info {
+                margin-bottom: 0.8em;
+                width: 100%;
+            }
+
+            .legend-stats {
+                text-align: left;
+                width: 100%;
+            }
+
+            .legend-rank {
+                width: 40px;
+                height: 40px;
+                font-size: 1em;
+            }
+
+            .legend-name {
+                font-size: 1.1em;
+            }
+
+            .achievement-count {
+                font-size: 1.2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 显示消息通知 -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-message flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- 成就信息头部 -->
+    <div class="achievement-header">
+        <span class="achievement-icon">{{ achievement.icon }}</span>
+        <div class="achievement-name">{{ achievement.name }}</div>
+        <div class="achievement-description">{{ achievement.description }}</div>
+        <div class="achievement-rule">🎯 达成条件：{{ achievement.rule }}</div>
+    </div>
+
+    <!-- 传奇排行榜 -->
+    {% if achievement_players %}
+    <div class="card">
+        <h3>🏛️ 小金传奇殿堂</h3>
+        <div class="legends-list">
+            {% for player in achievement_players %}
+            <div class="legend-item">
+                <div class="legend-info">
+                    <div class="legend-rank {% if loop.index == 1 %}supreme{% endif %}">{{ loop.index }}</div>
+                    <div>
+                        <div class="legend-name">
+                            <span class="player-name-text">{{ player.name }}</span>
+                            <span class="legend-title">传奇</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="legend-stats">
+                    <div class="achievement-count">{{ player.achievement_count }} 次</div>
+                    <div class="first-time" data-utc-time="{{ player.first_achievement_date }}">
+                        封神：{{ player.first_achievement_date }}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="card">
+        <h3>🏛️ 小金传奇殿堂</h3>
+        <div class="no-data">
+            <div class="no-data-icon">🏛️</div>
+            <div>传奇殿堂空无一人</div>
+            <small>等待第一位传奇的诞生...<br>成为达成 {{ achievement.requirement_count }} 次小金的至尊传奇！</small>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="links">
+        <a href="/achievements">返回特殊记录</a> |
+        <a href="/">返回首页</a> |
+        <a href="/history">历史统计</a>
+    </div>
+
+    <div class="footer">
+        <p>© 2025-2026 EMS Pool</p>
+    </div>
+
+    <script>
+        // 将UTC时间转换为本地时间显示 - 兼容iOS Chrome
+        function convertUtcToLocal() {
+            // 转换所有带有 data-utc-time 属性的元素
+            document.querySelectorAll('[data-utc-time]').forEach(function(element) {
+                const utcTime = element.getAttribute('data-utc-time');
+                if (utcTime && utcTime.trim() !== '' && utcTime !== '未知') {
+                    try {
+                        // 统一时间格式处理，兼容iOS Chrome
+                        let dateString = utcTime.trim();
+
+                        // 如果不是ISO格式且不包含时区信息，则添加Z表示UTC
+                        if (!dateString.includes('T') && !dateString.endsWith('Z') && !dateString.includes('+') && !dateString.includes(' UTC')) {
+                            // 将 "YYYY-MM-DD HH:MM:SS" 格式转换为 ISO 格式
+                            dateString = dateString.replace(' ', 'T') + 'Z';
+                        } else if (dateString.includes(' UTC')) {
+                            // 移除 ' UTC' 并替换为 'Z'
+                            dateString = dateString.replace(' UTC', 'Z').replace(' ', 'T');
+                        } else if (!dateString.endsWith('Z') && !dateString.includes('+') && !dateString.includes('-', 10)) {
+                            // 确保有时区标识
+                            dateString += 'Z';
+                        }
+
+                        // 创建Date对象
+                        const utcDate = new Date(dateString);
+
+                        // 检查日期是否有效
+                        if (!isNaN(utcDate.getTime())) {
+                            const localTimeStr = utcDate.toLocaleString('zh-CN', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit'
+                            });
+                            element.textContent = localTimeStr;
+                            console.log('成就页时间转换:', utcTime, '->', localTimeStr);
+                        } else {
+                            console.warn('成就页时间解析失败:', utcTime, '转换后:', dateString);
+                        }
+                    } catch (e) {
+                        console.warn('成就页时间转换失败:', utcTime, e);
+                    }
+                }
+            });
+        }
+
+        // 页面加载完成后执行时间转换
+        document.addEventListener('DOMContentLoaded', convertUtcToLocal);
+    </script>
+<script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/static/sw.js").catch(()=>{});</script>
+</body>
+</html>
