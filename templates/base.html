@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}EMS Pool{% endblock %}</title>
 
+    {# PWA #}
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#1890ff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="EMS Pool">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192x192.png') }}">
+
     {# 全站基础样式 #}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
 
@@ -69,6 +77,11 @@
 
     {# 全站基础脚本（含 UTC→本地时间转换） #}
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+    }
+    </script>
 
     {# 各页面专属脚本 #}
     {% block scripts %}{% endblock %}

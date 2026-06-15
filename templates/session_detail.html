@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#1890ff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
     <title>{{ session_data.get('name', '未命名场次') }} - 场次详情</title>
     <style>
         body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
@@ -291,5 +295,6 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('场次详情页面时间转换完成');
 });
 </script>
+<script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/static/sw.js").catch(()=>{});</script>
 </body>
 </html>

@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#1890ff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
     <title>EMS Pool - 成就系统</title>
     <style>
         body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
@@ -161,5 +165,6 @@
     <div class="footer">
         <p>© 2025-2026 EMS Pool | 成就系统</p>
     </div>
+<script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/static/sw.js").catch(()=>{});</script>
 </body>
 </html>
