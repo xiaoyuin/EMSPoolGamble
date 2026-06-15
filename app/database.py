@@ -1492,16 +1492,16 @@ class DatabaseManager:
             stats['big_gold_legends'] = cursor.fetchone()['player_count']
 
             # 大吃一金统计（被大小金痛击过的玩家）
+            # 用 UNION 收集 loser_id 和 loser_id2，再 COUNT DISTINCT
             cursor.execute('''
-                SELECT COUNT(DISTINCT
-                    CASE
-                        WHEN loser_id IS NOT NULL THEN loser_id
-                        WHEN loser_id2 IS NOT NULL THEN loser_id2
-                    END
-                ) as player_count
-                FROM game_records
-                WHERE special_score IN ('小金', '大金')
-                AND (loser_id IS NOT NULL OR loser_id2 IS NOT NULL)
+                SELECT COUNT(DISTINCT player_id) as player_count
+                FROM (
+                    SELECT loser_id as player_id FROM game_records
+                    WHERE special_score IN ('小金', '大金') AND loser_id IS NOT NULL
+                    UNION
+                    SELECT loser_id2 as player_id FROM game_records
+                    WHERE special_score IN ('小金', '大金') AND loser_id2 IS NOT NULL
+                )
             ''')
             stats['gold_loser_players'] = cursor.fetchone()['player_count']
 
