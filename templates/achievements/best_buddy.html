@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#1890ff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
+    <title>{{ achievement.name }} - 特殊记录</title>
+    <style>
+        body { font-family: sans-serif; max-width: 700px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
+        .card { background: #ffffff; border-radius: 10px; padding: 1.2em; margin-top: 1.5em; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .links { margin-top: 1em; text-align: center; }
+        .links a { color: #1890ff; text-decoration: none; margin: 0 0.5em; }
+        .links a:hover { text-decoration: underline; }
+        .footer { margin-top: 2em; text-align: center; font-size: 0.8em; color: #888; }
+
+        .achievement-header {
+            text-align: center;
+            padding: 2.5em 1em;
+            background: linear-gradient(135deg, #36cfc9 0%, #1890ff 100%);
+            color: white;
+            border-radius: 15px;
+            margin-bottom: 2em;
+            box-shadow: 0 4px 20px rgba(24, 144, 255, 0.3);
+        }
+
+        .achievement-icon {
+            font-size: 4em;
+            margin-bottom: 0.5em;
+            display: block;
+        }
+
+        .achievement-name {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 0.5em;
+        }
+
+        .achievement-description {
+            font-size: 1.1em;
+            opacity: 0.95;
+            margin-bottom: 1em;
+            line-height: 1.5;
+        }
+
+        .achievement-rule {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 0.8em;
+            border-radius: 10px;
+            font-size: 1em;
+        }
+
+        .buddy-list {
+            background: #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .buddy-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.2em;
+            border-bottom: 1px solid #f0f0f0;
+            transition: all 0.3s ease;
+        }
+
+        .buddy-item:last-child { border-bottom: none; }
+
+        .buddy-item:hover {
+            background: linear-gradient(90deg, #e6fffb 0%, #ffffff 100%);
+            transform: translateX(5px);
+        }
+
+        .buddy-info {
+            display: flex;
+            align-items: center;
+            gap: 1em;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .buddy-rank {
+            background: linear-gradient(135deg, #36cfc9 0%, #1890ff 100%);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1em;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            flex-shrink: 0;
+        }
+
+        .buddy-rank.top-3 {
+            background: linear-gradient(135deg, #ffd700 0%, #ff8c00 100%);
+            transform: scale(1.1);
+        }
+
+        .buddy-names {
+            min-width: 0;
+        }
+
+        .buddy-player {
+            font-weight: bold;
+            color: #333;
+            font-size: 1.1em;
+        }
+
+        .buddy-arrow {
+            color: #36cfc9;
+            margin: 0 0.3em;
+        }
+
+        .buddy-target {
+            font-weight: bold;
+            color: #1890ff;
+            font-size: 1.1em;
+        }
+
+        .buddy-stats {
+            text-align: right;
+            flex-shrink: 0;
+            margin-left: 1em;
+        }
+
+        .buddy-count {
+            font-weight: bold;
+            color: #1890ff;
+            font-size: 1.3em;
+        }
+
+        .buddy-label {
+            font-size: 0.8em;
+            color: #999;
+        }
+
+        .player-link { color: #1890ff; text-decoration: none; }
+        .player-link:hover { text-decoration: underline; }
+
+        .no-data {
+            text-align: center;
+            color: #999;
+            font-style: italic;
+            padding: 3em;
+        }
+
+        .no-data-icon {
+            font-size: 3em;
+            margin-bottom: 0.5em;
+            opacity: 0.5;
+        }
+
+        @media (max-width: 768px) {
+            body { padding: 0.8em; }
+            .achievement-header { padding: 2em 1em; }
+            .achievement-icon { font-size: 3em; }
+            .achievement-name { font-size: 1.5em; }
+            .buddy-item { padding: 1em; }
+            .buddy-player, .buddy-target { font-size: 1em; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 头部 -->
+    <div class="achievement-header">
+        <span class="achievement-icon">{{ achievement.icon }}</span>
+        <div class="achievement-name">{{ achievement.name }}</div>
+        <div class="achievement-description">{{ achievement.description }}</div>
+        <div class="achievement-rule">{{ achievement.rule }}</div>
+    </div>
+
+    <!-- 好兄弟列表 -->
+    <div class="card">
+        <h3>🤝 好兄弟排行</h3>
+        {% if buddy_stats %}
+        <div class="buddy-list">
+            {% for item in buddy_stats %}
+            <div class="buddy-item">
+                <div class="buddy-info">
+                    <div class="buddy-rank {% if loop.index <= 3 %}top-3{% endif %}">{{ loop.index }}</div>
+                    <div class="buddy-names">
+                        <a href="/player/{{ item.player_id }}" class="player-link buddy-player">{{ item.player_name }}</a>
+                        <span class="buddy-arrow">→</span>
+                        <a href="/player/{{ item.buddy_id }}" class="player-link buddy-target">{{ item.buddy_name }}</a>
+                    </div>
+                </div>
+                <div class="buddy-stats">
+                    <div class="buddy-count">{{ item.gift_count }}</div>
+                    <div class="buddy-label">次1分</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="no-data">
+            <div class="no-data-icon">🤷</div>
+            <p>暂无1分记录</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="links">
+        <a href="/achievements">返回特殊记录</a> |
+        <a href="/">返回首页</a> |
+        <a href="/history">历史统计</a>
+    </div>
+
+    <div class="footer">
+        <p>© 2025-2026 EMS Pool</p>
+    </div>
+
+<script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/static/sw.js").catch(()=>{});</script>
+</body>
+</html>

@@ -296,6 +296,11 @@ def get_negative_achievement_records(achievement_type: str, player_id: str = Non
     return db.get_negative_achievement_records(achievement_type, player_id)
 
 
+def get_best_buddy_stats() -> List[Dict]:
+    """获取好兄弟统计"""
+    return db.get_best_buddy_stats()
+
+
 # ===== 兼容性变量 - 用于保持与原有代码的兼容性 =====
 
 class SessionsProxy:

@@ -1612,5 +1612,53 @@ class DatabaseManager:
 
             return []
 
+    def get_best_buddy_stats(self) -> List[Dict]:
+        """获取"好兄弟"统计：每个玩家给谁送了最多1分
+
+        返回列表，每项包含：
+        - player_id, player_name: 送分者
+        - buddy_id, buddy_name: 收分最多的对手
+        - gift_count: 送出1分的次数
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            # 先统计每对 (winner, loser) 之间的1分次数
+            cursor.execute('''
+                SELECT
+                    gr.winner_id,
+                    w.name as winner_name,
+                    gr.loser_id,
+                    l.name as loser_name,
+                    COUNT(*) as gift_count
+                FROM game_records gr
+                JOIN players w ON gr.winner_id = w.player_id
+                JOIN players l ON gr.loser_id = l.player_id
+                WHERE gr.score = 1
+                GROUP BY gr.winner_id, gr.loser_id
+            ''')
+
+            # 找每个玩家送出最多1分的对象
+            player_max = {}  # player_id -> best row
+            for row in cursor.fetchall():
+                r = dict(row)
+                pid = r['winner_id']
+                if pid not in player_max or r['gift_count'] > player_max[pid]['gift_count']:
+                    player_max[pid] = r
+
+            # 转为列表，按送分次数降序
+            result = []
+            for r in player_max.values():
+                result.append({
+                    'player_id': r['winner_id'],
+                    'player_name': r['winner_name'],
+                    'buddy_id': r['loser_id'],
+                    'buddy_name': r['loser_name'],
+                    'gift_count': r['gift_count']
+                })
+
+            result.sort(key=lambda x: x['gift_count'], reverse=True)
+            return result
+
 # 全局数据库实例
 db = DatabaseManager()

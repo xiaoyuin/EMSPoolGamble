@@ -4,7 +4,8 @@
 from flask import render_template, request, redirect, url_for, flash
 from .models import (get_achievement_players, get_achievement_records,
                      get_achievement_stats, get_achievement_master_players,
-                     get_negative_achievement_players, get_negative_achievement_records)
+                     get_negative_achievement_players, get_negative_achievement_records,
+                     get_best_buddy_stats)
 from . import APP_VERSION
 
 
@@ -16,6 +17,9 @@ def register_achievement_routes(app):
         """成就系统主页"""
         # 获取成就统计信息
         stats = get_achievement_stats()
+
+        # 获取好兄弟数据（用于计数）
+        buddy_stats = get_best_buddy_stats()
 
         # 准备成就列表数据
         achievements_data = [
@@ -66,6 +70,14 @@ def register_achievement_routes(app):
                 'icon': '🙈',
                 'count': stats['gold_loser_players'],
                 'category': 'negative'
+            },
+            {
+                'id': 'best_buddy',
+                'name': '好兄弟',
+                'description': '给谁送了最多1分？',
+                'icon': '🤝',
+                'count': len(buddy_stats),
+                'category': 'fun'
             }
         ]
 
@@ -229,6 +241,26 @@ def register_achievement_routes(app):
                              achievement=achievement_config,
                              achievement_players=achievement_players,
                              achievement_records=achievement_records,
+                             app_version=APP_VERSION)
+
+    @app.route('/achievement/best_buddy')
+    def achievement_best_buddy():
+        """好兄弟详情页"""
+        buddy_stats = get_best_buddy_stats()
+
+        achievement_config = {
+            'id': 'best_buddy',
+            'name': '好兄弟',
+            'description': '每个玩家给谁送了最多的1分？1分局虽小，但日积月累，你的好兄弟是谁一目了然。',
+            'icon': '🤝',
+            'rule': '统计每位玩家赢得1分局时，对手（输家）出现最多的人',
+            'difficulty': '趣味统计',
+            'color_theme': 'buddy'
+        }
+
+        return render_template('achievements/best_buddy.html',
+                             achievement=achievement_config,
+                             buddy_stats=buddy_stats,
                              app_version=APP_VERSION)
 
     @app.route('/achievement/<achievement_id>')
