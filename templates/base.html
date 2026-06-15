@@ -24,7 +24,16 @@
     {# ---------- 顶部 header（版本 + 管理员状态） ---------- #}
     {% block header %}
     <div class="header">
-        <h2>{% block header_title %}EMS Pool{% endblock %}</h2>
+        <div style="position: relative; display: flex; justify-content: center; align-items: center;">
+            <h2 style="margin: 0;">{% block header_title %}EMS Pool{% endblock %}</h2>
+            <div class="overflow-menu" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%);">
+                <button class="overflow-menu-btn" onclick="document.getElementById('overflow-dropdown').classList.toggle('show')" aria-label="菜单">⋮</button>
+                <div id="overflow-dropdown" class="overflow-dropdown">
+                    <a href="#" id="pwa-install-item" style="display: none;" onclick="installPWA(); return false;">📲 安装到主屏幕</a>
+                    <a href="https://github.com/xiaoyuin/EMSPoolGamble" target="_blank" rel="noopener">GitHub</a>
+                </div>
+            </div>
+        </div>
 
         {% block version_info %}
         <div class="version-info">
@@ -81,6 +90,36 @@
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/static/sw.js').catch(() => {});
     }
+
+    // PWA install
+    let _deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        _deferredPrompt = e;
+        const item = document.getElementById('pwa-install-item');
+        if (item) item.style.display = '';
+    });
+    function installPWA() {
+        if (!_deferredPrompt) return;
+        _deferredPrompt.prompt();
+        _deferredPrompt.userChoice.then(function() { _deferredPrompt = null; });
+        const item = document.getElementById('pwa-install-item');
+        if (item) item.style.display = 'none';
+        const dd = document.getElementById('overflow-dropdown');
+        if (dd) dd.classList.remove('show');
+    }
+    window.addEventListener('appinstalled', function() {
+        const item = document.getElementById('pwa-install-item');
+        if (item) item.style.display = 'none';
+    });
+
+    // Close overflow menu on click outside
+    document.addEventListener('click', function(e) {
+        const dd = document.getElementById('overflow-dropdown');
+        if (dd && dd.classList.contains('show') && !e.target.closest('.overflow-menu')) {
+            dd.classList.remove('show');
+        }
+    });
     </script>
 
     {# 各页面专属脚本 #}
