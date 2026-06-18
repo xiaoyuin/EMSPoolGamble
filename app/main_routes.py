@@ -160,22 +160,31 @@ def register_main_routes(app):
             except ValueError:
                 # 时间格式错误，回退到全时段
                 sorted_total_scores = get_global_leaderboard()
+        elif selected_month and '-' in selected_month:
+            # 按月份筛选（格式必须为 YYYY-MM）
+            try:
+                year, month = map(int, selected_month.split('-'))
+            except (ValueError, TypeError):
+                # 格式不合法，回退到全时段
+                sorted_total_scores = get_global_leaderboard()
+                year = month = None
+
+            if year and month:
+                start_date = f"{selected_month}-01"
+                if month == 12:
+                    end_date = f"{year + 1}-01-01"
+                else:
+                    end_date = f"{year}-{month + 1:02d}-01"
+
+                # 使用 SQLite 的 date 函数来处理月末
+                import calendar
+                last_day = calendar.monthrange(year, month)[1]
+                end_date = f"{selected_month}-{last_day:02d}"
+
+                sorted_total_scores = get_global_leaderboard(start_date, end_date)
         else:
-            # 按月份筛选
-            start_date = f"{selected_month}-01"
-            # 计算月末日期
-            year, month = map(int, selected_month.split('-'))
-            if month == 12:
-                end_date = f"{year + 1}-01-01"
-            else:
-                end_date = f"{year}-{month + 1:02d}-01"
-
-            # 使用 SQLite 的 date 函数来处理月末
-            import calendar
-            last_day = calendar.monthrange(year, month)[1]
-            end_date = f"{selected_month}-{last_day:02d}"
-
-            sorted_total_scores = get_global_leaderboard(start_date, end_date)
+            # selected_month 为空或格式不对，回退到全时段
+            sorted_total_scores = get_global_leaderboard()
 
         # 收集所有玩家ID用于批量查询特殊胜利记录
         all_player_ids = set()
