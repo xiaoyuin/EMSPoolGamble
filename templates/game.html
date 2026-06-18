@@ -353,6 +353,7 @@
                 name: '大金',
                 scores: [
                     { value: 10, losersCount: 1 },
+                    { value: 14, losersCount: 2 },
                     { value: 20, losersCount: 2 }
                 ],
                 specialScore: '大金'
@@ -394,7 +395,7 @@
             if (!hintElement) return;
 
             if (selectedGameType === 'big') {
-                hintElement.textContent = `${config.name}：请选择分数（10分：1胜1败，20分：1胜2败），然后选择对应的胜者和败者`;
+                hintElement.textContent = `${config.name}：请选择分数（10分：1胜1败，14分：1胜2败各-7，20分：1胜2败各-10），然后选择对应的胜者和败者`;
             } else if (selectedGameType === 'double') {
                 hintElement.textContent = `${config.name}：+分 = 1胜2败（正向），-分 = 2胜1败（反向）`;
             } else if (config.losersCount === 2) {
