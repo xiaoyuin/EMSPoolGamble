@@ -93,12 +93,57 @@
         .rounds-list { margin-top: 0.5em; max-height: 700px; overflow-y: auto; }
 
         /* 两两恩怨拓扑图 */
+        /* 两两恩怨拓扑图 */
+        .pairwise-card {
+            position: relative;
+        }
+        .pairwise-fs-btn {
+            position: absolute;
+            top: 1em;
+            right: 1em;
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            transition: background 0.15s, color 0.15s;
+            z-index: 2;
+        }
+        .pairwise-fs-btn:hover, .pairwise-fs-btn:focus {
+            background: rgba(24, 144, 255, 0.15);
+            color: #1890ff;
+            outline: none;
+        }
         #pairwise-graph {
             width: 100%;
             height: 380px;
             border-radius: 8px;
             background: #fafbfc;
             border: 1px solid #f0f0f0;
+        }
+        /* 全屏态：卡片脱离文档流铺满 viewport */
+        .pairwise-card.is-fullscreen {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            margin: 0;
+            border-radius: 0;
+            padding: 1em;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+        }
+        .pairwise-card.is-fullscreen h4 { margin-top: 0; }
+        .pairwise-card.is-fullscreen #pairwise-graph {
+            flex: 1;
+            height: auto;
+            min-height: 0;
         }
         .pairwise-empty {
             text-align: center;
@@ -202,9 +247,10 @@
         </table>
     </div>
 
-    <div class="card">
+    <div class="card pairwise-card" id="pairwise-card">
         <h4>比分流向</h4>
         {% if pairwise_edges %}
+        <button type="button" class="pairwise-fs-btn" id="pairwise-fs-btn" title="全屏" aria-label="全屏切换">⛶</button>
         <div id="pairwise-graph"></div>
         {% else %}
         <div class="pairwise-empty">本场暂无对局记录</div>
@@ -441,6 +487,47 @@
         } else {
             if (focusedId) resetHighlight();
         }
+    });
+
+    // 全屏切换
+    const card = document.getElementById('pairwise-card');
+    const fsBtn = document.getElementById('pairwise-fs-btn');
+    function resizeToContainer() {
+        const rect = container.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+            network.setSize(rect.width + 'px', rect.height + 'px');
+            network.redraw();
+            network.fit({ animation: { duration: 300, easingFunction: 'easeInOutQuad' } });
+        }
+    }
+    function setFullscreen(on) {
+        if (on) {
+            card.classList.add('is-fullscreen');
+            document.body.style.overflow = 'hidden';
+            fsBtn.textContent = '✕';
+            fsBtn.title = '退出全屏';
+        } else {
+            card.classList.remove('is-fullscreen');
+            document.body.style.overflow = '';
+            fsBtn.textContent = '⛶';
+            fsBtn.title = '全屏';
+        }
+        // 等下一帧再等一帧，确保浏览器完成 layout
+        requestAnimationFrame(function() {
+            requestAnimationFrame(resizeToContainer);
+        });
+    }
+    fsBtn.addEventListener('click', function() {
+        setFullscreen(!card.classList.contains('is-fullscreen'));
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && card.classList.contains('is-fullscreen')) {
+            setFullscreen(false);
+        }
+    });
+    // 全屏时窗口/横竖屏变化也要重算
+    window.addEventListener('resize', function() {
+        if (card.classList.contains('is-fullscreen')) resizeToContainer();
     });
 })();
 </script>
