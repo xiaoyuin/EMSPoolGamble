@@ -20,6 +20,53 @@ from .security import require_admin_auth, require_csrf_protection
 from . import APP_VERSION, APP_NAME, VERSION_DATE
 
 
+def _compute_pairwise_edges(records):
+    """从一场比赛的 records 列表算两两玩家之间的净得分。
+
+    每条 record 按 (胜者数 × 败者数) 平均分摊分数：
+      - 1v1 score=10: 胜者从败者身上 +10
+      - 1v2 score=14: 胜者从每个败者身上 +7
+      - 2v1 score=8:  每个胜者从败者身上 +4
+    最后合并成有向边（from = 净赢方，to = 净输方，net > 0）。
+    净分为 0 的 pair 忽略。
+    """
+    flow = defaultdict(float)  # (winner_id, loser_id) -> total score winner won from loser
+    for r in records:
+        winners = r.get('winners') or []
+        losers = r.get('losers') or []
+        if not winners or not losers:
+            continue
+        try:
+            score = float(r.get('score') or 0)
+        except (TypeError, ValueError):
+            continue
+        if score <= 0:
+            continue
+        share = score / (len(winners) * len(losers))
+        for w in winners:
+            for l in losers:
+                w_id, l_id = w.get('id'), l.get('id')
+                if not w_id or not l_id or w_id == l_id:
+                    continue
+                flow[(w_id, l_id)] += share
+
+    # 合并成有向边：net = flow[a→b] - flow[b→a]
+    edges = []
+    seen = set()
+    for (a, b), val in flow.items():
+        key = tuple(sorted([a, b]))
+        if key in seen:
+            continue
+        seen.add(key)
+        net = val - flow.get((b, a), 0)
+        if net > 0:
+            edges.append({'from': a, 'to': b, 'net': round(net, 1)})
+        elif net < 0:
+            edges.append({'from': b, 'to': a, 'net': round(-net, 1)})
+        # net == 0 忽略
+    return edges
+
+
 def register_main_routes(app):
     """注册主要路由"""
 
@@ -467,12 +514,22 @@ def register_main_routes(app):
         # 获取计分记录
         records_with_ids = session_data.get('records', [])
 
+        # 两两恩怨：算 pair-wise 净得分
+        pairwise_edges = _compute_pairwise_edges(records_with_ids)
+        # 节点数据：id / name / score，用 sorted_players 保持和排名一致
+        pairwise_nodes = [
+            {'id': p['id'], 'name': p['name'], 'score': p['score']}
+            for p in sorted_players if p.get('id')
+        ]
+
         return render_template('session_detail.html',
                              session_id=session_id,
                              session_data=session_data,
                              sorted_players=sorted_players,
                              records=records_with_ids,
                              retired_player_ids=get_retired_player_ids(),
+                             pairwise_nodes=pairwise_nodes,
+                             pairwise_edges=pairwise_edges,
                              app_version=APP_VERSION)
 
     @app.route('/delete_session/<session_id>', methods=['POST'])

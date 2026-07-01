@@ -91,6 +91,21 @@
 
         /* 计分详情卡片样式（对齐 game 页 record-item） */
         .rounds-list { margin-top: 0.5em; max-height: 700px; overflow-y: auto; }
+
+        /* 两两恩怨拓扑图 */
+        #pairwise-graph {
+            width: 100%;
+            height: 380px;
+            border-radius: 8px;
+            background: #fafbfc;
+            border: 1px solid #f0f0f0;
+        }
+        .pairwise-empty {
+            text-align: center;
+            color: #999;
+            font-style: italic;
+            padding: 2em;
+        }
         .record-item {
             display: flex;
             justify-content: space-between;
@@ -188,6 +203,15 @@
     </div>
 
     <div class="card">
+        <h4>比分流向</h4>
+        {% if pairwise_edges %}
+        <div id="pairwise-graph"></div>
+        {% else %}
+        <div class="pairwise-empty">本场暂无对局记录</div>
+        {% endif %}
+    </div>
+
+    <div class="card">
         <h4>计分详情</h4>
         {% if session_data.get('records', session_data.get('rounds', [])) %}
         <div class="rounds-list">
@@ -255,6 +279,172 @@
            <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a>
         </p>
     </div>
+
+{% if pairwise_edges %}
+<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+<script>
+(function() {
+    const nodesRaw = {{ pairwise_nodes|tojson }};
+    const edgesRaw = {{ pairwise_edges|tojson }};
+
+    // 节点：正=绿，负=红，0=灰；文字白色；shape=circle，圆最小宽度和字号都按 |score| 缩放
+    const maxAbs = Math.max(1, ...nodesRaw.map(n => Math.abs(n.score || 0)));
+    const nodes = nodesRaw.map(n => {
+        const s = n.score || 0;
+        const t = Math.abs(s) / maxAbs;  // 0~1
+        let bg, border, bgHl;
+        if (s > 0) { bg = '#52c41a'; border = '#389e0d'; bgHl = '#237804'; }
+        else if (s < 0) { bg = '#ff4d4f'; border = '#cf1322'; bgHl = '#a8071a'; }
+        else { bg = '#bfbfbf'; border = '#8c8c8c'; bgHl = '#595959'; }
+        const sign = s > 0 ? '+' : '';
+        const minWidth = 48 + 82 * t;
+        const fontSize = 14 + 8 * t;
+        return {
+            id: n.id,
+            label: `${n.name}\n${sign}${s}`,
+            color: {
+                background: bg,
+                border: border,
+                highlight: { background: bgHl, border: bgHl },
+                hover: { background: bgHl, border: bgHl }
+            },
+            font: { size: fontSize, color: '#fff', face: 'sans-serif', multi: false },
+            shape: 'circle',
+            margin: 10,
+            widthConstraint: { minimum: minWidth, maximum: minWidth }
+        };
+    });
+
+    // 边：宽度 ∝ net，标签为 net
+    const maxNet = Math.max(1, ...edgesRaw.map(e => e.net));
+    const edges = edgesRaw.map((e, i) => ({
+        id: 'e' + i,
+        from: e.from,
+        to: e.to,
+        label: String(e.net),
+        width: 1 + 5 * (e.net / maxNet),
+        arrows: { from: { enabled: true, scaleFactor: 0.5 } },
+        color: { color: '#8c8c8c', highlight: '#1890ff' },
+        font: {
+            size: 20,
+            color: '#333',
+            strokeWidth: 0,
+            background: 'rgba(255, 255, 255, 0.92)',
+            align: 'middle',
+            vadjust: 0
+        },
+        smooth: { type: 'continuous', roundness: 0.3 }
+    }));
+
+    const container = document.getElementById('pairwise-graph');
+    const nodesDs = new vis.DataSet(nodes);
+    const edgesDs = new vis.DataSet(edges);
+    const data = { nodes: nodesDs, edges: edgesDs };
+    const options = {
+        physics: {
+            solver: 'barnesHut',
+            barnesHut: { gravitationalConstant: -6500, springLength: 240, springConstant: 0.03, damping: 0.5, avoidOverlap: 0.8 },
+            stabilization: { iterations: 200 }
+        },
+        interaction: { hover: true, tooltipDelay: 100, dragNodes: true, zoomView: true, selectConnectedEdges: false }
+    };
+    const network = new vis.Network(container, data, options);
+
+    // 记录节点/边的"原色"，用于恢复
+    const nodeOriginal = {};
+    nodes.forEach(n => { nodeOriginal[n.id] = { bg: n.color.background, border: n.color.border, fontColor: n.font.color }; });
+    const edgeOriginal = {};
+    edges.forEach(e => { edgeOriginal[e.id] = { color: e.color.color, fontColor: e.font.color }; });
+
+    // 淡色（灰阶）
+    const DIM_NODE_BG = '#f5f5f5';
+    const DIM_NODE_BORDER = '#d9d9d9';
+    const DIM_NODE_FONT = '#bfbfbf';
+    const DIM_EDGE = '#e8e8e8';
+    const DIM_EDGE_FONT = '#d9d9d9';
+
+    // 高亮色（相关边的线）
+    const HL_EDGE = '#1890ff';
+
+    let focusedId = null;
+
+    function resetHighlight() {
+        focusedId = null;
+        const nodeUpdates = nodes.map(n => ({
+            id: n.id,
+            color: { background: nodeOriginal[n.id].bg, border: nodeOriginal[n.id].border },
+            font: { color: nodeOriginal[n.id].fontColor }
+        }));
+        const edgeUpdates = edges.map(e => ({
+            id: e.id,
+            color: { color: edgeOriginal[e.id].color, highlight: edgeOriginal[e.id].color, hover: edgeOriginal[e.id].color, inherit: false },
+            font: { color: edgeOriginal[e.id].fontColor }
+        }));
+        nodesDs.update(nodeUpdates);
+        edgesDs.update(edgeUpdates);
+    }
+
+    function focusNode(nodeId) {
+        focusedId = nodeId;
+        // 找出这个节点相关的边和邻居
+        const relatedEdgeIds = new Set();
+        const relatedNodeIds = new Set([nodeId]);
+        edges.forEach(e => {
+            if (e.from === nodeId || e.to === nodeId) {
+                relatedEdgeIds.add(e.id);
+                relatedNodeIds.add(e.from === nodeId ? e.to : e.from);
+            }
+        });
+        // 节点：相关节点用原色（并加粗边框），其他淡化
+        const nodeUpdates = nodes.map(n => {
+            if (relatedNodeIds.has(n.id)) {
+                return {
+                    id: n.id,
+                    color: { background: nodeOriginal[n.id].bg, border: nodeOriginal[n.id].border },
+                    font: { color: nodeOriginal[n.id].fontColor }
+                };
+            }
+            return {
+                id: n.id,
+                color: { background: DIM_NODE_BG, border: DIM_NODE_BORDER },
+                font: { color: DIM_NODE_FONT }
+            };
+        });
+        // 边：相关边线变蓝（数字保持原色），其他淡化
+        const edgeUpdates = edges.map(e => {
+            if (relatedEdgeIds.has(e.id)) {
+                return {
+                    id: e.id,
+                    color: { color: HL_EDGE, highlight: HL_EDGE, hover: HL_EDGE, inherit: false },
+                    font: { color: edgeOriginal[e.id].fontColor }
+                };
+            }
+            return {
+                id: e.id,
+                color: { color: DIM_EDGE, highlight: DIM_EDGE, hover: DIM_EDGE, inherit: false },
+                font: { color: DIM_EDGE_FONT }
+            };
+        });
+        nodesDs.update(nodeUpdates);
+        edgesDs.update(edgeUpdates);
+    }
+
+    // 点击节点：高亮聚焦；点击空白：恢复
+    network.on('click', function(params) {
+        if (params.nodes && params.nodes.length > 0) {
+            const nid = params.nodes[0];
+            if (focusedId === nid) {
+                resetHighlight();
+            } else {
+                focusNode(nid);
+            }
+        } else {
+            if (focusedId) resetHighlight();
+        }
+    });
+})();
+</script>
+{% endif %}
 
 <script>
 // 通用时区转换工具函数 - 兼容iOS Chrome
