@@ -89,6 +89,35 @@
             -webkit-text-fill-color: #531dab;
         }
 
+        /* 计分详情卡片样式（对齐 game 页 record-item） */
+        .rounds-list { margin-top: 0.5em; max-height: 700px; overflow-y: auto; }
+        .record-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .record-item:last-child { border-bottom: none; }
+        .record-content { flex: 1; min-width: 0; }
+        .timestamp-row {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            margin-top: 4px;
+        }
+        .record-player-link {
+            color: #1890ff;
+            text-decoration: none;
+        }
+        .record-player-link:hover { text-decoration: underline; }
+        .record-player-link.retired {
+            color: #999 !important;
+            -webkit-text-fill-color: #999 !important;
+            text-shadow: none !important;
+            background: none !important;
+        }
+
         /* 响应式优化：确保在小屏幕上也不会折行 */
         @media (max-width: 600px) {
             table {
@@ -161,49 +190,43 @@
     <div class="card">
         <h4>计分详情</h4>
         {% if session_data.get('records', session_data.get('rounds', [])) %}
-        <table>
-            <tr>
-                <th>序号</th>
-                <th>胜者</th>
-                <th>败者</th>
-                <th>分数</th>
-            </tr>
+        <div class="rounds-list">
             {% for r in records %}
-            <tr>
-                <td>{{ records|length - loop.index0 }}</td>
-                <td>
-                    {% if r.is_multi_winner %}
-                        {% for w in r.winners %}
-                            <a href="/player/{{ w.id }}" class="player-link">{{ w.name }}</a>{% if not loop.last %} + {% endif %}
-                        {% endfor %}
-                    {% elif r.winner_id %}
-                    <a href="/player/{{ r.winner_id }}" class="player-link">{{ r.winner }}</a>
-                    {% else %}
-                    {{ r.winner }}
-                    {% endif %}
-                </td>
-                <td>
-                    {% if r.is_multi_loser %}
-                        {% for loser in r.losers %}
-                            <a href="/player/{{ loser.id }}" class="player-link">{{ loser.name }}</a>{% if not loop.last %} + {% endif %}
-                        {% endfor %}
-                    {% elif r.loser_id %}
-                        <a href="/player/{{ r.loser_id }}" class="player-link">{{ r.loser }}</a>
-                    {% else %}
-                        {{ r.loser }}
-                    {% endif %}
-                </td>
-                <td class="{% if r.score > 0 %}positive{% elif r.score < 0 %}negative{% else %}neutral{% endif %}" style="white-space: nowrap; vertical-align: middle; display: table-cell;">
-                    <div style="display: flex; align-items: center; justify-content: center;">
-                        <span>{{ r.score }}</span>
+            <div class="record-item">
+                <div class="record-content">
+                    <div>
+                        <b>
+                        {% if r.is_multi_winner %}
+                            {% for w in r.winners %}
+                                <a href="/player/{{ w.id }}" class="record-player-link{% if w.id in retired_player_ids %} retired{% endif %}">{{ w.name }}</a>{% if not loop.last %} + {% endif %}
+                            {% endfor %}
+                        {% elif r.winner_id %}
+                            <a href="/player/{{ r.winner_id }}" class="record-player-link{% if r.winner_id in retired_player_ids %} retired{% endif %}">{{ r.winner }}</a>
+                        {% else %}
+                            {{ r.winner }}
+                        {% endif %}
+                        </b> 胜 <b>
+                        {% if r.is_multi_loser %}
+                            {% for loser in r.losers %}
+                                <a href="/player/{{ loser.id }}" class="record-player-link{% if loser.id in retired_player_ids %} retired{% endif %}">{{ loser.name }}</a>{% if not loop.last %} + {% endif %}
+                            {% endfor %}
+                        {% elif r.loser_id %}
+                            <a href="/player/{{ r.loser_id }}" class="record-player-link{% if r.loser_id in retired_player_ids %} retired{% endif %}">{{ r.loser }}</a>
+                        {% else %}
+                            {{ r.loser }}
+                        {% endif %}
+                        </b>，<span class="{% if r.score > 0 %}positive{% elif r.score < 0 %}negative{% else %}neutral{% endif %}">{{ r.score }}</span> 分
                         {% if r.special_score %}
                         <span class="special-score-tag">{{ r.special_score }}</span>
                         {% endif %}
                     </div>
-                </td>
-            </tr>
+                    <div class="timestamp-row">
+                        <span class="timestamp" data-utc-time="{{ r.timestamp }}">{{ r.timestamp }}</span>
+                    </div>
+                </div>
+            </div>
             {% endfor %}
-        </table>
+        </div>
         {% else %}
         <p class="no-records-message">还没有计分记录</p>
         {% endif %}
