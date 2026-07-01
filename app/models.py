@@ -306,6 +306,11 @@ def get_duo_loser_stats() -> List[Dict]:
     return db.get_duo_loser_stats()
 
 
+def get_honor_roll_stats(top_n: int = 10) -> Dict:
+    """获取榜上有名（冠军榜 + 必吃榜）统计"""
+    return db.get_honor_roll_stats(top_n)
+
+
 def retire_player(player_id: str):
     """退役玩家"""
     db.retire_player(player_id)

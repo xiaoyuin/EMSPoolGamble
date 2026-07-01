@@ -4,9 +4,9 @@ EMS Pool Application
 """
 
 # 应用版本信息
-APP_VERSION = "v1.10.0"
+APP_VERSION = "v1.11.0"
 APP_NAME = "EMS Pool"
-VERSION_DATE = "2026-06-15"
+VERSION_DATE = "2026-07-01"
 
 # 默认分数选项（包含特殊分数14和20）
 DEFAULT_SCORE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 20]

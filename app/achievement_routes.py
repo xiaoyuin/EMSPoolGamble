@@ -5,7 +5,8 @@ from flask import render_template, request, redirect, url_for, flash
 from .models import (get_achievement_players, get_achievement_records,
                      get_achievement_stats, get_achievement_master_players,
                      get_negative_achievement_players, get_negative_achievement_records,
-                     get_best_buddy_stats, get_duo_loser_stats)
+                     get_best_buddy_stats, get_duo_loser_stats,
+                     get_honor_roll_stats)
 from . import APP_VERSION
 
 
@@ -92,6 +93,14 @@ def register_achievement_routes(app):
                 'name': '有难同当',
                 'description': '一起被大金/双吃的组合',
                 'icon': '🫂',
+                'count': None,
+                'category': 'fun'
+            },
+            {
+                'id': 'honor_roll',
+                'name': '榜上有名',
+                'description': '有的人靠实力上榜，有的人靠……坚持。',
+                'icon': '📜',
                 'count': None,
                 'category': 'fun'
             }
@@ -319,6 +328,27 @@ def register_achievement_routes(app):
         return render_template('achievements/duo_loser.html',
                              achievement=achievement_config,
                              duo_stats=duo_stats,
+                             app_version=APP_VERSION)
+
+    @app.route('/achievement/honor_roll')
+    def achievement_honor_roll():
+        """榜上有名详情页：冠军榜 + 必吃榜"""
+        stats = get_honor_roll_stats(top_n=10)
+
+        achievement_config = {
+            'id': 'honor_roll',
+            'name': '榜上有名',
+            'description': '有的人靠实力上榜，有的人靠……坚持。',
+            'icon': '📜',
+            'rule': '场次结束时得分最高（>0）计入冠军榜，得分最低（<0）计入必吃榜。并列同时计入。',
+            'difficulty': '趣味统计',
+            'color_theme': 'honor'
+        }
+
+        return render_template('achievements/honor_roll.html',
+                             achievement=achievement_config,
+                             champions=stats['champions'],
+                             losers=stats['losers'],
                              app_version=APP_VERSION)
 
     @app.route('/achievement/<achievement_id>')

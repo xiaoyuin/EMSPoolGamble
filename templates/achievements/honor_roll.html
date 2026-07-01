@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#1890ff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
+    <title>{{ achievement.name }} - 特殊记录</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
+        .card { background: #ffffff; border-radius: 10px; padding: 1.2em; margin-top: 1.5em; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .links { margin-top: 1em; text-align: center; }
+        .links a { color: #1890ff; text-decoration: none; margin: 0 0.5em; }
+        .links a:hover { text-decoration: underline; }
+        .footer { margin-top: 2em; text-align: center; font-size: 0.8em; color: #888; }
+
+        .achievement-header {
+            text-align: center;
+            padding: 2.5em 1em;
+            background: linear-gradient(135deg, #ff4d4f 0%, #1890ff 100%);
+            color: white;
+            border-radius: 15px;
+            margin-bottom: 2em;
+            box-shadow: 0 4px 20px rgba(24, 144, 255, 0.25);
+        }
+
+        .achievement-icon {
+            font-size: 4em;
+            margin-bottom: 0.3em;
+            display: block;
+        }
+
+        .achievement-name {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 0.5em;
+        }
+
+        .achievement-description {
+            font-size: 1.05em;
+            opacity: 0.95;
+            margin-bottom: 1em;
+            line-height: 1.5;
+        }
+
+        .achievement-rule {
+            background: rgba(255, 255, 255, 0.18);
+            padding: 0.8em;
+            border-radius: 10px;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+
+        /* 左右并列表头 */
+        .honor-headers {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            margin-bottom: 0.3em;
+        }
+        .honor-headers .h-title {
+            font-weight: bold;
+            padding: 0.6em 0.8em;
+            font-size: 1.05em;
+        }
+        .honor-headers .h-title.left {
+            color: #cf1322;
+            text-align: left;
+        }
+        .honor-headers .h-title.right {
+            color: #096dd9;
+            text-align: right;
+        }
+
+        /* 每一行 = 一个排名，左右各一格 */
+        .honor-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .honor-row:last-child { border-bottom: none; }
+
+        .honor-cell {
+            display: flex;
+            align-items: center;
+            padding: 0.9em 1em;
+            min-height: 44px;
+        }
+
+        .honor-cell.left {
+            /* 左侧：红色 → 中间透明 */
+            background: linear-gradient(to right, rgba(255, 77, 79, 0.22), rgba(255, 77, 79, 0));
+            justify-content: flex-start;
+        }
+
+        .honor-cell.right {
+            /* 右侧：中间透明 → 蓝色 */
+            background: linear-gradient(to left, rgba(24, 144, 255, 0.22), rgba(24, 144, 255, 0));
+            justify-content: flex-end;
+        }
+
+        .honor-cell.empty {
+            color: #bbb;
+            font-style: italic;
+            font-size: 0.9em;
+        }
+
+        .rank {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            font-weight: bold;
+            font-size: 0.9em;
+            color: white;
+            flex-shrink: 0;
+            margin: 0 0.6em;
+        }
+        .honor-cell.left .rank {
+            background: linear-gradient(135deg, #ff7875, #cf1322);
+        }
+        .honor-cell.right .rank {
+            background: linear-gradient(135deg, #69c0ff, #096dd9);
+        }
+        .rank.gold { background: linear-gradient(135deg, #ffd700, #ff8c00) !important; }
+
+        .player-name-link {
+            color: #333;
+            font-weight: 600;
+            text-decoration: none;
+            font-size: 1.05em;
+        }
+        .player-name-link:hover { text-decoration: underline; }
+
+        .count {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin: 0 0.6em;
+        }
+        .honor-cell.left .count { color: #cf1322; }
+        .honor-cell.right .count { color: #096dd9; }
+
+        .count-label {
+            font-size: 0.75em;
+            color: #999;
+        }
+
+        /* 左侧内容顺序：rank / player / count / label */
+        .honor-cell.left .player-name-link { margin-left: 0; }
+        .honor-cell.left .count-label { margin-right: 0.4em; }
+
+        /* 右侧内容顺序（视觉上镜像）：label / count / player / rank */
+        .honor-cell.right .count-label { margin-left: 0.4em; margin-right: 0.4em; }
+
+        .no-data {
+            text-align: center;
+            color: #999;
+            font-style: italic;
+            padding: 2em;
+        }
+
+        @media (max-width: 480px) {
+            body { padding: 0.7em; }
+            .achievement-header { padding: 1.8em 0.8em; }
+            .achievement-icon { font-size: 3em; }
+            .achievement-name { font-size: 1.5em; }
+            .honor-cell { padding: 0.7em 0.5em; }
+            .player-name-link { font-size: 0.95em; }
+            .count { font-size: 1em; }
+            .rank { width: 24px; height: 24px; font-size: 0.8em; margin: 0 0.35em; }
+            .count-label { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 头部 -->
+    <div class="achievement-header">
+        <span class="achievement-icon">{{ achievement.icon }}</span>
+        <div class="achievement-name">{{ achievement.name }}</div>
+        <div class="achievement-description">{{ achievement.description }}</div>
+        <div class="achievement-rule">{{ achievement.rule }}</div>
+    </div>
+
+    <!-- 两榜并列 -->
+    <div class="card">
+        <div class="honor-headers">
+            <div class="h-title left">🏆 冠军榜</div>
+            <div class="h-title right">必吃榜 🍜</div>
+        </div>
+
+        {% set max_rows = 10 %}
+        {% for i in range(max_rows) %}
+        <div class="honor-row">
+            <div class="honor-cell left{% if i >= champions|length %} empty{% endif %}">
+                {% if i < champions|length %}
+                    {% set c = champions[i] %}
+                    <span class="rank{% if i == 0 %} gold{% endif %}">{{ i + 1 }}</span>
+                    <a href="/player/{{ c.player_id }}" class="player-name-link">{{ c.name }}</a>
+                    <span style="flex: 1;"></span>
+                    <span class="count">{{ c.champion_count }}</span>
+                    <span class="count-label">次</span>
+                {% else %}
+                    <span style="margin-left: 1em;">—</span>
+                {% endif %}
+            </div>
+            <div class="honor-cell right{% if i >= losers|length %} empty{% endif %}">
+                {% if i < losers|length %}
+                    {% set l = losers[i] %}
+                    <span class="count-label">次</span>
+                    <span class="count">{{ l.loser_count }}</span>
+                    <span style="flex: 1;"></span>
+                    <a href="/player/{{ l.player_id }}" class="player-name-link">{{ l.name }}</a>
+                    <span class="rank{% if i == 0 %} gold{% endif %}">{{ i + 1 }}</span>
+                {% else %}
+                    <span style="margin-right: 1em;">—</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+
+        {% if not champions and not losers %}
+        <div class="no-data">
+            <p>暂无已结束的场次数据</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="links">
+        <a href="/achievements">返回特殊记录</a> |
+        <a href="/">返回首页</a> |
+        <a href="/history">历史统计</a>
+    </div>
+
+    <div class="footer">
+        <p>© 2025-2026 EMS Pool</p>
+    </div>
+
+<script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/static/sw.js").catch(()=>{});</script>
+</body>
+</html>

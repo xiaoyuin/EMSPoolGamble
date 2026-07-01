@@ -1748,6 +1748,58 @@ class DatabaseManager:
             result.sort(key=lambda x: x['duo_count'], reverse=True)
             return result
 
+    def get_honor_roll_stats(self, top_n: int = 10) -> Dict[str, List[Dict]]:
+        """榜上有名：统计每位玩家拿到场次第一/倒数第一的次数。
+
+        - 只统计已结束的场次 (active=0)
+        - 只统计至少有一条 game_record 的场次（排除空场）
+        - 冠军：场次结束分数 == 该场最高分 且该分数 > 0；并列都算
+        - 必吃：场次结束分数 == 该场最低分 且该分数 < 0；并列都算
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            valid_sessions_sql = '''
+                SELECT sp.session_id,
+                       MAX(sp.score) AS max_score,
+                       MIN(sp.score) AS min_score
+                FROM session_players sp
+                INNER JOIN sessions s ON sp.session_id = s.session_id
+                WHERE s.active = 0
+                  AND EXISTS (SELECT 1 FROM game_records gr WHERE gr.session_id = sp.session_id)
+                GROUP BY sp.session_id
+            '''
+
+            # 冠军榜
+            cursor.execute(f'''
+                SELECT p.player_id, p.name,
+                       COUNT(*) AS champion_count
+                FROM session_players sp
+                INNER JOIN players p ON sp.player_id = p.player_id
+                INNER JOIN ({valid_sessions_sql}) v ON sp.session_id = v.session_id
+                WHERE sp.score = v.max_score AND sp.score > 0
+                GROUP BY p.player_id, p.name
+                ORDER BY champion_count DESC, p.name ASC
+                LIMIT ?
+            ''', (top_n,))
+            champions = [dict(row) for row in cursor.fetchall()]
+
+            # 必吃榜
+            cursor.execute(f'''
+                SELECT p.player_id, p.name,
+                       COUNT(*) AS loser_count
+                FROM session_players sp
+                INNER JOIN players p ON sp.player_id = p.player_id
+                INNER JOIN ({valid_sessions_sql}) v ON sp.session_id = v.session_id
+                WHERE sp.score = v.min_score AND sp.score < 0
+                GROUP BY p.player_id, p.name
+                ORDER BY loser_count DESC, p.name ASC
+                LIMIT ?
+            ''', (top_n,))
+            losers = [dict(row) for row in cursor.fetchall()]
+
+            return {'champions': champions, 'losers': losers}
+
     # ===== 退役相关 =====
 
     def retire_player(self, player_id: str):
