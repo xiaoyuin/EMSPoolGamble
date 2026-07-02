@@ -17,7 +17,7 @@ from .models import (sessions, players, save_data,
                      end_session, delete_session, add_multi_loser_record,
                      get_players_special_wins_batch,
                      get_retired_player_ids)
-from .utils import get_utc_timestamp
+from .utils import get_utc_timestamp, compute_pairwise_edges
 from .security import require_admin_auth, require_csrf_protection
 from . import DEFAULT_SCORE_OPTIONS, APP_VERSION
 
@@ -82,6 +82,14 @@ def register_game_routes(app):
         # 准备可用玩家的信息（用于显示）
         available_player_data = get_available_players(exclude_session_id=session_id)
 
+        # 两两恩怨：算 pair-wise 净得分
+        records_with_ids = game_session.get('records', [])
+        pairwise_edges = compute_pairwise_edges(records_with_ids)
+        pairwise_nodes = [
+            {'id': p['id'], 'name': p['name'], 'score': p['score']}
+            for p in sorted_players if p.get('id')
+        ]
+
         return render_template(
             'game.html',
             session_id=session_id,
@@ -90,6 +98,8 @@ def register_game_routes(app):
             sorted_players=sorted_players,
             recent_players=available_player_data,
             retired_player_ids=get_retired_player_ids(),
+            pairwise_nodes=pairwise_nodes,
+            pairwise_edges=pairwise_edges,
             app_version=APP_VERSION
         )
 

@@ -217,6 +217,62 @@
             white-space: nowrap;
             display: inline-block;
         }
+
+        /* 比分流向图（对齐 session_detail 样式） */
+        .pairwise-card { position: relative; }
+        .pairwise-fs-btn {
+            position: absolute;
+            top: 1em;
+            right: 1em;
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            transition: background 0.15s, color 0.15s;
+            z-index: 2;
+        }
+        .pairwise-fs-btn:hover, .pairwise-fs-btn:focus {
+            background: rgba(24, 144, 255, 0.15);
+            color: #1890ff;
+            outline: none;
+        }
+        #pairwise-graph {
+            width: 100%;
+            height: 380px;
+            border-radius: 8px;
+            background: #fafbfc;
+            border: 1px solid #f0f0f0;
+        }
+        .pairwise-card.is-fullscreen {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            margin: 0;
+            border-radius: 0;
+            padding: 1em;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+        }
+        .pairwise-card.is-fullscreen h4 { margin-top: 0; }
+        .pairwise-card.is-fullscreen #pairwise-graph {
+            flex: 1;
+            height: auto;
+            min-height: 0;
+        }
+        .pairwise-empty {
+            text-align: center;
+            color: #999;
+            font-style: italic;
+            padding: 2em;
+        }
     </style>    <script>
         let selectedScore = null;
         let selectedWinner = null;
@@ -295,6 +351,21 @@
                 const newPlayers = newDoc.querySelector('.current-players');
                 if (currentPlayers && newPlayers) {
                     currentPlayers.innerHTML = newPlayers.innerHTML;
+                }
+
+                // 更新比分流向数据并重画
+                const newPairwiseData = newDoc.getElementById('pairwise-data');
+                const currentPairwiseData = document.getElementById('pairwise-data');
+                if (newPairwiseData && currentPairwiseData) {
+                    currentPairwiseData.textContent = newPairwiseData.textContent;
+                    if (typeof window.renderPairwiseGraph === 'function') {
+                        try {
+                            const parsed = JSON.parse(newPairwiseData.textContent || '{}');
+                            window.renderPairwiseGraph(parsed.nodes || [], parsed.edges || []);
+                        } catch (e) {
+                            console.warn('比分流向数据解析失败', e);
+                        }
+                    }
                 }
 
                 // 重新绑定事件监听器
@@ -1272,6 +1343,15 @@
         </div>
     </div>
 
+    <!-- 比分流向卡片 -->
+    <div class="card pairwise-card" id="pairwise-card">
+        <h4>比分流向</h4>
+        <button type="button" class="pairwise-fs-btn" id="pairwise-fs-btn" title="全屏" aria-label="全屏切换"{% if not pairwise_edges %} style="display:none"{% endif %}>⛶</button>
+        <div id="pairwise-graph"{% if not pairwise_edges %} style="display:none"{% endif %}></div>
+        <div class="pairwise-empty"{% if pairwise_edges %} style="display:none"{% endif %}>本场暂无对局记录</div>
+        <script type="application/json" id="pairwise-data">{"nodes": {{ pairwise_nodes|tojson }}, "edges": {{ pairwise_edges|tojson }}}</script>
+    </div>
+
     <div class="links">
         <a href="/history">查看历史统计</a> |
         <a href="/">返回首页</a>
@@ -1375,6 +1455,230 @@ function convertUtcToLocal() {
 // 页面加载完成后执行时间转换
 document.addEventListener('DOMContentLoaded', convertUtcToLocal);
 </script>
+<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+<script>
+(function() {
+    function readPairwiseData(doc) {
+        const el = (doc || document).getElementById('pairwise-data');
+        if (!el) return { nodes: [], edges: [] };
+        try { return JSON.parse(el.textContent || '{}'); }
+        catch (e) { return { nodes: [], edges: [] }; }
+    }
+    const initial = readPairwiseData();
+    const initialNodes = initial.nodes || [];
+    const initialEdges = initial.edges || [];
+    let network = null;
+    let networkNodes = [];
+    let networkEdges = [];
+    let nodesDs = null;
+    let edgesDs = null;
+    let focusedId = null;
+
+    const DIM_NODE_BG = '#f5f5f5';
+    const DIM_NODE_BORDER = '#d9d9d9';
+    const DIM_NODE_FONT = '#bfbfbf';
+    const DIM_EDGE = '#e8e8e8';
+    const DIM_EDGE_FONT = '#d9d9d9';
+    const HL_EDGE = '#1890ff';
+
+    function buildVisData(nodesRaw, edgesRaw) {
+        const maxAbs = Math.max(1, ...nodesRaw.map(n => Math.abs(n.score || 0)));
+        const nodes = nodesRaw.map(n => {
+            const s = n.score || 0;
+            const t = Math.abs(s) / maxAbs;
+            let bg, border, bgHl;
+            if (s > 0) { bg = '#52c41a'; border = '#389e0d'; bgHl = '#237804'; }
+            else if (s < 0) { bg = '#ff4d4f'; border = '#cf1322'; bgHl = '#a8071a'; }
+            else { bg = '#bfbfbf'; border = '#8c8c8c'; bgHl = '#595959'; }
+            const sign = s > 0 ? '+' : '';
+            const minWidth = 48 + 82 * t;
+            const fontSize = 14 + 8 * t;
+            return {
+                id: n.id,
+                label: `${n.name}\n${sign}${s}`,
+                color: {
+                    background: bg,
+                    border: border,
+                    highlight: { background: bgHl, border: bgHl },
+                    hover: { background: bgHl, border: bgHl }
+                },
+                font: { size: fontSize, color: '#fff', face: 'sans-serif', multi: false },
+                shape: 'circle',
+                margin: 10,
+                widthConstraint: { minimum: minWidth, maximum: minWidth }
+            };
+        });
+
+        const maxNet = Math.max(1, ...edgesRaw.map(e => e.net));
+        const edges = edgesRaw.map((e, i) => ({
+            id: 'e' + i,
+            from: e.from,
+            to: e.to,
+            label: String(e.net),
+            width: 1 + 5 * (e.net / maxNet),
+            arrows: { from: { enabled: true, scaleFactor: 0.5 } },
+            color: { color: '#8c8c8c', highlight: '#1890ff' },
+            font: {
+                size: 20,
+                color: '#333',
+                strokeWidth: 0,
+                background: 'rgba(255, 255, 255, 0.92)',
+                align: 'middle',
+                vadjust: 0
+            },
+            smooth: { type: 'continuous', roundness: 0.3 }
+        }));
+
+        return { nodes, edges };
+    }
+
+    function render(nodesRaw, edgesRaw) {
+        const container = document.getElementById('pairwise-graph');
+        if (!container) return;
+        const { nodes, edges } = buildVisData(nodesRaw, edgesRaw);
+        networkNodes = nodes;
+        networkEdges = edges;
+        nodesDs = new vis.DataSet(nodes);
+        edgesDs = new vis.DataSet(edges);
+        const options = {
+            physics: {
+                solver: 'barnesHut',
+                barnesHut: { gravitationalConstant: -6500, springLength: 240, springConstant: 0.03, damping: 0.5, avoidOverlap: 0.8 },
+                stabilization: { iterations: 200 }
+            },
+            interaction: { hover: true, tooltipDelay: 100, dragNodes: true, zoomView: true, selectConnectedEdges: false }
+        };
+        if (network) network.destroy();
+        network = new vis.Network(container, { nodes: nodesDs, edges: edgesDs }, options);
+        focusedId = null;
+
+        const nodeOriginal = {};
+        nodes.forEach(n => { nodeOriginal[n.id] = { bg: n.color.background, border: n.color.border, fontColor: n.font.color }; });
+        const edgeOriginal = {};
+        edges.forEach(e => { edgeOriginal[e.id] = { color: e.color.color, fontColor: e.font.color }; });
+
+        function resetHighlight() {
+            focusedId = null;
+            nodesDs.update(nodes.map(n => ({
+                id: n.id,
+                color: { background: nodeOriginal[n.id].bg, border: nodeOriginal[n.id].border },
+                font: { color: nodeOriginal[n.id].fontColor }
+            })));
+            edgesDs.update(edges.map(e => ({
+                id: e.id,
+                color: { color: edgeOriginal[e.id].color, highlight: edgeOriginal[e.id].color, hover: edgeOriginal[e.id].color, inherit: false },
+                font: { color: edgeOriginal[e.id].fontColor }
+            })));
+        }
+
+        function focusNode(nodeId) {
+            focusedId = nodeId;
+            const relatedEdgeIds = new Set();
+            const relatedNodeIds = new Set([nodeId]);
+            edges.forEach(e => {
+                if (e.from === nodeId || e.to === nodeId) {
+                    relatedEdgeIds.add(e.id);
+                    relatedNodeIds.add(e.from === nodeId ? e.to : e.from);
+                }
+            });
+            nodesDs.update(nodes.map(n => relatedNodeIds.has(n.id) ? {
+                id: n.id,
+                color: { background: nodeOriginal[n.id].bg, border: nodeOriginal[n.id].border },
+                font: { color: nodeOriginal[n.id].fontColor }
+            } : {
+                id: n.id,
+                color: { background: DIM_NODE_BG, border: DIM_NODE_BORDER },
+                font: { color: DIM_NODE_FONT }
+            }));
+            edgesDs.update(edges.map(e => relatedEdgeIds.has(e.id) ? {
+                id: e.id,
+                color: { color: HL_EDGE, highlight: HL_EDGE, hover: HL_EDGE, inherit: false },
+                font: { color: edgeOriginal[e.id].fontColor }
+            } : {
+                id: e.id,
+                color: { color: DIM_EDGE, highlight: DIM_EDGE, hover: DIM_EDGE, inherit: false },
+                font: { color: DIM_EDGE_FONT }
+            }));
+        }
+
+        network.on('click', function(params) {
+            if (params.nodes && params.nodes.length > 0) {
+                const nid = params.nodes[0];
+                if (focusedId === nid) resetHighlight();
+                else focusNode(nid);
+            } else if (focusedId) {
+                resetHighlight();
+            }
+        });
+    }
+
+    // 全屏切换（只绑定一次）
+    const card = document.getElementById('pairwise-card');
+    const fsBtn = document.getElementById('pairwise-fs-btn');
+    function resizeToContainer() {
+        const container = document.getElementById('pairwise-graph');
+        if (!network || !container) return;
+        const rect = container.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+            network.setSize(rect.width + 'px', rect.height + 'px');
+            network.redraw();
+            network.fit({ animation: { duration: 300, easingFunction: 'easeInOutQuad' } });
+        }
+    }
+    function setFullscreen(on) {
+        if (!card) return;
+        if (on) {
+            card.classList.add('is-fullscreen');
+            document.body.style.overflow = 'hidden';
+            if (fsBtn) { fsBtn.textContent = '✕'; fsBtn.title = '退出全屏'; }
+        } else {
+            card.classList.remove('is-fullscreen');
+            document.body.style.overflow = '';
+            if (fsBtn) { fsBtn.textContent = '⛶'; fsBtn.title = '全屏'; }
+        }
+        requestAnimationFrame(function() {
+            requestAnimationFrame(resizeToContainer);
+        });
+    }
+    if (fsBtn) {
+        fsBtn.addEventListener('click', function() {
+            setFullscreen(!card.classList.contains('is-fullscreen'));
+        });
+    }
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && card && card.classList.contains('is-fullscreen')) {
+            setFullscreen(false);
+        }
+    });
+    window.addEventListener('resize', function() {
+        if (card && card.classList.contains('is-fullscreen')) resizeToContainer();
+    });
+
+    // 暴露给 refreshGameData 用：拉最新数据后重画
+    window.renderPairwiseGraph = function(nodesRaw, edgesRaw) {
+        const graphEl = document.getElementById('pairwise-graph');
+        const emptyEl = card ? card.querySelector('.pairwise-empty') : null;
+        const hasData = edgesRaw && edgesRaw.length > 0;
+        if (!hasData) {
+            if (network) { network.destroy(); network = null; }
+            if (graphEl) graphEl.style.display = 'none';
+            if (fsBtn) fsBtn.style.display = 'none';
+            if (emptyEl) emptyEl.style.display = '';
+            return;
+        }
+        if (graphEl) graphEl.style.display = '';
+        if (fsBtn) fsBtn.style.display = '';
+        if (emptyEl) emptyEl.style.display = 'none';
+        render(nodesRaw, edgesRaw);
+    };
+
+    // 首次渲染
+    if (initialEdges && initialEdges.length > 0) {
+        render(initialNodes, initialEdges);
+    }
+})();
+</script>
+
 <script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/static/sw.js").catch(()=>{});</script>
 </body>
 </html>
