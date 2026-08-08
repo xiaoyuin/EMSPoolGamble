@@ -439,6 +439,18 @@ class TemplateContractTests(unittest.TestCase):
         self.assertIn("url_for('tenant.add_score'", game)
         self.assertIn("url_for('tenant.load_more_sessions')", history)
         self.assertIn("url_for('tenant.player_detail'", history)
+        heading_expectations = {
+            ROOT / 'templates/history.html': "organization_page_title = '历史统计'",
+            ROOT / 'templates/game.html': "organization_page_title = '游戏中'",
+            ROOT / 'templates/player_detail.html': "organization_page_title = '玩家详情'",
+            ROOT / 'templates/session_detail.html': "organization_page_title = '场次详情'",
+            ROOT / 'templates/achievements/index.html': "organization_page_title = '特殊记录'",
+            ROOT / 'templates/tournament_index.html': "organization_page_title = '赛事'",
+        }
+        for path, expected in heading_expectations.items():
+            self.assertIn(expected, path.read_text(), path)
+        switcher = (ROOT / 'templates/_organization_switcher.html').read_text()
+        self.assertIn("{{ organization_page_title }} -&nbsp;", switcher)
         title_sources = [
             ROOT / 'templates/base.html',
             ROOT / 'templates/index.html',

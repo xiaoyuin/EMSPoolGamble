@@ -124,6 +124,7 @@
     </style>
 </head>
 <body>
+    {% set organization_page_title = achievement.name %}
     {% include '_organization_switcher.html' %}
     <div class="achievement-header">
         <span class="achievement-icon">{{ achievement.icon }}</span>

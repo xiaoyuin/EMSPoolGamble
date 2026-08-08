@@ -26,6 +26,8 @@
     <div class="header">
         <div style="position: relative; display: flex; justify-content: center; align-items: center;">
             {% block header_title %}
+            {% set organization_page_title = '' %}
+            {% set organization_switcher_flush = true %}
             {% include '_organization_switcher.html' %}
             {% endblock %}
             <div class="overflow-menu" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%);">

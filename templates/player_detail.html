@@ -252,6 +252,7 @@
 </head>
 <body>
     <div class="header">
+        {% set organization_page_title = '玩家详情' %}
         {% include '_organization_switcher.html' %}
         <div class="player-name{% if is_retired %} retired{% elif special_wins.has_big_gold %} has-big-gold{% elif special_wins.has_small_gold %} has-small-gold{% endif %}">{{ player.name }}{% if is_retired %} <span style="font-size: 0.5em; vertical-align: middle;">🏖️ 已退役</span>{% endif %}</div>
         <div class="player-info">

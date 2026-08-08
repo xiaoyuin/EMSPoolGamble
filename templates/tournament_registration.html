@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}{{ tournament.name }}报名 - {{ g.organization['name'] }}{% endblock %}
+{% block header_title %}{% set organization_page_title = '报名管理' %}{% include '_organization_switcher.html' %}{% endblock %}
 
 {% block extra_styles %}
 <style>

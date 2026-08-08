@@ -1136,6 +1136,7 @@
 </head>
 <body>
     <div class="header">
+        {% set organization_page_title = '游戏中' %}
         {% include '_organization_switcher.html' %}
         <div class="session-name">{{ session.get('name', '未命名场次') }}</div>
     </div>

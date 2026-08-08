@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}创建赛事 - {{ g.organization['name'] }}{% endblock %}
+{% block header_title %}{% set organization_page_title = '创建赛事' %}{% include '_organization_switcher.html' %}{% endblock %}
 
 {% block extra_styles %}
 <style>

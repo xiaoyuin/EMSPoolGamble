@@ -1,6 +1,10 @@
 <style>
-.organization-switcher { position: relative; max-width: calc(100% - 5rem); margin: 0 auto; }
-.organization-switcher-btn { display: inline-flex; width: auto; max-width: 100%; align-items: center; justify-content: center; gap: .35rem; margin: 0; padding: .2rem .45rem; border: 0; background: transparent; color: #333; font-size: 1.5em; line-height: 1.25; font-weight: 700; }
+.organization-switcher { position: relative; max-width: calc(100% - 5rem); margin: .83em auto; }
+.organization-switcher--flush { margin: 0; }
+.organization-switcher-row { display: flex; align-items: center; justify-content: center; min-height: 2.35rem; font-size: 1.5em; line-height: 1.25; font-weight: 700; }
+.organization-page-title { white-space: nowrap; }
+.organization-switcher-row.has-page-title .organization-switcher-btn { padding-left: 0; }
+.organization-switcher-btn { display: inline-flex; width: auto; max-width: 100%; align-items: center; justify-content: center; gap: .35rem; margin: 0; padding: .2rem .45rem; border: 0; background: transparent; color: #333; font-size: 1em; line-height: inherit; font-weight: inherit; }
 .organization-switcher-btn:hover, .organization-switcher-btn[aria-expanded="true"] { background: rgba(0, 0, 0, .05); }
 .organization-switcher-btn > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .organization-switcher-chevron { display: block; flex: 0 0 auto; width: .75em; height: .75em; color: #888; transform-origin: 50% 50%; transition: transform .15s ease; }

@@ -298,6 +298,7 @@
     </style>
 </head>
 <body>
+    {% set organization_page_title = achievement.name %}
     {% include '_organization_switcher.html' %}
     <!-- 显示消息通知 -->
     {% with messages = get_flashed_messages(with_categories=true) %}
