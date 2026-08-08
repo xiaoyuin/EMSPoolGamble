@@ -2,142 +2,160 @@
 
 > 给 Claude / 其他 AI 编程助手看的项目说明。维护者请保持简洁、可操作。
 
-## 这是什么项目
+## 项目定位
 
-**EMS Pool**（仓库代号 `EMSPoolGamble`）是一个多人台球计分 Flask Web 应用，
-用于在小团体内（微软苏州 EMS 同事）记录每周的台球对局、胜负、特殊胜利
-和成就。**只有一个真实部署**（Azure App Service），主要用户在手机浏览器上访问。
+**EMS Pool**（仓库代号 `EMSPoolGamble`）是面向小团体的多人台球计分 Flask Web 应用，主要用户通过手机浏览器访问。只有一个真实部署（Azure App Service），但应用从 v1.13.0 起支持多个相互隔离的组织。
 
 ## 当前版本
 
-`app/__init__.py` 里的 `APP_VERSION` 是真相来源。当前 **v1.9.0**（2026-05-09）。
+`app/__init__.py` 的 `APP_VERSION` 是真相来源。当前 **v1.13.0**（2026-08-08）。
 
-每次发布版本时同时更新：
-1. `app/__init__.py` 的 `APP_VERSION` 与 `VERSION_DATE`
-2. `CHANGELOG.md` 顶部新增段落
-3. `README.md` 顶部 "当前版本" 一行（如适用）
+发布时同步更新：
 
-## 技术栈速查
+1. `app/__init__.py` 的 `APP_VERSION` / `VERSION_DATE`
+2. `CHANGELOG.md` 顶部版本段落
+3. `README.md` 的当前版本
+
+## 技术栈
 
 | 层 | 实现 | 重要文件 |
 |---|---|---|
 | Python | 3.12 | `requirements.txt` |
-| Web 框架 | Flask 3.1.1 | `app.py`（入口）、`app/` 包 |
-| 模板 | Jinja2（SSR） | `templates/` |
-| 数据库 | **SQLite**，文件 `ems_pool_gamble.db` | `app/database.py`（DAO） |
-| 前端 | 服务端渲染 + 原生 HTML/CSS/JS + Chart.js（趋势图） | `templates/`、`static/` |
-| 测试 | 暂无自动化测试套件 | — |
+| Web | Flask 3.1.1、Jinja2 SSR | `app.py`, `app/*_routes.py` |
+| 数据库 | SQLite 直接 DAO | `app/database.py`, `app/tenancy.py` |
+| 前端 | 原生 HTML/CSS/JS、Chart.js、vis-network | `templates/`, `static/` |
+| 测试 | 标准库 unittest + 临时 SQLite | `tests/test_multi_org.py` |
 
-⚠️ **常见误解**：早期文档说"JSON 持久化"，**已不再适用**。所有持久数据都在
-SQLite 里。`data.json.backup` 只是历史迁移残留，不要把它当作活跃数据源。
+所有持久数据在 SQLite。`data.json.backup` 只是历史迁移残留，不是活跃数据源。
 
 ## 架构
 
-```
-app.py                       # 启动入口：create_app() + 数据库初始化
+```text
+app.py                         # app factory、tenant Blueprint、WSGI
 app/
-├── __init__.py              # APP_VERSION / APP_NAME / DEFAULT_SCORE_OPTIONS
-├── database.py              # SQLite 直接操作的 DAO 层
-├── models.py                # 业务模型 wrapper（薄薄一层，模板里通过它取数据）
-├── main_routes.py           # /, /history, /session_detail, /tournament 占位
-├── game_routes.py           # /game, /add_score, /add_special_score 等
-├── player_routes.py         # /player/<id>, /player/<id>/rename
-├── achievement_routes.py    # /achievements + /achievement/<type>
-├── security.py              # 管理员认证 / CSRF / IP 白名单
-└── utils.py
+├── tenancy.py                 # 目标 schema、组织 slug、EMS 迁移
+├── database.py                # org_id-first DAO
+├── models.py                  # 业务 wrapper
+├── organization_routes.py     # 根入口、创建组织、旧 URL 网关
+├── security.py                # 组织管理员 / 超级管理员 / CSRF
+├── main_routes.py             # 首页、历史、场次详情、PWA
+├── game_routes.py             # 玩家加入与计分
+├── player_routes.py           # 玩家详情与管理
+├── achievement_routes.py      # 特殊记录
+├── tournament.py              # 赛事领域与 SQL
+└── tournament_routes.py
 templates/
-├── base.html                # 全站骨架（v1.9.0 新增）
-├── index.html               # 已迁移到 base.html
-├── tournament.html          # 已迁移到 base.html
-├── game.html / history.html / session_detail.html / player_detail.html / achievements.html
-└── achievements/*.html      # 各成就独立详情页
-static/
-├── css/main.css             # 全站共享样式（v1.9.0 新增）
-├── js/main.js               # 全站共享 JS（含 EMS.showToast / EMS.ajaxSubmit）
-├── js/chart.js              # Chart.js 离线副本
-└── icons/
+├── organization_portal.html / organization_new.html
+├── admin_login.html
+├── base.html / index.html / tournament_*.html
+├── game.html / history.html / session_detail.html / player_detail.html
+└── achievements/*.html
 ```
 
-## 进行中的迁移（v1.9.0 起）
+## 多组织硬约束
 
-**前端正在分阶段从"每页内联样式 / 内联脚本"迁移到 `base.html` + `main.css` + `main.js`。**
+### 路由上下文
 
-- ✅ 已迁移：`index.html`, `tournament.html`
-- ⏳ **未迁移**：`game.html`, `history.html`, `session_detail.html`, `player_detail.html`, `achievements.html`, 以及 `templates/achievements/` 下 7 个成就页
+- 所有业务 canonical URL 位于 `/o/<org_slug>/...`
+- tenant Blueprint 在 handler 前解析组织到 `g.organization`
+- 根 `/` 只提供组织名称/slug 输入与创建入口，不得返回服务端组织目录
+- “之前进入过”只保存在 localStorage，不是授权来源
+- 旧只读 URL 可显示组织选择网关；不要恢复旧写操作 URL，也不要默认猜 EMS
 
-未迁移页面**继续保留各自的内联 `<style>` 和内联 `<script>`**（包括重复实现的 `convertUtcToLocal`、Toast、按钮颜色、卡片样式等）。这是已知技术债，将来会做一次"CSS 整理收尾"统一处理。在那之前：
+### 数据访问
 
-- 改未迁移页面的样式 → 直接改它的内联 `<style>`，**不要为单个页面新增 main.css 类**（避免半半拉拉）
-- 改已迁移页面（index/tournament）→ 优先在 `main.css` 里加类、`extra_styles` block 里写页面专属
+- 所有玩家、场次、计分、统计、成就、退役和赛事 DAO 必须显式接收 `org_id` 首参
+- entity ID 查询、UPDATE 和 DELETE 必须同时限定 `org_id`
+- join/subquery 必须保持组织条件；禁止先做全局查询再在 Python 层过滤
+- 不要恢复 `SessionsProxy` / `PlayersProxy` 之类隐藏组织上下文的全局代理
+- 跨组织资源与不存在资源统一按 404/空结果处理，不泄露归属
+- 玩家名称只要求组织内唯一；同名玩家可存在于不同组织
 
-## 重要约定
+### 数据库迁移
 
-### 1. 所有 UI 文字用 "EMS Pool"，不要再写 "EMS Pool Gamble"
-- 仓库名是 EMSPoolGamble，但用户可见标题已统一精简为 "EMS Pool"
-- README/CLAUDE.md/CHANGELOG 这类文档文件 OK，但 `<title>`、`<h2>`、footer 版权、APP_NAME、邮件标题等都用 "EMS Pool"
+- 新迁移记录到 `schema_migrations` 并保持幂等
+- 连接必须启用 `PRAGMA foreign_keys = ON`
+- v1.13.0 已因复合外键和唯一约束重建核心表；以后优先使用非破坏性迁移，但约束变化可在备份、事务、预检、回滚和测试齐全时重建
+- 生产迁移前必须备份 Azure `/home/data/ems_pool_gamble.db`，单实例执行，并在生产副本上演练
+- 测试迁移只能使用临时库或复制品，绝不直接修改仓库数据库
 
-### 2. 计分入口已经走 AJAX，不要回退到表单跳转
-- `add_score` / `add_special_score` 检测 `X-Requested-With: XMLHttpRequest` 头返回 JSON `{ok, message}`
-- 普通表单 POST 仍按原 flash + redirect 兼容（不要删这个分支，向后兼容用得着）
-- 前端用 `EMS.ajaxSubmit({...})` 或直接 `fetch + new FormData(form)`，成功后调用 `refreshGameData()` 局部刷新
+## 权限模型
 
-### 3. 玩家详情时间筛选协议
-- URL: `?month=YYYY-MM` / `?month=all`（默认） / `?month=custom&start_date=...&end_date=...`
-- `start_date` / `end_date` 用 ISO `YYYY-MM-DDTHH:MM` 格式（`<input type="date">` + 客户端补全 `T00:00` / `T23:59`）
-- 这个协议和 `/history` 完全一致，未来如果做新的"按时间筛选"页面请复用同一协议
-- 顶部"小金/大金"光环按**全时段身份**显示，不随筛选窗口变；其它派生统计全部按窗口重算
+- 公开访客可浏览、创建/加入场次、计分和录入赛事局分
+- 新组织保存独立管理员密码 hash
+- `ADMIN_PASSWORD` 是全站超级管理员凭据，同时管理 EMS
+- 管理判断使用 `is_current_org_admin()` / `@require_admin_auth`，不得检查旧 `session['admin_authenticated']`
+- `organization_admin_org_id` 必须等于当前 `g.organization['org_id']`；超级管理员可跨组织
+- 写操作按现有约定使用 `@require_csrf_protection`，新路由不得绕过
 
-### 4. 数据库迁移
-- `app/database.py` 的 `_init_database()` 在启动时跑，已支持 `loser_id2`（多败者）等字段
-- 新加列要走 ADD COLUMN + 默认值，不要写"破坏性"迁移
+## 前端约定
 
-### 5. 时间显示
-- DB 存 UTC（ISO 字符串）
-- 模板上输出时给元素加 `data-utc-time="..."` 属性，由 `static/js/main.js` 的 `EMS.convertUtcToLocal()` 在浏览器端转本地时区
+### UI 名称
 
-### 6. 安全
-- 管理员模式开关靠 session（`security.py`）
-- 关键操作装饰器：`@require_admin_auth` + `@require_csrf_protection`
-- 不要在新路由里直接读取 `request.form` 后做删除/修改而不加保护
+所有用户可见文字使用 **EMS Pool**，不要写 “EMS Pool Gamble”。仓库和文档名称可以保留。
 
-## 本地开发
+### AJAX 计分
+
+- `add_score` / `add_special_score` / `add_reverse_double` 的 AJAX 分支返回 `{ok, message}`
+- 普通 POST 的 flash + redirect 分支用于兼容，不能删除
+- 成功后调用 `refreshGameData()` 局部刷新，不回退到整页计分跳转
+- URL 必须由租户 `url_for('tenant....')` 或服务器下发的 JSON-safe 值生成，不手拼组织 ID
+
+### 时间筛选
+
+玩家详情与历史页复用：
+
+- `?month=YYYY-MM`
+- `?month=all`
+- `?month=custom&start_date=...&end_date=...`
+- 日期时间使用 `YYYY-MM-DDTHH:MM`
+- 特殊胜利光环按该组织内全时段身份显示，其他统计按筛选窗口重算
+
+### 模板迁移状态
+
+`index.html` 与赛事模板使用 `base.html`。游戏、历史、场次详情、玩家详情和成就页仍保留大量内联 CSS/JS。
+
+- 改未迁移页面样式：继续改其内联 `<style>`，不要为单页半迁移到 `main.css`
+- 改已迁移页面：共享规则优先放 `main.css`，页面规则用 block
+- 所有 tenant 页面需要记录 `_tenant_presence.html` 并使用租户 manifest/service worker
+
+## 本地开发与验证
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-ADMIN_PASSWORD=x python app.py    # 默认 5000 端口
+SECRET_KEY=x ADMIN_PASSWORD=x python app.py
+python -m unittest discover -s tests -v
 ```
 
-数据库文件 `ems_pool_gamble.db` 在仓库根目录，**不要 commit**。已经在 `.gitignore` 里了。
+数据库文件 `ems_pool_gamble.db` 不得 commit。
+
+功能验证优先使用临时数据库：
+
+```bash
+DATABASE_PATH=/tmp/ems-pool-test.db SECRET_KEY=x ADMIN_PASSWORD=x python app.py
+```
 
 ## 提交规范
 
-按现状（项目维护者偏好）：
+- commit 主题使用英文，必要时在 body 解释原因
+- 不在同一 commit 混杂无关重构和新功能
+- 推送使用 SSH remote
 
-- commit 主题用英文，能多解释就多解释（这个项目里不少 commit body 写了为什么这么改）
-- 同一 PR 不混杂"重构"和"新功能"，分开 commit
-- 推送用 SSH（remote 已设置为 `git@github.com:xiaoyuin/EMSPoolGamble.git`）
+## 后续工作
 
-## 未来工作清单（按优先级）
+1. 修复安全默认值与 CSRF/GET 状态变更等既有问题
+2. 完成剩余模板的共享 CSS/JS 迁移
+3. 优化排行榜和可选玩家查询的 N+1
+4. 决定是否实现真正离线的 PWA
+5. 增加更多趋势与对比图表
 
-1. **CSS / 模板整理收尾** — 把剩余 7 个页面迁到 `base.html`，抽 `leaderboard-row`、`entity-badge`、`achievement-banner` 等组件类，删掉重复 CSS/JS
-2. **终局之战赛事页** — 取代 `/tournament` 占位，加赛程 / 对阵 / 实时积分
-3. **PWA** — 离线、桌面安装
-4. **更多趋势图表** — 已有 player 累计分数曲线，可拓展月度对比、对手雷达图等
+不在路线图：
 
-不在路线图（被否定过）：
-- ❌ 切到 Node 后端（讨论过，结论是切了对实际痛点没帮助）
-- ❌ 用 React/Vue 重写前端（过度方案；当前规模 Jinja2 + 渐进 AJAX 够用）
-
-## 在做改动前的快速 checklist
-
-- [ ] 这个改动应该改 `main.css` 还是页面内联？看上面"进行中的迁移"那段
-- [ ] 用户可见文案里是不是用 "EMS Pool"（不带 Gamble）
-- [ ] 表单提交需不需要 CSRF / admin 装饰器
-- [ ] 时间字段是不是 UTC 存 + `data-utc-time` 输出
-- [ ] 改了版本号？同步 `CHANGELOG.md`、可能还要 `README.md`
+- 切换 Node 后端
+- 用 React/Vue 重写前端
 
 ---
 
-最后更新：v1.9.0（2026-05-09）
+最后更新：v1.13.0（2026-08-08）

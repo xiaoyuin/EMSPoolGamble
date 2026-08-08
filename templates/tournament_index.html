@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}赛事 - EMS Pool{% endblock %}
+{% block title %}赛事 - {{ g.organization['name'] }}{% endblock %}
 
 {% block extra_styles %}
 <style>
@@ -89,7 +89,7 @@
 <div class="card">
     {% if tournaments %}
         {% for t in tournaments %}
-        <a href="{{ url_for('tournament_detail', tournament_id=t.tournament_id) }}" class="tournament-list-item">
+        <a href="{{ url_for('tenant.tournament_detail', tournament_id=t.tournament_id) }}" class="tournament-list-item">
             <div style="flex: 1; min-width: 0;">
                 <div class="tli-name">{{ t.name }}</div>
                 <div class="tli-meta">
@@ -112,7 +112,7 @@
     {% endif %}
 
     {% if is_admin_authenticated() %}
-    <a href="{{ url_for('tournament_new') }}" class="new-tournament-btn">创建新赛事</a>
+    <a href="{{ url_for('tenant.tournament_new') }}" class="new-tournament-btn">创建新赛事</a>
     {% endif %}
 </div>
 {% endblock %}

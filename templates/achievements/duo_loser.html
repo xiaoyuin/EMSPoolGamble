@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="manifest" href="/static/manifest.json">
+    <link rel="manifest" href="{{ url_for('tenant.pwa_manifest') }}">
     <meta name="theme-color" content="#1890ff">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
-    <title>{{ achievement.name }} - 特殊记录</title>
+    <title>{{ achievement.name }} - {{ g.organization['name'] }}</title>
     <style>
         body { font-family: sans-serif; max-width: 700px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
         .card { background: #ffffff; border-radius: 10px; padding: 1.2em; margin-top: 1.5em; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -124,6 +124,7 @@
     </style>
 </head>
 <body>
+    {% include '_organization_switcher.html' %}
     <div class="achievement-header">
         <span class="achievement-icon">{{ achievement.icon }}</span>
         <div class="achievement-name">{{ achievement.name }}</div>
@@ -140,9 +141,9 @@
                 <div class="duo-info">
                     <div class="duo-rank {% if loop.index <= 3 %}top-3{% endif %}">{{ loop.index }}</div>
                     <div class="duo-names">
-                        <a href="/player/{{ item.player1_id }}" class="player-link">{{ item.player1_name }}</a>
+                        <a href="{{ url_for('tenant.player_detail', player_id=item.player1_id) }}" class="player-link">{{ item.player1_name }}</a>
                         <span class="duo-plus">+</span>
-                        <a href="/player/{{ item.player2_id }}" class="player-link">{{ item.player2_name }}</a>
+                        <a href="{{ url_for('tenant.player_detail', player_id=item.player2_id) }}" class="player-link">{{ item.player2_name }}</a>
                     </div>
                 </div>
                 <div class="duo-stats">
@@ -161,15 +162,17 @@
     </div>
 
     <div class="links">
-        <a href="/achievements">返回特殊记录</a> |
-        <a href="/">返回首页</a> |
-        <a href="/history">历史统计</a>
+        <a href="{{ url_for('tenant.achievements') }}">返回特殊记录</a> |
+        <a href="{{ url_for('tenant.index') }}">返回首页</a> |
+        <a href="{{ url_for('tenant.history') }}">历史统计</a>
     </div>
 
     <div class="footer">
         <p>© 2025-2026 EMS Pool</p>
     </div>
 
-<script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/static/sw.js").catch(()=>{});</script>
+<script>if("serviceWorker"in navigator)navigator.serviceWorker.register({{ url_for('tenant.pwa_service_worker')|tojson }}, { scope: {{ url_for('tenant.index')|tojson }} }).catch(()=>{});</script>
+{% include '_tenant_presence.html' %}
+{% include '_organization_switcher_assets.html' %}
 </body>
 </html>

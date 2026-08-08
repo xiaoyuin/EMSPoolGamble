@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ tournament.name }} - 赛事详情{% endblock %}
+{% block title %}{{ tournament.name }} - {{ g.organization['name'] }}{% endblock %}
 
 {% block extra_styles %}
 <style>
@@ -360,7 +360,7 @@
             <div class="match-pair">
                 <div class="match-pair-matches">
             {% endif %}
-            <a href="{{ url_for('tournament_match', tournament_id=tournament.tournament_id, match_id=m.match_id) }}"
+            <a href="{{ url_for('tenant.tournament_match', tournament_id=tournament.tournament_id, match_id=m.match_id) }}"
                class="match-card-link {% if m.is_bye %}match-bye-link{% endif %}">
             {# 比赛是否在进行中（双方已确定 + 已有局数 + 还没结束） #}
             {% set is_live = (not m.winner_id) and (not m.is_bye)
@@ -437,7 +437,7 @@
         {% for p in tournament.participants %}
         <span class="participant-chip">
             {% if p.seed %}<span class="seed-badge">#{{ p.seed }}</span>{% endif %}
-            <a href="{{ url_for('player_detail', player_id=p.player_id) }}" class="player-link">{{ p.player_name }}</a>
+            <a href="{{ url_for('tenant.player_detail', player_id=p.player_id) }}" class="player-link">{{ p.player_name }}</a>
         </span>
         {% endfor %}
     {% else %}
@@ -464,9 +464,9 @@
     <h3 class="section-title">🔓 管理员操作</h3>
     <div class="admin-actions">
         {% if tournament.status in ('draft', 'registration') %}
-        <a href="{{ url_for('tournament_registration', tournament_id=tournament.tournament_id) }}" class="btn-primary">报名管理 / 生成对阵</a>
+        <a href="{{ url_for('tenant.tournament_registration', tournament_id=tournament.tournament_id) }}" class="btn-primary">报名管理 / 生成对阵</a>
         {% endif %}
-        <form method="post" action="{{ url_for('tournament_delete', tournament_id=tournament.tournament_id) }}"
+        <form method="post" action="{{ url_for('tenant.tournament_delete', tournament_id=tournament.tournament_id) }}"
               class="delete-form"
               onsubmit="return confirm('确定要删除赛事 \&quot;{{ tournament.name }}\&quot; 吗？所有报名、对阵都会一并删除。');">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

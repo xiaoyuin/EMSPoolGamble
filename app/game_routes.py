@@ -1,7 +1,7 @@
 """
 游戏相关路由模块 - 游戏界面、计分、玩家管理等
 """
-from flask import render_template, request, redirect, url_for, session, flash, jsonify
+from flask import abort, g, render_template, request, redirect, url_for, session, flash, jsonify
 
 
 def _wants_json():
@@ -10,7 +10,7 @@ def _wants_json():
         return True
     accept = request.headers.get('Accept', '')
     return 'application/json' in accept and 'text/html' not in accept
-from .models import (sessions, players, save_data,
+from .models import (save_data,
                      get_player_by_name, get_player_name, get_or_create_player, create_player,
                      get_available_players, get_session,
                      add_player_to_session, add_game_record, delete_game_record,
@@ -18,39 +18,42 @@ from .models import (sessions, players, save_data,
                      get_players_special_wins_batch,
                      get_retired_player_ids)
 from .utils import get_utc_timestamp, compute_pairwise_edges
-from .security import require_admin_auth, require_csrf_protection
+from .security import is_current_org_admin, require_admin_auth, require_csrf_protection
 from . import DEFAULT_SCORE_OPTIONS, APP_VERSION
 
 
-def register_game_routes(app):
+def _org_id():
+    return g.organization['org_id']
+
+
+def register_game_routes(bp):
     """注册游戏相关路由"""
     
-    @app.route('/game')
-    @app.route('/game/<session_id>')
+    @bp.route('/game')
+    @bp.route('/game/<session_id>')
     def game(session_id=None):
         # 游戏主界面 - 通过URL参数或session获取session_id
         if session_id is None:
             session_id = session.get('session_id')
 
-        if not session_id or session_id not in sessions:
+        if not session_id:
             flash('请先选择一个场次', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('tenant.index'))
+        if not get_session(_org_id(), session_id):
+            abort(404)
 
-        game_session = get_session(session_id)
-        if not game_session:
-            flash('请先选择一个场次', 'error')
-            return redirect(url_for('index'))
+        game_session = get_session(_org_id(), session_id)
 
         # 检查场次是否已被结束
         if not game_session.get('active', True):
             flash('该场次已经结束，跳转到详情页面查看结果', 'info')
-            return redirect(url_for('session_detail', session_id=session_id))
+            return redirect(url_for('tenant.session_detail', session_id=session_id))
 
         # 准备玩家列表，按分数排序，包含player_id
         # 构建包含player_id的玩家列表
         players_with_ids = []
         for player_name in game_session.get('players', set()):
-            player_id = get_player_by_name(player_name)
+            player_id = get_player_by_name(_org_id(), player_name)
             score = game_session.get('scores', {}).get(player_name, 0)
             players_with_ids.append({
                 'name': player_name,
@@ -63,7 +66,7 @@ def register_game_routes(app):
 
         # 获取玩家的特殊胜利记录（小金、大金）
         current_player_ids = [p['id'] for p in players_with_ids if p['id']]
-        special_wins = get_players_special_wins_batch(current_player_ids) if current_player_ids else {}
+        special_wins = get_players_special_wins_batch(_org_id(), current_player_ids) if current_player_ids else {}
 
         # 将特殊胜利记录添加到玩家信息中
         for player in sorted_players:
@@ -77,10 +80,10 @@ def register_game_routes(app):
             for record in game_session['records']:
                 # 确保记录中有winner_id（用于链接）
                 if 'winner_id' not in record and 'winner' in record:
-                    record['winner_id'] = get_player_by_name(record['winner'])
+                    record['winner_id'] = get_player_by_name(_org_id(), record['winner'])
 
         # 准备可用玩家的信息（用于显示）
-        available_player_data = get_available_players(exclude_session_id=session_id)
+        available_player_data = get_available_players(_org_id(), exclude_session_id=session_id)
 
         # 两两恩怨：算 pair-wise 净得分
         records_with_ids = game_session.get('records', [])
@@ -97,90 +100,91 @@ def register_game_routes(app):
             score_options=DEFAULT_SCORE_OPTIONS,
             sorted_players=sorted_players,
             recent_players=available_player_data,
-            retired_player_ids=get_retired_player_ids(),
+            retired_player_ids=get_retired_player_ids(_org_id()),
             pairwise_nodes=pairwise_nodes,
             pairwise_edges=pairwise_edges,
             app_version=APP_VERSION
         )
 
-    @app.route('/add_player/<session_id>', methods=['POST'])
+    @bp.route('/add_player/<session_id>', methods=['POST'])
     def add_player(session_id):
         # 在游戏中添加新玩家
-        if session_id not in sessions:
+        if not get_session(_org_id(), session_id):
             flash('场次不存在', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('tenant.index'))
 
-        game_session = get_session(session_id)
+        game_session = get_session(_org_id(), session_id)
         if not game_session:
             flash('场次不存在', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('tenant.index'))
 
         # 检查场次是否已被结束
         if not game_session.get('active', True):
             flash('该场次已经结束', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('tenant.index'))
 
         new_player_name = request.form['new_player_name'].strip()
         if not new_player_name:
             flash('玩家名称不能为空', 'error')
-            return redirect(url_for('game', session_id=session_id))
+            return redirect(url_for('tenant.game', session_id=session_id))
 
         # 检查玩家是否已存在（按名字）
         if new_player_name in game_session.get('players', set()):
             flash('该用户名已存在', 'error')
-            return redirect(url_for('game', session_id=session_id))
+            return redirect(url_for('tenant.game', session_id=session_id))
 
         # 仅当玩家已存在于系统时任何人可加入；新建玩家需管理员（v1.10 起收紧）
-        existing_player_id = get_player_by_name(new_player_name)
-        if not existing_player_id and not session.get('admin_authenticated'):
+        existing_player_id = get_player_by_name(_org_id(), new_player_name)
+        if not existing_player_id and not is_current_org_admin():
             flash(f'玩家 "{new_player_name}" 不存在；新建玩家需管理员权限', 'error')
-            return redirect(url_for('game', session_id=session_id))
+            return redirect(url_for('tenant.game', session_id=session_id))
 
         # 获取或创建玩家（管理员未到这里时，玩家已存在；管理员到这里则可创建）
-        player_id = get_or_create_player(new_player_name)
+        player_id = get_or_create_player(_org_id(), new_player_name)
 
         # 添加玩家到场次
-        success = add_player_to_session(session_id, player_id)
+        success = add_player_to_session(_org_id(), session_id, player_id)
         if not success:
             flash('添加玩家失败，可能已存在', 'error')
-            return redirect(url_for('game', session_id=session_id))
+            return redirect(url_for('tenant.game', session_id=session_id))
 
         # 保存数据（数据库自动保存）
         save_data()
 
         flash(f'玩家 "{new_player_name}" 添加成功', 'success')
-        return redirect(url_for('game', session_id=session_id))
+        return redirect(url_for('tenant.game', session_id=session_id))
 
-    @app.route('/batch_add_players/<session_id>', methods=['POST'])
+    @bp.route('/batch_add_players/<session_id>', methods=['POST'])
     def batch_add_players(session_id):
         # 批量添加玩家功能
-        if session_id not in sessions:
+        if not get_session(_org_id(), session_id):
             flash('场次不存在', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('tenant.index'))
 
-        game_session = get_session(session_id)
+        game_session = get_session(_org_id(), session_id)
         if not game_session:
             flash('场次不存在', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('tenant.index'))
 
         # 检查场次是否已被结束
         if not game_session.get('active', True):
             flash('该场次已经结束', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('tenant.index'))
 
         # 获取要添加的玩家名字列表
         player_names = request.form.getlist('player_names')
         
         if not player_names:
             flash('请选择要添加的玩家', 'error')
-            return redirect(url_for('game', session_id=session_id))
+            return redirect(url_for('tenant.game', session_id=session_id))
 
         added_players = []
         existing_players = []
         failed_players = []
         unknown_players = []  # 不存在且当前用户无权创建的玩家
 
-        is_admin = session.get('admin_authenticated', False)
+        from .security import is_current_org_admin
+        is_admin = is_current_org_admin()
 
         for player_name in player_names:
             if not player_name or not player_name.strip():
@@ -194,16 +198,16 @@ def register_game_routes(app):
                 continue
 
             # 玩家系统中不存在 + 非管理员 → 拒绝创建（v1.10 起收紧）
-            if get_player_by_name(player_name) is None and not is_admin:
+            if get_player_by_name(_org_id(), player_name) is None and not is_admin:
                 unknown_players.append(player_name)
                 continue
 
             try:
                 # 获取或创建玩家
-                player_id = get_or_create_player(player_name)
+                player_id = get_or_create_player(_org_id(), player_name)
 
                 # 添加玩家到场次
-                success = add_player_to_session(session_id, player_id)
+                success = add_player_to_session(_org_id(), session_id, player_id)
                 if success:
                     added_players.append(player_name)
                 else:
@@ -256,9 +260,9 @@ def register_game_routes(app):
             # 有失败的情况
             flash('，'.join(messages), 'error')
 
-        return redirect(url_for('game', session_id=session_id))
+        return redirect(url_for('tenant.game', session_id=session_id))
 
-    @app.route('/add_score/<session_id>', methods=['POST'])
+    @bp.route('/add_score/<session_id>', methods=['POST'])
     def add_score(session_id):
         # 记分功能
         is_ajax = _wants_json()
@@ -269,13 +273,13 @@ def register_game_routes(app):
                 return jsonify({'ok': ok, 'message': msg}), (status if not ok else 200)
             flash(msg, 'success' if ok else 'error')
             if ok:
-                return redirect(url_for('game', session_id=session_id))
-            return redirect(url_for('index') if status == 404 else url_for('game', session_id=session_id))
+                return redirect(url_for('tenant.game', session_id=session_id))
+            return redirect(url_for('tenant.index') if status == 404 else url_for('tenant.game', session_id=session_id))
 
-        if session_id not in sessions:
+        if not get_session(_org_id(), session_id):
             return _resp(False, '场次不存在', 404)
 
-        game_session = get_session(session_id)
+        game_session = get_session(_org_id(), session_id)
         if not game_session:
             return _resp(False, '场次不存在', 404)
 
@@ -299,11 +303,11 @@ def register_game_routes(app):
             return _resp(False, '选择的玩家不在当前场次中', 400)
 
         # 获取玩家ID
-        winner_id = get_player_by_name(winner)
-        loser_id = get_player_by_name(loser)
+        winner_id = get_player_by_name(_org_id(), winner)
+        loser_id = get_player_by_name(_org_id(), loser)
 
         # 添加计分记录（传递特殊分数类型）
-        add_game_record(session_id, winner_id, loser_id, score, special_score)
+        add_game_record(_org_id(), session_id, winner_id, loser_id, score, special_score)
 
         # 保存数据（数据库自动保存）
         save_data()
@@ -311,7 +315,7 @@ def register_game_routes(app):
         msg = f'成功记录{special_score}分数' if special_score else '成功记录分数'
         return _resp(True, msg)
 
-    @app.route('/add_special_score/<session_id>', methods=['POST'])
+    @bp.route('/add_special_score/<session_id>', methods=['POST'])
     def add_special_score(session_id):
         # 处理特殊分数（14分和20分）的记分功能
         is_ajax = _wants_json()
@@ -321,13 +325,13 @@ def register_game_routes(app):
                 return jsonify({'ok': ok, 'message': msg}), (status if not ok else 200)
             flash(msg, 'success' if ok else 'error')
             if status == 404:
-                return redirect(url_for('index'))
-            return redirect(url_for('game', session_id=session_id))
+                return redirect(url_for('tenant.index'))
+            return redirect(url_for('tenant.game', session_id=session_id))
 
-        if session_id not in sessions:
+        if not get_session(_org_id(), session_id):
             return _resp(False, '场次不存在', 404)
 
-        game_session = get_session(session_id)
+        game_session = get_session(_org_id(), session_id)
         if not game_session:
             return _resp(False, '场次不存在', 404)
 
@@ -358,11 +362,11 @@ def register_game_routes(app):
                 return _resp(False, f'玩家 {player} 不在当前场次中', 400)
 
         # 获取玩家ID
-        winner_id = get_player_by_name(winner)
-        loser_ids = [get_player_by_name(loser) for loser in losers]
+        winner_id = get_player_by_name(_org_id(), winner)
+        loser_ids = [get_player_by_name(_org_id(), loser) for loser in losers]
 
         # 使用统一的计分记录方法（支持多败者）
-        add_game_record(session_id, winner_id, loser_ids[0], total_score, special_score, loser_ids[1])
+        add_game_record(_org_id(), session_id, winner_id, loser_ids[0], total_score, special_score, loser_ids[1])
 
         # 保存数据（数据库自动保存）
         save_data()
@@ -370,7 +374,7 @@ def register_game_routes(app):
         type_name = special_score if special_score else '特殊分数'
         return _resp(True, f'成功记录{type_name}：{winner} 胜 {losers[0]}+{losers[1]} ({total_score}分)')
 
-    @app.route('/add_reverse_double/<session_id>', methods=['POST'])
+    @bp.route('/add_reverse_double/<session_id>', methods=['POST'])
     def add_reverse_double(session_id):
         """处理反向双吃（1个输家 + 2个赢家）"""
         is_ajax = _wants_json()
@@ -380,13 +384,13 @@ def register_game_routes(app):
                 return jsonify({'ok': ok, 'message': msg}), (status if not ok else 200)
             flash(msg, 'success' if ok else 'error')
             if status == 404:
-                return redirect(url_for('index'))
-            return redirect(url_for('game', session_id=session_id))
+                return redirect(url_for('tenant.index'))
+            return redirect(url_for('tenant.game', session_id=session_id))
 
-        if session_id not in sessions:
+        if not get_session(_org_id(), session_id):
             return _resp(False, '场次不存在', 404)
 
-        game_session = get_session(session_id)
+        game_session = get_session(_org_id(), session_id)
         if not game_session:
             return _resp(False, '场次不存在', 404)
 
@@ -416,11 +420,11 @@ def register_game_routes(app):
                 return _resp(False, f'玩家 {player} 不在当前场次中', 400)
 
         # 获取玩家ID
-        winner_ids = [get_player_by_name(w) for w in winners]
-        loser_id = get_player_by_name(loser)
+        winner_ids = [get_player_by_name(_org_id(), w) for w in winners]
+        loser_id = get_player_by_name(_org_id(), loser)
 
         # 写入一条记录：winner_id + winner_id2 + loser_id
-        add_game_record(session_id, winner_ids[0], loser_id, total_score,
+        add_game_record(_org_id(), session_id, winner_ids[0], loser_id, total_score,
                         special_score, winner_id2=winner_ids[1])
 
         save_data()
@@ -428,67 +432,67 @@ def register_game_routes(app):
         type_name = special_score if special_score else '反向双吃'
         return _resp(True, f'成功记录{type_name}：{winners[0]}+{winners[1]} 胜 {loser} ({total_score}分)')
 
-    @app.route('/delete_record/<session_id>/<int:record_index>', methods=['POST'])
+    @bp.route('/delete_record/<session_id>/<int:record_index>', methods=['POST'])
     @require_admin_auth
     @require_csrf_protection
     def delete_record(session_id, record_index):
         # 删除计分记录
-        if session_id not in sessions:
+        if not get_session(_org_id(), session_id):
             flash('场次不存在', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('tenant.index'))
 
-        game_session = get_session(session_id)
+        game_session = get_session(_org_id(), session_id)
         if not game_session:
             flash('场次不存在', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('tenant.index'))
 
         # 检查场次是否已被结束
         if not game_session.get('active', True):
             flash('该场次已经结束，无法删除记录', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('tenant.index'))
 
         # 获取记录列表并验证索引
         records = game_session.get('records', [])
         if record_index < 0 or record_index >= len(records):
             flash('无效的记录索引', 'error')
-            return redirect(url_for('game', session_id=session_id))
+            return redirect(url_for('tenant.game', session_id=session_id))
 
         # 删除记录（通过record_id而不是索引）
         record_to_delete = records[record_index]
         record_id = record_to_delete.get('record_id')
         
         if record_id:
-            deleted_record = delete_game_record(record_id)
+            deleted_record = delete_game_record(_org_id(), record_id)
             if deleted_record:
                 # 保存数据（数据库自动保存）
                 save_data()
                 
-                winner_name = get_player_name(deleted_record['winner_id'])
-                loser_name = get_player_name(deleted_record['loser_id'])
+                winner_name = get_player_name(_org_id(), deleted_record['winner_id'])
+                loser_name = get_player_name(_org_id(), deleted_record['loser_id'])
                 flash(f'已删除记录：{winner_name} 胜 {loser_name} ({deleted_record["score"]}分)', 'success')
             else:
                 flash('删除记录失败', 'error')
         else:
             flash('无法删除该记录', 'error')
 
-        return redirect(url_for('game', session_id=session_id))
+        return redirect(url_for('tenant.game', session_id=session_id))
 
-    @app.route('/end_session/<session_id>')
+    @bp.route('/end_session/<session_id>')
     def end_session_get(session_id):
         # 结束当前场次（GET方式，兼容性保留）
         return end_session_post(session_id)
 
-    @app.route('/end_session/<session_id>', methods=['POST'])
+    @bp.route('/end_session/<session_id>', methods=['POST'])
     @require_admin_auth
     @require_csrf_protection
     def end_session_post(session_id):
         # 结束当前场次
-        if session_id not in sessions:
+        if not get_session(_org_id(), session_id):
             flash('场次不存在', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('tenant.index'))
 
         # 结束场次
-        success = end_session(session_id)
+        success = end_session(_org_id(), session_id)
         
         if success:
             # 保存数据（数据库自动保存）
@@ -497,43 +501,43 @@ def register_game_routes(app):
         else:
             flash('结束场次失败', 'error')
 
-        return redirect(url_for('history'))
+        return redirect(url_for('tenant.history'))
 
-    @app.route('/create_and_select_player/<session_id>', methods=['POST'])
+    @bp.route('/create_and_select_player/<session_id>', methods=['POST'])
     @require_admin_auth
     @require_csrf_protection
     def create_and_select_player(session_id):
         # 创建新玩家（仅管理员，v1.10 起收紧）
-        if session_id not in sessions:
+        if not get_session(_org_id(), session_id):
             flash('场次不存在', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('tenant.index'))
 
-        game_session = get_session(session_id)
+        game_session = get_session(_org_id(), session_id)
         if not game_session:
             flash('场次不存在', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('tenant.index'))
 
         # 检查场次是否已被结束
         if not game_session.get('active', True):
             flash('该场次已经结束', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('tenant.index'))
 
         new_player_name = request.form['new_player_name'].strip()
         if not new_player_name:
             flash('玩家名称不能为空', 'error')
-            return redirect(url_for('game', session_id=session_id))
+            return redirect(url_for('tenant.game', session_id=session_id))
 
         # 检查玩家是否已存在（按名字）
-        existing_player_id = get_player_by_name(new_player_name)
+        existing_player_id = get_player_by_name(_org_id(), new_player_name)
         if existing_player_id:
             flash(f'玩家 "{new_player_name}" 已存在，请直接选择', 'success')
-            return redirect(url_for('game', session_id=session_id))
+            return redirect(url_for('tenant.game', session_id=session_id))
 
         # 创建新玩家
-        player_id = create_player(new_player_name)
+        player_id = create_player(_org_id(), new_player_name)
 
         # 保存数据（数据库自动保存）
         save_data()
 
         flash(f'玩家 "{new_player_name}" 创建成功，请在快速添加区域选择', 'success')
-        return redirect(url_for('game', session_id=session_id))
+        return redirect(url_for('tenant.game', session_id=session_id))

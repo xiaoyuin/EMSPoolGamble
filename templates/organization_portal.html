@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#1890ff">
+    <title>选择组织</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 1.25rem; font-family: sans-serif; color: #262626; background: linear-gradient(145deg, #e6f7ff, #f7f9fc 45%, #f0f2f5); }
+        main { width: min(100%, 480px); padding: 2rem; background: #fff; border-radius: 16px; box-shadow: 0 12px 36px rgba(24, 144, 255, .14); }
+        h1 { margin: 0 0 .35rem; color: #1890ff; } p { color: #595959; line-height: 1.55; }
+        label { display: block; margin-top: 1.25rem; font-weight: 600; }
+        input { width: 100%; margin-top: .45rem; padding: .72rem .8rem; border: 1px solid #d9d9d9; border-radius: 8px; font: inherit; }
+        input:focus { outline: 2px solid #91d5ff; border-color: #1890ff; }
+        button, .button-link { display: inline-flex; justify-content: center; align-items: center; min-height: 2.75rem; border: 0; border-radius: 8px; padding: .65rem 1rem; font: inherit; font-weight: 600; cursor: pointer; text-decoration: none; }
+        button[type=submit] { width: 100%; margin-top: 1rem; color: #fff; background: #1890ff; } button[type=submit]:hover { background: #096dd9; }
+        .secondary { margin-top: .8rem; color: #1890ff; background: #e6f7ff; }
+        .flash { margin: .75rem 0; padding: .65rem .8rem; border-radius: 8px; background: #fffbe6; color: #874d00; }
+        .recent { margin-top: 1.8rem; padding-top: 1.2rem; border-top: 1px solid #f0f0f0; }
+        .recent-head { display: flex; justify-content: space-between; align-items: center; gap: .75rem; }
+        .recent h2 { margin: 0; font-size: 1rem; } .recent button { min-height: auto; padding: .25rem .4rem; color: #8c8c8c; background: transparent; font-size: .8rem; }
+        #recent-organizations { display: grid; gap: .55rem; margin: .8rem 0 0; padding: 0; list-style: none; }
+        .recent-row { display: flex; align-items: center; gap: .5rem; }
+        .recent-org { flex: 1; min-width: 0; padding: .7rem .75rem; text-align: left; color: #262626; background: #fafafa; border-radius: 8px; }
+        .recent-org:hover { color: #096dd9; background: #e6f7ff; }.recent-org small { display:block; overflow:hidden; color:#8c8c8c; text-overflow:ellipsis; white-space:nowrap; font-weight:400; }
+        .remove-recent { color: #8c8c8c; background: transparent; }.remove-recent:hover { color:#cf1322; }
+        #recent-empty { margin: .8rem 0 0; font-size: .9rem; }
+    </style>
+</head>
+<body>
+<main>
+    <h1>EMS Pool</h1>
+    <p>输入组织名称或组织链接以继续。</p>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}<p class="flash">{{ message }}</p>{% endfor %}
+    {% endwith %}
+    <form method="post" action="{{ url_for('select_organization') }}">
+        <label>组织<input name="organization" required autocomplete="organization" placeholder="组织名称或 slug"></label>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="continue" value="{{ continuation or '' }}">
+        <button type="submit">进入组织</button>
+    </form>
+    <a class="button-link secondary" href="{{ url_for('new_organization') }}">创建新组织</a>
+    <section class="recent" aria-labelledby="recent-title">
+        <div class="recent-head"><h2 id="recent-title">之前进入过</h2><button type="button" id="clear-recent" hidden>清除全部</button></div>
+        <ul id="recent-organizations"></ul>
+        <p id="recent-empty">尚无本机访问记录。</p>
+    </section>
+</main>
+<script>
+(function () {
+    const storageKey = 'ems-pool.recent-organizations.v1';
+    const list = document.getElementById('recent-organizations');
+    const empty = document.getElementById('recent-empty');
+    const clear = document.getElementById('clear-recent');
+    const validEntry = function (entry) {
+        return entry && typeof entry.name === 'string' && entry.name.trim() &&
+            typeof entry.slug === 'string' && /^[a-z0-9][a-z0-9-]{0,79}$/.test(entry.slug) &&
+            typeof entry.lastVisitedAt === 'number' && Number.isFinite(entry.lastVisitedAt);
+    };
+    const load = function () {
+        try {
+            const parsed = JSON.parse(localStorage.getItem(storageKey) || '[]');
+            const bySlug = new Map();
+            if (Array.isArray(parsed)) parsed.forEach(function (entry) {
+                if (validEntry(entry) && (!bySlug.has(entry.slug) || bySlug.get(entry.slug).lastVisitedAt < entry.lastVisitedAt)) {
+                    bySlug.set(entry.slug, { name: entry.name.trim(), slug: entry.slug, lastVisitedAt: entry.lastVisitedAt });
+                }
+            });
+            return Array.from(bySlug.values()).sort(function (a, b) { return b.lastVisitedAt - a.lastVisitedAt; });
+        } catch (_) { return []; }
+    };
+    const save = function (entries) {
+        try { localStorage.setItem(storageKey, JSON.stringify(entries)); } catch (_) { /* convenience only */ }
+    };
+    const render = function () {
+        const entries = load();
+        list.replaceChildren();
+        empty.hidden = entries.length > 0;
+        clear.hidden = entries.length === 0;
+        entries.forEach(function (entry) {
+            const row = document.createElement('li'); row.className = 'recent-row';
+            const link = document.createElement('a'); link.className = 'recent-org';
+            link.href = '/o/' + encodeURIComponent(entry.slug) + '/';
+            const name = document.createElement('strong'); name.textContent = entry.name;
+            const slug = document.createElement('small'); slug.textContent = '/o/' + entry.slug;
+            link.append(name, slug);
+            const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'remove-recent'; remove.textContent = '移除';
+            remove.addEventListener('click', function () { save(load().filter(function (item) { return item.slug !== entry.slug; })); render(); });
+            row.append(link, remove); list.appendChild(row);
+        });
+    };
+    clear.addEventListener('click', function () { try { localStorage.removeItem(storageKey); } catch (_) {} render(); });
+    render();
+})();
+</script>
+</body>
+</html>

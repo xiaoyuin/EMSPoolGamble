@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="manifest" href="/static/manifest.json">
+    <link rel="manifest" href="{{ url_for('tenant.pwa_manifest') }}">
     <meta name="theme-color" content="#1890ff">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
-    <title>{{ achievement.name }} - 特殊记录</title>
+    <title>{{ achievement.name }} - {{ g.organization['name'] }}</title>
     <style>
         body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
         .card { background: #ffffff; border-radius: 10px; padding: 1.2em; margin-top: 1.5em; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -178,6 +178,7 @@
     </style>
 </head>
 <body>
+    {% include '_organization_switcher.html' %}
     <!-- 头部 -->
     <div class="achievement-header">
         <span class="achievement-icon">{{ achievement.icon }}</span>
@@ -200,7 +201,7 @@
                 {% if i < champions|length %}
                     {% set c = champions[i] %}
                     <span class="rank{% if i == 0 %} gold{% endif %}">{{ i + 1 }}</span>
-                    <a href="/player/{{ c.player_id }}" class="player-name-link">{{ c.name }}</a>
+                    <a href="{{ url_for('tenant.player_detail', player_id=c.player_id) }}" class="player-name-link">{{ c.name }}</a>
                     <span style="flex: 1;"></span>
                     <span class="count">{{ c.champion_count }}</span>
                     <span class="count-label">次</span>
@@ -214,7 +215,7 @@
                     <span class="count-label">次</span>
                     <span class="count">{{ l.loser_count }}</span>
                     <span style="flex: 1;"></span>
-                    <a href="/player/{{ l.player_id }}" class="player-name-link">{{ l.name }}</a>
+                    <a href="{{ url_for('tenant.player_detail', player_id=l.player_id) }}" class="player-name-link">{{ l.name }}</a>
                     <span class="rank{% if i == 0 %} gold{% endif %}">{{ i + 1 }}</span>
                 {% else %}
                     <span style="margin-right: 1em;">—</span>
@@ -231,15 +232,17 @@
     </div>
 
     <div class="links">
-        <a href="/achievements">返回特殊记录</a> |
-        <a href="/">返回首页</a> |
-        <a href="/history">历史统计</a>
+        <a href="{{ url_for('tenant.achievements') }}">返回特殊记录</a> |
+        <a href="{{ url_for('tenant.index') }}">返回首页</a> |
+        <a href="{{ url_for('tenant.history') }}">历史统计</a>
     </div>
 
     <div class="footer">
         <p>© 2025-2026 EMS Pool</p>
     </div>
 
-<script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/static/sw.js").catch(()=>{});</script>
+<script>if("serviceWorker"in navigator)navigator.serviceWorker.register({{ url_for('tenant.pwa_service_worker')|tojson }}, { scope: {{ url_for('tenant.index')|tojson }} }).catch(()=>{});</script>
+{% include '_tenant_presence.html' %}
+{% include '_organization_switcher_assets.html' %}
 </body>
 </html>

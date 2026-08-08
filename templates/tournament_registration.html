@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ tournament.name }} - 报名管理{% endblock %}
+{% block title %}{{ tournament.name }}报名 - {{ g.organization['name'] }}{% endblock %}
 
 {% block extra_styles %}
 <style>
@@ -237,8 +237,8 @@
 
 {% block content %}
 <div class="breadcrumb">
-    <a href="{{ url_for('tournament_index') }}">赛事</a>
-    &gt; <a href="{{ url_for('tournament_detail', tournament_id=tournament.tournament_id) }}">{{ tournament.name }}</a>
+    <a href="{{ url_for('tenant.tournament_index') }}">赛事</a>
+    &gt; <a href="{{ url_for('tenant.tournament_detail', tournament_id=tournament.tournament_id) }}">{{ tournament.name }}</a>
     &gt; 报名管理
 </div>
 
@@ -246,7 +246,7 @@
     <h3 class="section-title">已报名 ({{ tournament.participants|length }})</h3>
 
     {% if tournament.participants %}
-    <form method="post" action="{{ url_for('tournament_register_set_seed', tournament_id=tournament.tournament_id) }}" id="seed-form">
+    <form method="post" action="{{ url_for('tenant.tournament_register_set_seed', tournament_id=tournament.tournament_id) }}" id="seed-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="help">设置 1-4 号种子（决定对阵表上的固定位置；同一种子号最多 1 人）</div>
         <div class="registered-list">
@@ -274,7 +274,7 @@
 
     {# 隐藏的"移除参赛者"表单，由 removeParticipant() 注入 player_id 并提交 #}
     <form method="post"
-          action="{{ url_for('tournament_register_remove', tournament_id=tournament.tournament_id) }}"
+          action="{{ url_for('tenant.tournament_register_remove', tournament_id=tournament.tournament_id) }}"
           id="remove-form" style="display:none;">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="player_id" value="">
@@ -295,7 +295,7 @@
         {% endif %}
     </div>
     {% if available_players or is_admin_authenticated() %}
-    <form method="post" action="{{ url_for('tournament_register_add', tournament_id=tournament.tournament_id) }}" id="add-form">
+    <form method="post" action="{{ url_for('tenant.tournament_register_add', tournament_id=tournament.tournament_id) }}" id="add-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="available-grid" id="available-grid">
             {% for p in available_players %}
@@ -330,7 +330,7 @@
 <div id="newPlayerModal" class="new-player-modal">
     <div class="modal-content">
         <div class="modal-header">新建玩家</div>
-        <form method="post" action="{{ url_for('tournament_register_create_player', tournament_id=tournament.tournament_id) }}" id="newPlayerForm">
+        <form method="post" action="{{ url_for('tenant.tournament_register_create_player', tournament_id=tournament.tournament_id) }}" id="newPlayerForm">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="text" name="new_player_name" id="modalPlayerName" placeholder="玩家名字" autocomplete="off" required>
             <div class="modal-buttons">
@@ -353,10 +353,10 @@
         点「随机生成预览」可看到完整对阵，可反复重新随机。点「确认对阵」才会写入数据库。
     </div>
 
-    <form method="post" action="{{ url_for('tournament_generate_bracket', tournament_id=tournament.tournament_id) }}"
+    <form method="post" action="{{ url_for('tenant.tournament_generate_bracket', tournament_id=tournament.tournament_id) }}"
           id="generate-form"
           onsubmit="return confirmGenerate(event);"
-          data-preview-url="{{ url_for('tournament_preview_bracket', tournament_id=tournament.tournament_id) }}">
+          data-preview-url="{{ url_for('tenant.tournament_preview_bracket', tournament_id=tournament.tournament_id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         {# 用 round-tabs 把"首轮编辑器 + 后续轮占位"包起来，与 tournament_detail.html 风格一致 #}

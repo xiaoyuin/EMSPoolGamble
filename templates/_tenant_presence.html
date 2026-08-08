@@ -1,0 +1,23 @@
+{# Rendered only from tenant-scoped pages after the blueprint has resolved g.organization. #}
+<script>
+(function () {
+    const storageKey = 'ems-pool.recent-organizations.v1';
+    const current = {{ {'name': g.organization['name'], 'slug': g.organization['slug']}|tojson }};
+    if (!current || typeof current.name !== 'string' || typeof current.slug !== 'string' || !current.name || !current.slug) return;
+    try {
+        const raw = localStorage.getItem(storageKey);
+        const entries = raw ? JSON.parse(raw) : [];
+        const valid = Array.isArray(entries) ? entries.filter(function (entry) {
+            return entry && typeof entry.name === 'string' && entry.name &&
+                typeof entry.slug === 'string' && entry.slug &&
+                typeof entry.lastVisitedAt === 'number' && Number.isFinite(entry.lastVisitedAt);
+        }) : [];
+        const deduped = valid.filter(function (entry) { return entry.slug !== current.slug; });
+        deduped.push({ name: current.name, slug: current.slug, lastVisitedAt: Date.now() });
+        deduped.sort(function (a, b) { return b.lastVisitedAt - a.lastVisitedAt; });
+        localStorage.setItem(storageKey, JSON.stringify(deduped));
+    } catch (_) {
+        // Local recent-organization convenience must never affect tenant access.
+    }
+})();
+</script>

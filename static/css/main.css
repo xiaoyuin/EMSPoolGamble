@@ -46,6 +46,110 @@ body {
 .header { text-align: center; color: var(--color-text); margin-bottom: 1.5em; }
 .header h2 { margin: 0 0 0.3em 0; }
 
+.organization-switcher {
+    position: relative;
+    max-width: calc(100% - 5rem);
+}
+.organization-switcher-btn {
+    display: inline-flex;
+    width: auto;
+    max-width: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0.2rem 0.45rem;
+    border: 0;
+    background: transparent;
+    color: var(--color-text);
+    font-size: 1.5em;
+    line-height: 1.25;
+    font-weight: 700;
+}
+.organization-switcher-btn:hover,
+.organization-switcher-btn[aria-expanded="true"] {
+    background: rgba(0, 0, 0, 0.05);
+}
+.organization-switcher-btn > span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.organization-switcher-chevron {
+    display: block;
+    flex: 0 0 auto;
+    width: 0.75em;
+    height: 0.75em;
+    color: var(--color-text-muted);
+    transform-origin: 50% 50%;
+    transition: transform 0.15s ease;
+}
+.organization-switcher-btn[aria-expanded="true"] .organization-switcher-chevron {
+    transform: rotate(180deg);
+}
+.organization-switcher-dropdown {
+    position: absolute;
+    top: calc(100% + 0.4rem);
+    left: 50%;
+    z-index: 1100;
+    width: min(19rem, calc(100vw - 2rem));
+    overflow: hidden;
+    transform: translateX(-50%);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-card-bg);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+    text-align: left;
+}
+.organization-switcher-dropdown[hidden] { display: none; }
+.organization-switcher-label {
+    padding: 0.65rem 0.85rem 0.4rem;
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.organization-switcher-item,
+.organization-switcher-other {
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 0.72rem 0.85rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--color-text);
+    font: inherit;
+    font-size: 0.95rem;
+    font-weight: 500;
+    text-align: left;
+    text-decoration: none;
+}
+.organization-switcher-item:hover,
+.organization-switcher-other:hover {
+    background: var(--color-card-bg-soft);
+    color: var(--color-primary);
+}
+.organization-switcher-item.is-current {
+    color: var(--color-primary);
+    font-weight: 700;
+}
+.organization-switcher-item.is-current::after {
+    content: "当前";
+    float: right;
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    font-weight: 400;
+}
+.organization-switcher-empty {
+    padding: 0.7rem 0.85rem;
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+}
+.organization-switcher-other {
+    border-top: 1px solid var(--color-border);
+    color: var(--color-primary);
+}
+
 .version-info {
     text-align: center;
     font-size: 0.75em;

@@ -1,132 +1,97 @@
-# EMS Pool Gamble 安全配置说明
+# EMS Pool 安全配置说明
 
-## 管理员密码设置
+## 权限模型
 
-为了防止恶意访问，系统已为以下关键操作添加了管理员验证：
+v1.13.0 使用两级管理员权限：
 
-- **删除对战记录** (`/delete_record`)
-- **结束场次** (`/end_session`)
-- **删除场次** (`/delete_session`)
-- **玩家重命名** (`/player/*/rename`)
+- **组织管理员**：只管理登录时所在的组织；权限绑定该组织的不可变 `org_id`
+- **超级管理员**：由部署环境的 `ADMIN_PASSWORD` 验证，可以管理任意已进入的组织；EMS 组织也使用该凭据
 
-## 环境变量配置
+普通访客仍可公开浏览组织数据、创建/加入场次、普通计分和录入赛事局分。这是当前产品的协作模型，不等同于管理员权限。
 
-### 1. 管理员密码 (必需)
-```bash
-# 设置管理员密码（默认为 admin123，强烈建议修改）
-export ADMIN_PASSWORD="your_secure_password_here"
-```
+以下操作要求当前组织管理员或超级管理员：
 
-### 2. CSRF 保护密钥 (推荐)
-```bash
-# 设置CSRF保护密钥（用于防止跨站请求伪造）
-export CSRF_SECRET_KEY="your_csrf_secret_key_here"
-```
+- 创建新玩家
+- 删除计分记录、结束/删除场次
+- 玩家重命名、退役和复出
+- 创建/删除赛事、报名管理、生成对阵、视频管理、撤回和重置
 
-### 3. IP 白名单 (可选)
-```bash
-# 设置允许访问的IP地址列表（用逗号分隔，如果不设置则允许所有IP）
-export ALLOWED_IPS="192.168.1.100,10.0.0.50,127.0.0.1"
-```
+新组织创建时设置独立管理员密码。数据库只保存 Werkzeug 密码哈希，不保存明文。
 
-### 4. Flask 会话密钥 (推荐)
-```bash
-# Flask 会话密钥（用于session加密）
-export SECRET_KEY="your_flask_secret_key_here"
-```
+## 组织隔离
 
-## Windows 环境设置示例
+- Canonical URL 为 `/o/<org_slug>/...`
+- 请求先解析组织到 `g.organization`，再把 `org_id` 显式传入所有 DAO
+- 玩家、场次、计分、统计、特殊记录和赛事查询都带组织条件
+- 跨组织 UUID 与不存在资源统一返回 404
+- SQLite 复合外键阻止跨组织玩家、场次、计分和赛事关联
+- 根页面不提供服务端组织目录；“之前进入过”仅保存在浏览器 localStorage
 
-### PowerShell
-```powershell
-$env:ADMIN_PASSWORD="MySecurePassword123"
-$env:CSRF_SECRET_KEY="csrf_key_12345"
-$env:SECRET_KEY="flask_secret_key_67890"
-# 可选：设置IP白名单
-$env:ALLOWED_IPS="127.0.0.1,192.168.1.100"
+组织 URL 不是私密访问控制。知道组织名称或链接的访客可以查看和执行上述公开协作操作。
 
-# 然后启动应用
-python app.py
-```
+## 环境变量
 
-### Command Prompt
-```cmd
-set ADMIN_PASSWORD=MySecurePassword123
-set CSRF_SECRET_KEY=csrf_key_12345
-set SECRET_KEY=flask_secret_key_67890
-REM 可选：设置IP白名单
-set ALLOWED_IPS=127.0.0.1,192.168.1.100
+### `SECRET_KEY`
 
-REM 然后启动应用
-python app.py
-```
-
-## Linux/macOS 环境设置示例
+Flask session 签名密钥。生产环境应设置为随机、长期稳定的值；更换后所有已有管理员会话失效。
 
 ```bash
-export ADMIN_PASSWORD="MySecurePassword123"
-export CSRF_SECRET_KEY="csrf_key_12345"
-export SECRET_KEY="flask_secret_key_67890"
-# 可选：设置IP白名单
-export ALLOWED_IPS="127.0.0.1,192.168.1.100"
-
-# 然后启动应用
-python app.py
+export SECRET_KEY="your-long-random-session-secret"
 ```
 
-## Azure 部署环境变量设置
+### `ADMIN_PASSWORD`
 
-在 Azure App Service 中，可以通过以下方式设置环境变量：
+全站超级管理员凭据，同时用于 EMS 组织。生产环境必须改掉默认值。
 
-1. 在 Azure 门户中，导航到你的 App Service
-2. 选择 "配置" > "应用程序设置"
-3. 添加以下键值对：
-   - `ADMIN_PASSWORD`: `your_secure_password`
-   - `CSRF_SECRET_KEY`: `your_csrf_secret_key`
-   - `SECRET_KEY`: `your_flask_secret_key`
-   - `ALLOWED_IPS`: `ip1,ip2,ip3`（可选）
-
-## 安全特性
-
-### 1. 管理员认证
-- 关键操作需要输入管理员密码
-- 认证状态会保存7天（可以随时退出）
-- 在首页显示管理员模式状态
-
-### 2. CSRF 保护
-- 所有POST表单都包含CSRF token
-- 防止跨站请求伪造攻击
-- **重要**：所有删除操作都改为POST请求，避免GET请求的CSRF风险
-
-### 3. IP 白名单（可选）
-- 可以限制只有特定IP地址才能访问管理功能
-- 适用于内网环境或固定办公场所
-
-## 安全修复说明
-
-### CSRF 防护升级
-在v1.5.0版本中，我们发现了一个重要的安全漏洞：删除场次操作使用GET请求，容易受到CSRF攻击。恶意脚本可以通过简单的URL访问来删除场次，例如：
-
-```html
-<!-- 恶意页面可以通过图片标签触发删除 -->
-<img src="http://your-app.com/delete_session/session_id" style="display:none">
+```bash
+export ADMIN_PASSWORD="your-strong-super-admin-password"
 ```
 
-**修复措施**：
-1. 将删除场次操作从GET请求改为POST请求
-2. 添加CSRF token验证
-3. 所有删除操作都需要表单提交，而不是简单的链接点击
+### `ALLOWED_IPS`（可选）
 
-## 使用说明
+逗号分隔的管理功能 IP 白名单；未设置时不限制来源 IP。
 
-1. **首次访问管理功能**：系统会要求输入管理员密码
-2. **认证成功后**：在首页顶部会显示"管理员模式已启用"
-3. **退出管理模式**：点击"退出管理员模式"链接
-4. **密码安全**：请使用强密码，不要使用默认密码 `admin123`
+```bash
+export ALLOWED_IPS="192.168.1.100,10.0.0.50"
+```
 
-## 注意事项
+## 会话和 CSRF
 
-- 如果没有设置 `ADMIN_PASSWORD` 环境变量，系统将使用默认密码 `admin123`
-- 在生产环境中，请务必设置强密码
-- 建议定期更换管理员密码
-- IP白名单为空时，将允许所有IP访问（仅密码保护）
+- 管理员状态保存在 Flask 签名 session 中，默认有效期 7 天
+- 组织管理员 claim 为 `organization_admin_org_id`
+- 超级管理员 claim 为 `super_admin_authenticated`
+- 旧版 `admin_authenticated` 不再授予权限
+- 管理员退出使用 POST + CSRF
+- 组织选择、创建、管理员登录和受保护的写操作使用 session CSRF token
+- 登录 continuation 只允许服务器生成的当前组织内路径
+
+## Azure 部署
+
+在 App Service 的 Configuration 中至少设置：
+
+```text
+SECRET_KEY=<随机 session 密钥>
+ADMIN_PASSWORD=<强超级管理员密码>
+FLASK_DEBUG=False
+ALLOWED_IPS=<可选>
+```
+
+数据库位于 `/home/data/ems_pool_gamble.db`。v1.13.0 首次部署涉及核心表重建，必须：
+
+1. 停止业务写入并保留单实例启动
+2. 将数据库复制到 App Service 之外并验证备份
+3. 先在生产数据库副本上演练迁移
+4. 启动后验证 EMS、组织入口、管理员登录、计分和赛事
+5. 失败时同时恢复旧应用与迁移前数据库
+
+## 安全边界说明
+
+- UUID 是资源标识，不是授权依据；服务端始终同时检查 `org_id`
+- 组织短标识用于导航，不提供保密性
+- PWA Service Worker 当前不缓存业务页面或数据
+- localStorage 的最近组织记录只用于快捷入口，服务端不会据此授权
+- 管理员密码、CSRF token 和 session cookie 不应写入日志或客户端持久存储
+
+## 后续安全工作
+
+现有项目仍计划逐步统一所有公开写操作的 CSRF 覆盖、移除修改状态的兼容 GET 路由、加强生产默认配置与安全响应头。这些工作不改变 v1.13.0 已实现的组织数据隔离边界。

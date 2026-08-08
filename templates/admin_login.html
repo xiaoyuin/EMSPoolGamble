@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="manifest" href="{{ url_for('tenant.pwa_manifest') }}">
+    <meta name="theme-color" content="#1890ff">
+    <title>管理员验证 - {{ g.organization['name'] }}</title>
+    <style>
+        * { box-sizing: border-box; } body { margin:0; min-height:100vh; display:grid; place-items:center; padding:1.25rem; font-family:sans-serif; color:#262626; background:#f0f2f5; }
+        main { width:min(100%, 440px); padding:2rem; background:#fff; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.09); } h1 { margin:0; color:#1890ff; font-size:1.5rem; } p { color:#595959; }
+        label { display:block; margin-top:1.25rem; font-weight:600; } input { width:100%; margin-top:.45rem; padding:.72rem .8rem; border:1px solid #d9d9d9; border-radius:8px; font:inherit; } input:focus { outline:2px solid #91d5ff; border-color:#1890ff; }
+        button, a { font:inherit; } button { width:100%; margin-top:1rem; padding:.72rem; border:0; border-radius:8px; color:#fff; background:#1890ff; font-weight:600; cursor:pointer; } button:hover { background:#096dd9; } a { display:inline-block; margin-top:1rem; color:#1890ff; text-decoration:none; }.flash { padding:.65rem .8rem; border-radius:8px; background:#fffbe6; color:#874d00; }
+    </style>
+</head>
+<body>
+<main>
+    <h1>管理员验证</h1>
+    <p>{{ g.organization['name'] }}</p>
+    {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<p class="flash">{{ message }}</p>{% endfor %}{% endwith %}
+    <form method="post" action="{{ url_for('tenant.admin_login') }}">
+        <label>管理员密码<input type="password" name="password" required autocomplete="current-password"></label>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit">验证身份</button>
+    </form>
+    <a href="{{ url_for('tenant.index') }}">返回首页</a>
+</main>
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register({{ url_for('tenant.pwa_service_worker')|tojson }}, { scope: {{ url_for('tenant.index')|tojson }} }).catch(() => {});</script>
+{% include '_tenant_presence.html' %}
+</body>
+</html>

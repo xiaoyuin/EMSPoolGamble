@@ -17,10 +17,10 @@ Tournament 路由模块（v1.10）
   POST     /tournament/<tid>/match/<mid>/reset
 """
 
-from flask import render_template, request, redirect, url_for, flash, jsonify
+from flask import abort, g, render_template, request, redirect, url_for, flash, jsonify
 from .security import require_admin_auth, require_csrf_protection
 from . import APP_VERSION
-from .models import players, get_player_by_id, get_player_by_name, create_player as create_global_player, save_data
+from .models import get_player_by_id, get_player_by_name, create_player as create_global_player, save_data
 from .database import db
 from .tournament import (
     create_tournament, list_tournaments, get_tournament,
@@ -34,13 +34,17 @@ from .tournament import (
 )
 
 
-def register_tournament_routes(app):
+def _org_id():
+    return g.organization['org_id']
+
+
+def register_tournament_routes(bp):
     """注册赛事相关路由。"""
 
     # ---------- 列表（公开） ----------
-    @app.route('/tournament')
+    @bp.route('/tournament')
     def tournament_index():
-        tournaments = list_tournaments()
+        tournaments = list_tournaments(_org_id())
         return render_template(
             'tournament_index.html',
             tournaments=tournaments,
@@ -48,13 +52,12 @@ def register_tournament_routes(app):
         )
 
     # ---------- 详情（公开） ----------
-    @app.route('/tournament/<tournament_id>')
+    @bp.route('/tournament/<tournament_id>')
     def tournament_detail(tournament_id):
-        tournament = get_tournament(tournament_id)
+        tournament = get_tournament(_org_id(), tournament_id)
         if not tournament:
-            flash('赛事不存在', 'error')
-            return redirect(url_for('tournament_index'))
-        bracket = get_bracket(tournament_id) if tournament['status'] in (STATUS_IN_PROGRESS, STATUS_COMPLETED) else []
+            abort(404)
+        bracket = get_bracket(_org_id(), tournament_id) if tournament['status'] in (STATUS_IN_PROGRESS, STATUS_COMPLETED) else []
         return render_template(
             'tournament_detail.html',
             tournament=tournament,
@@ -90,7 +93,7 @@ def register_tournament_routes(app):
             rounds.append({'name': name, 'best_of': best_of})
         return rounds
 
-    @app.route('/tournament/new', methods=['GET'])
+    @bp.route('/tournament/new', methods=['GET'])
     @require_admin_auth
     def tournament_new():
         default_rounds = _default_rounds(total_rounds=4, bracket_size=16)
@@ -100,14 +103,14 @@ def register_tournament_routes(app):
             app_version=APP_VERSION,
         )
 
-    @app.route('/tournament/new', methods=['POST'])
+    @bp.route('/tournament/new', methods=['POST'])
     @require_admin_auth
     @require_csrf_protection
     def tournament_create():
         name = request.form.get('name', '').strip()
         if not name:
             flash('赛事名称不能为空', 'error')
-            return redirect(url_for('tournament_new'))
+            return redirect(url_for('tenant.tournament_new'))
 
         # 表单形式：round_name_1, best_of_1, round_name_2, best_of_2 ...
         rounds = []
@@ -118,52 +121,52 @@ def register_tournament_routes(app):
                 continue
             if not round_name:
                 flash(f'第 {idx} 轮名称不能为空', 'error')
-                return redirect(url_for('tournament_new'))
+                return redirect(url_for('tenant.tournament_new'))
             try:
                 best_of = int(best_of_raw)
             except ValueError:
                 flash(f'第 {idx} 轮 best-of 必须是整数', 'error')
-                return redirect(url_for('tournament_new'))
+                return redirect(url_for('tenant.tournament_new'))
             if best_of % 2 == 0 or best_of < 1:
                 flash(f'第 {idx} 轮 best-of 必须是 ≥1 的奇数（如 5/7/9）', 'error')
-                return redirect(url_for('tournament_new'))
+                return redirect(url_for('tenant.tournament_new'))
             rounds.append({'name': round_name, 'best_of': best_of})
 
         if len(rounds) < 1:
             flash('至少需要 1 轮配置', 'error')
-            return redirect(url_for('tournament_new'))
+            return redirect(url_for('tenant.tournament_new'))
 
-        tournament_id = create_tournament(name, rounds)
+        tournament_id = create_tournament(_org_id(), name, rounds)
         flash(f'赛事 "{name}" 已创建，可以开始报名', 'success')
-        return redirect(url_for('tournament_detail', tournament_id=tournament_id))
+        return redirect(url_for('tenant.tournament_detail', tournament_id=tournament_id))
 
     # ---------- 删除赛事（管理员） ----------
-    @app.route('/tournament/<tournament_id>/delete', methods=['POST'])
+    @bp.route('/tournament/<tournament_id>/delete', methods=['POST'])
     @require_admin_auth
     @require_csrf_protection
     def tournament_delete(tournament_id):
-        tournament = get_tournament(tournament_id)
+        tournament = get_tournament(_org_id(), tournament_id)
         if not tournament:
             flash('赛事不存在', 'error')
-            return redirect(url_for('tournament_index'))
-        delete_tournament(tournament_id)
+            return redirect(url_for('tenant.tournament_index'))
+        delete_tournament(_org_id(), tournament_id)
         flash(f'赛事 "{tournament["name"]}" 已删除', 'success')
-        return redirect(url_for('tournament_index'))
+        return redirect(url_for('tenant.tournament_index'))
 
     # ---------- 报名管理（管理员） ----------
-    @app.route('/tournament/<tournament_id>/registration', methods=['GET'])
+    @bp.route('/tournament/<tournament_id>/registration', methods=['GET'])
     @require_admin_auth
     def tournament_registration(tournament_id):
-        tournament = get_tournament(tournament_id)
+        tournament = get_tournament(_org_id(), tournament_id)
         if not tournament:
             flash('赛事不存在', 'error')
-            return redirect(url_for('tournament_index'))
+            return redirect(url_for('tenant.tournament_index'))
         if tournament['status'] not in (STATUS_DRAFT, STATUS_REGISTRATION):
             flash('赛事已生成对阵，无法再修改报名', 'error')
-            return redirect(url_for('tournament_detail', tournament_id=tournament_id))
+            return redirect(url_for('tenant.tournament_detail', tournament_id=tournament_id))
 
         # 全部 player（按名字排）
-        all_players = db.get_all_players()
+        all_players = db.get_all_players(_org_id())
         registered_ids = {p['player_id'] for p in tournament['participants']}
         available_players = [p for p in all_players if p['player_id'] not in registered_ids]
         available_players.sort(key=lambda p: p['name'])
@@ -182,93 +185,93 @@ def register_tournament_routes(app):
             app_version=APP_VERSION,
         )
 
-    @app.route('/tournament/<tournament_id>/registration/add', methods=['POST'])
+    @bp.route('/tournament/<tournament_id>/registration/add', methods=['POST'])
     @require_admin_auth
     @require_csrf_protection
     def tournament_register_add(tournament_id):
-        tournament = get_tournament(tournament_id)
+        tournament = get_tournament(_org_id(), tournament_id)
         if not tournament:
             flash('赛事不存在', 'error')
-            return redirect(url_for('tournament_index'))
+            return redirect(url_for('tenant.tournament_index'))
         if tournament['status'] not in (STATUS_DRAFT, STATUS_REGISTRATION):
             flash('赛事已生成对阵，无法再修改报名', 'error')
-            return redirect(url_for('tournament_detail', tournament_id=tournament_id))
+            return redirect(url_for('tenant.tournament_detail', tournament_id=tournament_id))
 
         player_ids = request.form.getlist('player_ids')
         added = 0
         for pid in player_ids:
-            if get_player_by_id(pid) and add_participant(tournament_id, pid, None):
+            if get_player_by_id(_org_id(), pid) and add_participant(_org_id(), tournament_id, pid, None):
                 added += 1
         if added:
             flash(f'成功添加 {added} 名参赛者', 'success')
         else:
             flash('未添加任何参赛者', 'error')
-        return redirect(url_for('tournament_registration', tournament_id=tournament_id))
+        return redirect(url_for('tenant.tournament_registration', tournament_id=tournament_id))
 
-    @app.route('/tournament/<tournament_id>/registration/create_player', methods=['POST'])
+    @bp.route('/tournament/<tournament_id>/registration/create_player', methods=['POST'])
     @require_admin_auth
     @require_csrf_protection
     def tournament_register_create_player(tournament_id):
         """新建一个全局玩家（不直接加入本赛事报名）。
         与 game.html 的"+"逻辑一致：创建后让管理员在可选玩家列表里手动选中加入。"""
-        tournament = get_tournament(tournament_id)
+        tournament = get_tournament(_org_id(), tournament_id)
         if not tournament:
             flash('赛事不存在', 'error')
-            return redirect(url_for('tournament_index'))
+            return redirect(url_for('tenant.tournament_index'))
         if tournament['status'] not in (STATUS_DRAFT, STATUS_REGISTRATION):
             flash('赛事已生成对阵，无法再修改报名', 'error')
-            return redirect(url_for('tournament_detail', tournament_id=tournament_id))
+            return redirect(url_for('tenant.tournament_detail', tournament_id=tournament_id))
 
         name = request.form.get('new_player_name', '').strip()
         if not name:
             flash('玩家名称不能为空', 'error')
-            return redirect(url_for('tournament_registration', tournament_id=tournament_id))
+            return redirect(url_for('tenant.tournament_registration', tournament_id=tournament_id))
 
         # 已存在 → 提示，让管理员从可选列表里手动加入
-        existing_id = get_player_by_name(name)
+        existing_id = get_player_by_name(_org_id(), name)
         if existing_id:
             flash(f'玩家 "{name}" 已存在，请在下方"添加参赛者"列表中选择', 'success')
-            return redirect(url_for('tournament_registration', tournament_id=tournament_id))
+            return redirect(url_for('tenant.tournament_registration', tournament_id=tournament_id))
 
         # 创建新玩家（不报名）
-        create_global_player(name)
+        create_global_player(_org_id(), name)
         save_data()
         flash(f'已创建玩家 "{name}"，请在下方"添加参赛者"列表中选择以加入报名', 'success')
-        return redirect(url_for('tournament_registration', tournament_id=tournament_id))
+        return redirect(url_for('tenant.tournament_registration', tournament_id=tournament_id))
 
-    @app.route('/tournament/<tournament_id>/registration/remove', methods=['POST'])
+    @bp.route('/tournament/<tournament_id>/registration/remove', methods=['POST'])
     @require_admin_auth
     @require_csrf_protection
     def tournament_register_remove(tournament_id):
-        tournament = get_tournament(tournament_id)
+        tournament = get_tournament(_org_id(), tournament_id)
         if not tournament:
             flash('赛事不存在', 'error')
-            return redirect(url_for('tournament_index'))
+            return redirect(url_for('tenant.tournament_index'))
         if tournament['status'] not in (STATUS_DRAFT, STATUS_REGISTRATION):
             flash('赛事已生成对阵，无法再修改报名', 'error')
-            return redirect(url_for('tournament_detail', tournament_id=tournament_id))
+            return redirect(url_for('tenant.tournament_detail', tournament_id=tournament_id))
 
         player_id = request.form.get('player_id', '').strip()
         if not player_id:
             flash('参数错误', 'error')
-            return redirect(url_for('tournament_registration', tournament_id=tournament_id))
-        if remove_participant(tournament_id, player_id):
+            return redirect(url_for('tenant.tournament_registration', tournament_id=tournament_id))
+        if remove_participant(_org_id(), tournament_id, player_id):
             flash('已移除参赛者', 'success')
         else:
             flash('移除失败', 'error')
-        return redirect(url_for('tournament_registration', tournament_id=tournament_id))
+        return redirect(url_for('tenant.tournament_registration', tournament_id=tournament_id))
 
-    @app.route('/tournament/<tournament_id>/registration/set_seed', methods=['POST'])
+    @bp.route('/tournament/<tournament_id>/registration/set_seed', methods=['POST'])
     @require_admin_auth
     @require_csrf_protection
     def tournament_register_set_seed(tournament_id):
-        tournament = get_tournament(tournament_id)
+        tournament = get_tournament(_org_id(), tournament_id)
         if not tournament:
             flash('赛事不存在', 'error')
-            return redirect(url_for('tournament_index'))
+            return redirect(url_for('tenant.tournament_index'))
         if tournament['status'] not in (STATUS_DRAFT, STATUS_REGISTRATION):
             flash('赛事已生成对阵，无法再修改报名', 'error')
-            return redirect(url_for('tournament_detail', tournament_id=tournament_id))
+            return redirect(url_for('tenant.tournament_detail', tournament_id=tournament_id))
 
         # 表单里每个 participant 一个 seed_<player_id> 字段（空字符串 = 无种子）
         # 同时强制约束：1-4 号种子各最多 1 人
@@ -284,27 +287,27 @@ def register_tournament_routes(app):
                 seed = int(raw)
             except ValueError:
                 flash(f'选手 "{p["player_name"]}" 的种子号无效', 'error')
-                return redirect(url_for('tournament_registration', tournament_id=tournament_id))
+                return redirect(url_for('tenant.tournament_registration', tournament_id=tournament_id))
             if seed < 1 or seed > 4:
                 flash('种子号必须为 1-4 之间', 'error')
-                return redirect(url_for('tournament_registration', tournament_id=tournament_id))
+                return redirect(url_for('tenant.tournament_registration', tournament_id=tournament_id))
             if seed in seen_seeds:
                 flash(f'种子号 {seed} 被指定给了多人', 'error')
-                return redirect(url_for('tournament_registration', tournament_id=tournament_id))
+                return redirect(url_for('tenant.tournament_registration', tournament_id=tournament_id))
             seen_seeds.add(seed)
             new_seeds[pid] = seed
 
         for pid, seed in new_seeds.items():
-            set_participant_seed(tournament_id, pid, seed)
+            set_participant_seed(_org_id(), tournament_id, pid, seed)
         flash('种子设置已保存', 'success')
-        return redirect(url_for('tournament_registration', tournament_id=tournament_id))
+        return redirect(url_for('tenant.tournament_registration', tournament_id=tournament_id))
 
     # ---------- 预览对阵（dry-run，不写库） ----------
-    @app.route('/tournament/<tournament_id>/preview_bracket', methods=['POST'])
+    @bp.route('/tournament/<tournament_id>/preview_bracket', methods=['POST'])
     @require_admin_auth
     @require_csrf_protection
     def tournament_preview_bracket(tournament_id):
-        tournament = get_tournament(tournament_id)
+        tournament = get_tournament(_org_id(), tournament_id)
         if not tournament:
             return jsonify({'ok': False, 'message': '赛事不存在'}), 404
         if tournament['status'] not in (STATUS_DRAFT, STATUS_REGISTRATION):
@@ -319,26 +322,26 @@ def register_tournament_routes(app):
             if raw and raw != 'random':
                 manual_slots[slot_1based] = raw
 
-        result, err = preview_bracket_layout(tournament_id, manual_slots=manual_slots or None)
+        result, err = preview_bracket_layout(_org_id(), tournament_id, manual_slots=manual_slots or None)
         if not result:
             return jsonify({'ok': False, 'message': f'生成预览失败：{err}'}), 400
         return jsonify({'ok': True, **result})
 
     # ---------- 生成 bracket（管理员） ----------
-    @app.route('/tournament/<tournament_id>/generate_bracket', methods=['POST'])
+    @bp.route('/tournament/<tournament_id>/generate_bracket', methods=['POST'])
     @require_admin_auth
     @require_csrf_protection
     def tournament_generate_bracket(tournament_id):
-        tournament = get_tournament(tournament_id)
+        tournament = get_tournament(_org_id(), tournament_id)
         if not tournament:
             flash('赛事不存在', 'error')
-            return redirect(url_for('tournament_index'))
+            return redirect(url_for('tenant.tournament_index'))
         if tournament['status'] not in (STATUS_DRAFT, STATUS_REGISTRATION):
             flash('赛事已生成对阵', 'error')
-            return redirect(url_for('tournament_detail', tournament_id=tournament_id))
+            return redirect(url_for('tenant.tournament_detail', tournament_id=tournament_id))
         if len(tournament['participants']) < 2:
             flash('至少需要 2 名参赛者才能生成对阵', 'error')
-            return redirect(url_for('tournament_registration', tournament_id=tournament_id))
+            return redirect(url_for('tenant.tournament_registration', tournament_id=tournament_id))
 
         # 收集手动 slot 指定：每个 slot_<i> 字段值可以是
         #   '' / 'random'  → 留空（让算法随机抽）
@@ -352,22 +355,21 @@ def register_tournament_routes(app):
                 continue
             manual_slots[slot_1based] = raw  # 后端会校验是否合法
 
-        ok, msg = generate_bracket(tournament_id, manual_slots=manual_slots or None)
+        ok, msg = generate_bracket(_org_id(), tournament_id, manual_slots=manual_slots or None)
         if not ok:
             flash(f'生成对阵失败：{msg}', 'error')
-            return redirect(url_for('tournament_registration', tournament_id=tournament_id))
+            return redirect(url_for('tenant.tournament_registration', tournament_id=tournament_id))
 
         flash('对阵已生成', 'success')
-        return redirect(url_for('tournament_detail', tournament_id=tournament_id))
+        return redirect(url_for('tenant.tournament_detail', tournament_id=tournament_id))
 
     # ---------- 单场对阵详情（公开） ----------
-    @app.route('/tournament/<tournament_id>/match/<match_id>')
+    @bp.route('/tournament/<tournament_id>/match/<match_id>')
     def tournament_match(tournament_id, match_id):
-        match = get_match(match_id)
+        match = get_match(_org_id(), match_id)
         if not match or match['tournament_id'] != tournament_id:
-            flash('对阵不存在', 'error')
-            return redirect(url_for('tournament_detail', tournament_id=tournament_id))
-        tournament = get_tournament(tournament_id)
+            abort(404)
+        tournament = get_tournament(_org_id(), tournament_id)
         return render_template(
             'tournament_match.html',
             tournament=tournament,
@@ -376,75 +378,75 @@ def register_tournament_routes(app):
         )
 
     # ---------- 设置视频链接（管理员） ----------
-    @app.route('/tournament/<tournament_id>/match/<match_id>/set_video', methods=['POST'])
+    @bp.route('/tournament/<tournament_id>/match/<match_id>/set_video', methods=['POST'])
     @require_admin_auth
     @require_csrf_protection
     def tournament_match_set_video(tournament_id, match_id):
-        match = get_match(match_id)
+        match = get_match(_org_id(), match_id)
         if not match or match['tournament_id'] != tournament_id:
             flash('对阵不存在', 'error')
-            return redirect(url_for('tournament_detail', tournament_id=tournament_id))
+            return redirect(url_for('tenant.tournament_detail', tournament_id=tournament_id))
         url = request.form.get('video_url', '').strip()
-        ok, msg = set_match_video_url(match_id, url)
+        ok, msg = set_match_video_url(_org_id(), match_id, url)
         flash(msg, 'success' if ok else 'error')
-        return redirect(url_for('tournament_match', tournament_id=tournament_id, match_id=match_id))
+        return redirect(url_for('tenant.tournament_match', tournament_id=tournament_id, match_id=match_id))
 
     # ---------- 录入比分 - 逐局加（所有用户） ----------
-    @app.route('/tournament/<tournament_id>/match/<match_id>/record_game', methods=['POST'])
+    @bp.route('/tournament/<tournament_id>/match/<match_id>/record_game', methods=['POST'])
     @require_csrf_protection
     def tournament_match_record_game(tournament_id, match_id):
-        match = get_match(match_id)
+        match = get_match(_org_id(), match_id)
         if not match or match['tournament_id'] != tournament_id:
             flash('对阵不存在', 'error')
-            return redirect(url_for('tournament_detail', tournament_id=tournament_id))
+            return redirect(url_for('tenant.tournament_detail', tournament_id=tournament_id))
         try:
             winner_side = int(request.form.get('winner_side', '0'))
         except ValueError:
             winner_side = 0
-        ok, msg = record_match_game(match_id, winner_side)
+        ok, msg = record_match_game(_org_id(), match_id, winner_side)
         flash(msg, 'success' if ok else 'error')
-        return redirect(url_for('tournament_match', tournament_id=tournament_id, match_id=match_id))
+        return redirect(url_for('tenant.tournament_match', tournament_id=tournament_id, match_id=match_id))
 
     # ---------- 录入比分 - 一次性总比分（所有用户） ----------
-    @app.route('/tournament/<tournament_id>/match/<match_id>/record_result', methods=['POST'])
+    @bp.route('/tournament/<tournament_id>/match/<match_id>/record_result', methods=['POST'])
     @require_csrf_protection
     def tournament_match_record_result(tournament_id, match_id):
-        match = get_match(match_id)
+        match = get_match(_org_id(), match_id)
         if not match or match['tournament_id'] != tournament_id:
             flash('对阵不存在', 'error')
-            return redirect(url_for('tournament_detail', tournament_id=tournament_id))
+            return redirect(url_for('tenant.tournament_detail', tournament_id=tournament_id))
         try:
             p1 = int(request.form.get('p1_games', '0'))
             p2 = int(request.form.get('p2_games', '0'))
         except ValueError:
             flash('比分必须是整数', 'error')
-            return redirect(url_for('tournament_match', tournament_id=tournament_id, match_id=match_id))
-        ok, msg = record_match_result(match_id, p1, p2)
+            return redirect(url_for('tenant.tournament_match', tournament_id=tournament_id, match_id=match_id))
+        ok, msg = record_match_result(_org_id(), match_id, p1, p2)
         flash(msg, 'success' if ok else 'error')
-        return redirect(url_for('tournament_match', tournament_id=tournament_id, match_id=match_id))
+        return redirect(url_for('tenant.tournament_match', tournament_id=tournament_id, match_id=match_id))
 
     # ---------- 撤销录入（管理员） ----------
-    @app.route('/tournament/<tournament_id>/match/<match_id>/reset', methods=['POST'])
+    @bp.route('/tournament/<tournament_id>/match/<match_id>/reset', methods=['POST'])
     @require_admin_auth
     @require_csrf_protection
     def tournament_match_reset(tournament_id, match_id):
-        match = get_match(match_id)
+        match = get_match(_org_id(), match_id)
         if not match or match['tournament_id'] != tournament_id:
             flash('对阵不存在', 'error')
-            return redirect(url_for('tournament_detail', tournament_id=tournament_id))
-        ok, msg = reset_match(match_id)
+            return redirect(url_for('tenant.tournament_detail', tournament_id=tournament_id))
+        ok, msg = reset_match(_org_id(), match_id)
         flash(msg, 'success' if ok else 'error')
-        return redirect(url_for('tournament_match', tournament_id=tournament_id, match_id=match_id))
+        return redirect(url_for('tenant.tournament_match', tournament_id=tournament_id, match_id=match_id))
 
     # ---------- 撤回最后一局（管理员） ----------
-    @app.route('/tournament/<tournament_id>/match/<match_id>/undo_game', methods=['POST'])
+    @bp.route('/tournament/<tournament_id>/match/<match_id>/undo_game', methods=['POST'])
     @require_admin_auth
     @require_csrf_protection
     def tournament_match_undo_game(tournament_id, match_id):
-        match = get_match(match_id)
+        match = get_match(_org_id(), match_id)
         if not match or match['tournament_id'] != tournament_id:
             flash('对阵不存在', 'error')
-            return redirect(url_for('tournament_detail', tournament_id=tournament_id))
-        ok, msg = undo_last_game(match_id)
+            return redirect(url_for('tenant.tournament_detail', tournament_id=tournament_id))
+        ok, msg = undo_last_game(_org_id(), match_id)
         flash(msg, 'success' if ok else 'error')
-        return redirect(url_for('tournament_match', tournament_id=tournament_id, match_id=match_id))
+        return redirect(url_for('tenant.tournament_match', tournament_id=tournament_id, match_id=match_id))

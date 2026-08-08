@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="manifest" href="/static/manifest.json">
+    <link rel="manifest" href="{{ url_for('tenant.pwa_manifest') }}">
     <meta name="theme-color" content="#1890ff">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
-    <title>EMS Pool - 特殊记录</title>
+    <title>特殊记录 - {{ g.organization['name'] }}</title>
     <style>
         body { font-family: sans-serif; max-width: 900px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
         .card { background: #ffffff; border-radius: 10px; padding: 1.2em; margin-top: 1.5em; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -204,6 +204,7 @@
     </style>
 </head>
 <body>
+    {% include '_organization_switcher.html' %}
     <!-- 成就系统介绍 -->
     <div class="intro-section">
         <h1>🏆 特殊记录</h1>
@@ -222,7 +223,7 @@
     <!-- 成就列表 -->
     <div class="achievements-grid">
         {% for achievement in achievements %}
-        <div class="achievement-card {{ achievement.category }}" onclick="location.href='/achievement/{{ achievement.id }}'">
+        <div class="achievement-card {{ achievement.category }}" onclick="location.href={{ url_for('tenant.achievement_fallback', achievement_id=achievement.id)|tojson }}">
             <div class="achievement-header">
                 <div class="achievement-title-flex">
                     <span class="achievement-icon">{{ achievement.icon }}</span>
@@ -243,20 +244,22 @@
                         <span class="no-achievers">暂无玩家达成</span>
                     {% endif %}
                 </div>
-                <a href="/achievement/{{ achievement.id }}" class="view-details" onclick="event.stopPropagation();">查看详情 →</a>
+                <a href="{{ url_for('tenant.achievement_fallback', achievement_id=achievement.id) }}" class="view-details" onclick="event.stopPropagation();">查看详情 →</a>
             </div>
         </div>
         {% endfor %}
     </div>
 
     <div class="links">
-        <a href="/">返回首页</a> |
-        <a href="/history">历史统计</a>
+        <a href="{{ url_for('tenant.index') }}">返回首页</a> |
+        <a href="{{ url_for('tenant.history') }}">历史统计</a>
     </div>
 
     <div class="footer">
         <p>© 2025-2026 EMS Pool</p>
     </div>
-<script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/static/sw.js").catch(()=>{});</script>
+<script>if("serviceWorker"in navigator)navigator.serviceWorker.register({{ url_for('tenant.pwa_service_worker')|tojson }}, { scope: {{ url_for('tenant.index')|tojson }} }).catch(()=>{});</script>
+{% include '_tenant_presence.html' %}
+{% include '_organization_switcher_assets.html' %}
 </body>
 </html>

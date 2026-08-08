@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="manifest" href="/static/manifest.json">
+    <link rel="manifest" href="{{ url_for('tenant.pwa_manifest') }}">
     <meta name="theme-color" content="#1890ff">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
-    <title>{{ session_data.get('name', '未命名场次') }} - 场次详情</title>
+    <title>{{ session_data.get('name', '未命名场次') }} - {{ g.organization['name'] }}</title>
     <style>
         body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
         .card { background: #ffffff; border-radius: 10px; padding: 1.2em; margin-top: 1.5em; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -193,7 +193,7 @@
 </head>
 <body>
     <div class="header">
-        <h2>EMS Pool - 场次详情</h2>
+        {% include '_organization_switcher.html' %}
     </div>
 
     <!-- 显示消息通知 -->
@@ -236,7 +236,7 @@
                 <td>{{ loop.index }}</td>
                 <td>
                     {% if player.id %}
-                    <a href="/player/{{ player.id }}" class="player-link{% if player.id in retired_player_ids %} retired{% elif player.has_big_gold %} has-big-gold{% elif player.has_small_gold %} has-small-gold{% endif %}">{{ player.name }}</a>
+                    <a href="{{ url_for('tenant.player_detail', player_id=player.id) }}" class="player-link{% if player.id in retired_player_ids %} retired{% elif player.has_big_gold %} has-big-gold{% elif player.has_small_gold %} has-small-gold{% endif %}">{{ player.name }}</a>
                     {% else %}
                     {{ player.name }}
                     {% endif %}
@@ -268,20 +268,20 @@
                         <b>
                         {% if r.is_multi_winner %}
                             {% for w in r.winners %}
-                                <a href="/player/{{ w.id }}" class="record-player-link{% if w.id in retired_player_ids %} retired{% endif %}">{{ w.name }}</a>{% if not loop.last %} + {% endif %}
+                                <a href="{{ url_for('tenant.player_detail', player_id=w.id) }}" class="record-player-link{% if w.id in retired_player_ids %} retired{% endif %}">{{ w.name }}</a>{% if not loop.last %} + {% endif %}
                             {% endfor %}
                         {% elif r.winner_id %}
-                            <a href="/player/{{ r.winner_id }}" class="record-player-link{% if r.winner_id in retired_player_ids %} retired{% endif %}">{{ r.winner }}</a>
+                            <a href="{{ url_for('tenant.player_detail', player_id=r.winner_id) }}" class="record-player-link{% if r.winner_id in retired_player_ids %} retired{% endif %}">{{ r.winner }}</a>
                         {% else %}
                             {{ r.winner }}
                         {% endif %}
                         </b> 胜 <b>
                         {% if r.is_multi_loser %}
                             {% for loser in r.losers %}
-                                <a href="/player/{{ loser.id }}" class="record-player-link{% if loser.id in retired_player_ids %} retired{% endif %}">{{ loser.name }}</a>{% if not loop.last %} + {% endif %}
+                                <a href="{{ url_for('tenant.player_detail', player_id=loser.id) }}" class="record-player-link{% if loser.id in retired_player_ids %} retired{% endif %}">{{ loser.name }}</a>{% if not loop.last %} + {% endif %}
                             {% endfor %}
                         {% elif r.loser_id %}
-                            <a href="/player/{{ r.loser_id }}" class="record-player-link{% if r.loser_id in retired_player_ids %} retired{% endif %}">{{ r.loser }}</a>
+                            <a href="{{ url_for('tenant.player_detail', player_id=r.loser_id) }}" class="record-player-link{% if r.loser_id in retired_player_ids %} retired{% endif %}">{{ r.loser }}</a>
                         {% else %}
                             {{ r.loser }}
                         {% endif %}
@@ -306,7 +306,7 @@
     {% if not session_data.get('active', True) %}
     <div class="card">
         <div class="actions">
-            <form action="/delete_session/{{ session_id }}" method="post" onsubmit="return confirm('确定要删除这个场次吗？此操作无法撤销！')">
+            <form action="{{ url_for('tenant.delete_session_route', session_id=session_id) }}" method="post" onsubmit="return confirm('确定要删除这个场次吗？此操作无法撤销！')">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn-danger">删除场次</button>
             </form>
@@ -315,8 +315,8 @@
     {% endif %}
 
     <div class="links">
-        <a href="/history">返回历史统计</a> |
-        <a href="/">返回首页</a>
+        <a href="{{ url_for('tenant.history') }}">返回历史统计</a> |
+        <a href="{{ url_for('tenant.index') }}">返回首页</a>
     </div>
 
     <div class="footer">
@@ -596,6 +596,8 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('场次详情页面时间转换完成');
 });
 </script>
-<script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/static/sw.js").catch(()=>{});</script>
+<script>if("serviceWorker"in navigator)navigator.serviceWorker.register({{ url_for('tenant.pwa_service_worker')|tojson }}, { scope: {{ url_for('tenant.index')|tojson }} }).catch(()=>{});</script>
+{% include '_tenant_presence.html' %}
+{% include '_organization_switcher_assets.html' %}
 </body>
 </html>

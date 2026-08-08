@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="manifest" href="/static/manifest.json">
+    <link rel="manifest" href="{{ url_for('tenant.pwa_manifest') }}">
     <meta name="theme-color" content="#1890ff">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
-    <title>EMS Pool - 历史统计</title>
+    <title>历史统计 - {{ g.organization['name'] }}</title>
     <style>
         body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
         .card { background: #ffffff; border-radius: 10px; padding: 1.2em; margin-top: 1.5em; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -201,7 +201,7 @@
 </head>
 <body>
     <div class="header">
-        <h2>EMS Pool - 历史统计</h2>
+        {% include '_organization_switcher.html' %}
     </div>
 
     <!-- 显示消息通知 -->
@@ -270,7 +270,7 @@
                 <td>{{ loop.index }}</td>
                 <td>
                     {% if player.id %}
-                    <a href="/player/{{ player.id }}" class="player-link{% if player.id in retired_player_ids %} retired{% elif player.has_big_gold %} has-big-gold{% elif player.has_small_gold %} has-small-gold{% endif %}">{{ player.name }}</a>
+                    <a href="{{ url_for('tenant.player_detail', player_id=player.id) }}" class="player-link{% if player.id in retired_player_ids %} retired{% elif player.has_big_gold %} has-big-gold{% elif player.has_small_gold %} has-small-gold{% endif %}">{{ player.name }}</a>
                     {% else %}
                     {{ player.name }}
                     {% endif %}
@@ -285,7 +285,7 @@
     <!-- 搜索功能 -->
     <div class="card">
         <h3>搜索场次</h3>
-        <form class="search-form" method="GET" action="/history" onsubmit="handleSearch(event)">
+        <form class="search-form" method="GET" action="{{ url_for('tenant.history') }}" onsubmit="handleSearch(event)">
             <input type="text" name="search" value="{{ search_query or '' }}" placeholder="搜索场次名称或玩家名称..." title="搜索场次名称或玩家名称">
             {% if selected_month %}
             <input type="hidden" name="month" value="{{ selected_month }}">
@@ -298,7 +298,7 @@
             {% endif %}
             <button type="submit" class="btn btn-primary">搜索</button>
             {% if search_query %}
-            <a href="/history{% if selected_month and selected_month != 'custom' %}?month={{ selected_month }}{% elif selected_month == 'custom' %}?month=custom{% if custom_start_date %}&start_date={{ custom_start_date }}{% endif %}{% if custom_end_date %}&end_date={{ custom_end_date }}{% endif %}{% endif %}" class="btn btn-secondary">清除</a>
+            <a href="{{ url_for('tenant.history') }}{% if selected_month and selected_month != 'custom' %}?month={{ selected_month }}{% elif selected_month == 'custom' %}?month=custom{% if custom_start_date %}&start_date={{ custom_start_date }}{% endif %}{% if custom_end_date %}&end_date={{ custom_end_date }}{% endif %}{% endif %}" class="btn btn-secondary">清除</a>
             {% endif %}
         </form>
         {% if search_query %}
@@ -331,7 +331,7 @@
             <div class="score-item">
                 <span>
                     {% if player.id %}
-                    <a href="/player/{{ player.id }}" class="player-link{% if player.id in retired_player_ids %} retired{% elif player.has_big_gold %} has-big-gold{% elif player.has_small_gold %} has-small-gold{% endif %}">{{ player.name }}</a>：
+                    <a href="{{ url_for('tenant.player_detail', player_id=player.id) }}" class="player-link{% if player.id in retired_player_ids %} retired{% elif player.has_big_gold %} has-big-gold{% elif player.has_small_gold %} has-small-gold{% endif %}">{{ player.name }}</a>：
                     {% else %}
                     {{ player.name }}：
                     {% endif %}
@@ -341,7 +341,7 @@
             {% endfor %}
         </div>
 
-        <a href="/session_detail/{{ sid }}" class="detail-btn">查看详情</a>
+        <a href="{{ url_for('tenant.session_detail', session_id=sid) }}" class="detail-btn">查看详情</a>
     </div>
     {% else %}
     <div class="card">
@@ -364,7 +364,7 @@
     {% endif %}
 
     <div class="links">
-        <a href="/">返回首页</a>
+        <a href="{{ url_for('tenant.index') }}">返回首页</a>
     </div>
 
     <div class="footer">
@@ -451,6 +451,9 @@ const selectedMonth = {{ (selected_month or '')|tojson }};
 const customStartDate = {{ (custom_start_date or '')|tojson }};
 const customEndDate = {{ (custom_end_date or '')|tojson }};
 const retiredPlayerIds = new Set({{ retired_player_ids|list|tojson }});
+const loadMoreSessionsUrl = {{ url_for('tenant.load_more_sessions')|tojson }};
+const playerUrlTemplate = {{ url_for('tenant.player_detail', player_id='__PLAYER_ID__')|tojson }};
+const sessionUrlTemplate = {{ url_for('tenant.session_detail', session_id='__SESSION_ID__')|tojson }};
 
 function changeMonth() {
     const selector = document.getElementById('month-selector');
@@ -571,7 +574,7 @@ function loadMoreSessions() {
     loadMoreBtn.textContent = '加载中...';
 
     // 构建请求URL
-    let url = `/api/load_more_sessions?offset=${currentOffset}`;
+    let url = `${loadMoreSessionsUrl}?offset=${encodeURIComponent(currentOffset)}`;
     if (searchQuery) {
         url += `&search=${encodeURIComponent(searchQuery)}`;
     }
@@ -651,7 +654,7 @@ function createSessionCard(sessionId, sessionData) {
             const scoreClass = player.score > 0 ? 'positive' : (player.score < 0 ? 'negative' : 'neutral');
             const playerLinkClass = (player.id && retiredPlayerIds.has(player.id)) ? ' retired' : (player.has_big_gold ? ' has-big-gold' : (player.has_small_gold ? ' has-small-gold' : ''));
             const playerLink = player.id ?
-                `<a href="/player/${player.id}" class="player-link${playerLinkClass}">${player.name}</a>` :
+                `<a href="${playerUrlTemplate.replace('__PLAYER_ID__', encodeURIComponent(player.id))}" class="player-link${playerLinkClass}">${player.name}</a>` :
                 player.name;
 
             playersScoreHtml += `
@@ -684,12 +687,14 @@ function createSessionCard(sessionId, sessionData) {
         <div class="score-list">
             ${playersScoreHtml}
         </div>
-        <a href="/session_detail/${sessionId}" class="detail-btn">查看详情</a>
+        <a href="${sessionUrlTemplate.replace('__SESSION_ID__', encodeURIComponent(sessionId))}" class="detail-btn">查看详情</a>
     `;
 
     return card;
 }
 </script>
-<script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/static/sw.js").catch(()=>{});</script>
+<script>if("serviceWorker"in navigator)navigator.serviceWorker.register({{ url_for('tenant.pwa_service_worker')|tojson }}, { scope: {{ url_for('tenant.index')|tojson }} }).catch(()=>{});</script>
+{% include '_tenant_presence.html' %}
+{% include '_organization_switcher_assets.html' %}
 </body>
 </html>

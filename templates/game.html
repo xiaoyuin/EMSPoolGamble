@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="manifest" href="/static/manifest.json">
+    <link rel="manifest" href="{{ url_for('tenant.pwa_manifest') }}">
     <meta name="theme-color" content="#1890ff">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
-    <title>{{ session.get('name', '未命名场次') }} - 游戏中</title>
+    <title>{{ session.get('name', '未命名场次') }} - {{ g.organization['name'] }}</title>
     <style>
         body { font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 1em; background-color: #f0f2f5; }
         .card { background: #ffffff; border-radius: 10px; padding: 1.2em; margin-top: 1.5em; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -862,7 +862,7 @@
             // 创建表单批量添加玩家
             const form = document.createElement('form');
             form.method = 'POST';
-            form.action = `/batch_add_players/{{ session_id }}`;
+            form.action = {{ url_for('tenant.batch_add_players', session_id=session_id)|tojson }};
 
             // 添加所有选中的玩家
             selectedPlayers.forEach(playerName => {
@@ -918,7 +918,7 @@
             // 创建新玩家
             const form = document.createElement('form');
             form.method = 'POST';
-            form.action = `/create_and_select_player/{{ session_id }}`;
+            form.action = {{ url_for('tenant.create_and_select_player', session_id=session_id)|tojson }};
 
             const playerNameInput = document.createElement('input');
             playerNameInput.type = 'hidden';
@@ -948,7 +948,7 @@
             // 保留原有的单个添加功能作为备用
             const form = document.createElement('form');
             form.method = 'POST';
-            form.action = `/add_player/{{ session_id }}`;
+            form.action = {{ url_for('tenant.add_player', session_id=session_id)|tojson }};
 
             const playerNameInput = document.createElement('input');
             playerNameInput.type = 'hidden';
@@ -973,7 +973,7 @@
             fd.append('loser', loser);
             fd.append('score', score);
 
-            fetch(`/add_score/{{ session_id }}`, {
+            fetch({{ url_for('tenant.add_score', session_id=session_id)|tojson }}, {
                 method: 'POST',
                 body: fd,
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -1063,7 +1063,7 @@
                     let url, fd;
                     if (currentWinnersCount === 2) {
                         // 多赢家（反向双吃）：调用 add_reverse_double
-                        url = `/add_reverse_double/{{ session_id }}`;
+                        url = {{ url_for('tenant.add_reverse_double', session_id=session_id)|tojson }};
                         fd = new FormData();
                         selectedWinners.forEach(w => fd.append('winners', w));
                         fd.append('loser', selectedLosers[0] || '');
@@ -1071,7 +1071,7 @@
                         fd.append('special_score', currentSpecialScore || config.specialScore || '');
                     } else if (currentLosersCount === 2) {
                         // 多败者：调用 add_special_score
-                        url = `/add_special_score/{{ session_id }}`;
+                        url = {{ url_for('tenant.add_special_score', session_id=session_id)|tojson }};
                         fd = new FormData();
                         fd.append('winner', selectedWinner);
                         selectedLosers.forEach(loser => fd.append('losers', loser));
@@ -1079,7 +1079,7 @@
                         fd.append('special_score', currentSpecialScore || config.specialScore || '');
                     } else {
                         // 单败者：调用 add_score
-                        url = `/add_score/{{ session_id }}`;
+                        url = {{ url_for('tenant.add_score', session_id=session_id)|tojson }};
                         fd = new FormData();
                         fd.append('winner', selectedWinner || '');
                         fd.append('loser', selectedLosers[0] || '');
@@ -1136,7 +1136,7 @@
 </head>
 <body>
     <div class="header">
-        <h2>EMS Pool - 游戏中</h2>
+        {% include '_organization_switcher.html' %}
         <div class="session-name">{{ session.get('name', '未命名场次') }}</div>
     </div>
 
@@ -1187,7 +1187,7 @@
                         <div class="player-info" onclick="togglePlayerExpand('{{ player.name }}')">
                             <span class="player-name{% if player.id in retired_player_ids %} retired{% elif player.has_big_gold %} has-big-gold{% elif player.has_small_gold %} has-small-gold{% endif %}">
                                 {% if player.id %}
-                                <a href="/player/{{ player.id }}">{{ player.name }}</a>
+                                <a href="{{ url_for('tenant.player_detail', player_id=player.id) }}">{{ player.name }}</a>
                                 {% else %}
                                 {{ player.name }}
                                 {% endif %}
@@ -1230,7 +1230,7 @@
         </div>
 
         <!-- 记录分数表单 -->
-        <form action="/add_score/{{ session_id }}" method="post" id="score-form">
+        <form action="{{ url_for('tenant.add_score', session_id=session_id) }}" method="post" id="score-form">
             <input type="hidden" id="selected_winner" name="winner" value="">
             <input type="hidden" id="selected_loser" name="loser" value="">
             <input type="hidden" id="selected_score" name="score" value="">
@@ -1284,12 +1284,12 @@
     <!-- 场次控制卡片 -->
     <div class="card">
         {% if sorted_players|length < 2 %}
-        <form action="/delete_session/{{ session_id }}" method="post" onsubmit="return confirm('确定要取消这个场次吗？所有数据将被删除。')">
+        <form action="{{ url_for('tenant.delete_session_route', session_id=session_id) }}" method="post" onsubmit="return confirm('确定要取消这个场次吗？所有数据将被删除。')">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn-danger btn-full">取消场次</button>
         </form>
         {% else %}
-        <form action="/end_session/{{ session_id }}" method="post">
+        <form action="{{ url_for('tenant.end_session_post', session_id=session_id) }}" method="post">
             <input type="hidden" id="end_session_timezone_offset" name="timezone_offset" value="">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn-danger btn-full" onclick="return confirm('确定要结束本场游戏吗？')">结束本场</button>
@@ -1309,18 +1309,18 @@
                             <b>
                             {% if r.is_multi_winner %}
                                 {% for w in r.winners %}
-                                    <a href="/player/{{ w.id }}" class="record-player-link">{{ w.name }}</a>{% if not loop.last %} + {% endif %}
+                                    <a href="{{ url_for('tenant.player_detail', player_id=w.id) }}" class="record-player-link">{{ w.name }}</a>{% if not loop.last %} + {% endif %}
                                 {% endfor %}
                             {% else %}
-                                <a href="/player/{{ r.winner_id }}" class="record-player-link">{{ r.winner }}</a>
+                                <a href="{{ url_for('tenant.player_detail', player_id=r.winner_id) }}" class="record-player-link">{{ r.winner }}</a>
                             {% endif %}
                             </b> 胜 <b>
                             {% if r.is_multi_loser %}
                                 {% for loser in r.losers %}
-                                    <a href="/player/{{ loser.id }}" class="record-player-link">{{ loser.name }}</a>{% if not loop.last %} + {% endif %}
+                                    <a href="{{ url_for('tenant.player_detail', player_id=loser.id) }}" class="record-player-link">{{ loser.name }}</a>{% if not loop.last %} + {% endif %}
                                 {% endfor %}
                             {% else %}
-                                <a href="/player/{{ r.loser_id }}" class="record-player-link">{{ r.loser }}</a>
+                                <a href="{{ url_for('tenant.player_detail', player_id=r.loser_id) }}" class="record-player-link">{{ r.loser }}</a>
                             {% endif %}
                             </b>，<span class="{% if r.score > 0 %}positive{% elif r.score < 0 %}negative{% else %}neutral{% endif %}">{{ r.score }}</span> 分
                             {% if r.special_score %}
@@ -1329,7 +1329,7 @@
                         </div>
                         <div class="timestamp-row">
                             <span class="timestamp" data-utc-time="{{ r.timestamp }}">{{ r.timestamp }}</span>
-                            <form action="/delete_record/{{ session_id }}/{{ loop.index0 }}" method="post" class="delete-form">
+                            <form action="{{ url_for('tenant.delete_record', session_id=session_id, record_index=loop.index0) }}" method="post" class="delete-form">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="delete-record-btn" onclick="return confirm('确定要删除这条记录吗？这会恢复相应的分数变化。')">删除</button>
                             </form>
@@ -1353,8 +1353,8 @@
     </div>
 
     <div class="links">
-        <a href="/history">查看历史统计</a> |
-        <a href="/">返回首页</a>
+        <a href="{{ url_for('tenant.history') }}">查看历史统计</a> |
+        <a href="{{ url_for('tenant.index') }}">返回首页</a>
     </div>
 
     <div class="footer">
@@ -1679,6 +1679,8 @@ document.addEventListener('DOMContentLoaded', convertUtcToLocal);
 })();
 </script>
 
-<script>if("serviceWorker"in navigator)navigator.serviceWorker.register("/static/sw.js").catch(()=>{});</script>
+<script>if("serviceWorker"in navigator)navigator.serviceWorker.register({{ url_for('tenant.pwa_service_worker')|tojson }}, { scope: {{ url_for('tenant.index')|tojson }} }).catch(()=>{});</script>
+{% include '_tenant_presence.html' %}
+{% include '_organization_switcher_assets.html' %}
 </body>
 </html>

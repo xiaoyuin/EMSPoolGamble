@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}EMS Pool - 台球比赛记分系统{% endblock %}
+{% block title %}{{ g.organization['name'] }}{% endblock %}
 
 {% block extra_styles %}
 <style>
@@ -73,7 +73,7 @@
 {% block content %}
     {# 赛事入口卡片：仅当有活跃赛事时显示，置于最顶（高优先级） #}
     {% if active_tournament %}
-    <a href="{{ url_for('tournament_detail', tournament_id=active_tournament.tournament_id) }}" class="tournament-card">
+    <a href="{{ url_for('tenant.tournament_detail', tournament_id=active_tournament.tournament_id) }}" class="tournament-card">
         <span class="tournament-badge">
             🏆
             {% if active_tournament.status == 'registration' %}即将开始
@@ -146,16 +146,16 @@
                 <div>记录数：{{ session_data.get('records', session_data.get('rounds', []))|length }} | 结束时间：<span data-utc-time="{{ session_data.get('end_time', '未知') }}">{{ session_data.get('end_time', '未知') }}</span></div>
             </div>
 
-            <a href="/session_detail/{{ session_id }}" class="detail-btn">查看详情</a>
+            <a href="{{ url_for('tenant.session_detail', session_id=session_id) }}" class="detail-btn">查看详情</a>
         </div>
         {% endfor %}
     </div>
     {% endif %}
 
     <div class="links">
-        <a href="/history">查看历史统计</a> |
-        <a href="/achievements">特殊记录</a> |
-        <a href="/tournament">查看赛事</a>
+        <a href="{{ url_for('tenant.history') }}">查看历史统计</a> |
+        <a href="{{ url_for('tenant.achievements') }}">特殊记录</a> |
+        <a href="{{ url_for('tenant.tournament_index') }}">查看赛事</a>
     </div>
 {% endblock %}
 

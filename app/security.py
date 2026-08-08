@@ -1,262 +1,166 @@
-"""
-安全模块 - 防止恶意访问和操作
-"""
+"""Tenant-aware authentication, CSRF protection, and administrator routes."""
+import hmac
 import os
 import secrets
 from functools import wraps
-from urllib.parse import urlparse
-from flask import request, session, flash, redirect, url_for, render_template_string
 
+from flask import abort, flash, g, redirect, render_template, request, session, url_for
+from werkzeug.security import check_password_hash
 
-# 管理员密码（从环境变量获取，如果没有则使用默认值）
+from .tenancy import EMS_ORG_ID
+
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
-
-# 生成CSRF token的密钥
-CSRF_SECRET_KEY = os.environ.get('CSRF_SECRET_KEY', 'csrf_secret_key_for_dev')
-
-# IP白名单（可选，从环境变量获取）
 ALLOWED_IPS = os.environ.get('ALLOWED_IPS', '').split(',') if os.environ.get('ALLOWED_IPS') else []
 
 
 def generate_csrf_token():
-    """生成CSRF token"""
     if 'csrf_token' not in session:
         session['csrf_token'] = secrets.token_hex(16)
     return session['csrf_token']
 
 
 def validate_csrf_token(token):
-    """验证CSRF token"""
-    return token and session.get('csrf_token') == token
+    return bool(token) and hmac.compare_digest(token, session.get('csrf_token', ''))
 
 
 def check_ip_whitelist():
-    """检查IP白名单（如果设置了的话）"""
-    if not ALLOWED_IPS or not ALLOWED_IPS[0]:  # 如果没有设置IP白名单，则跳过检查
+    if not ALLOWED_IPS or not ALLOWED_IPS[0]:
         return True
-    
     client_ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR', ''))
-    # 处理代理情况，取第一个IP
     if ',' in client_ip:
-        client_ip = client_ip.split(',')[0].strip()
-    
+        client_ip = client_ip.split(',', 1)[0].strip()
     return client_ip in ALLOWED_IPS
 
 
-def require_admin_auth(f):
-    """装饰器：要求管理员认证"""
-    @wraps(f)
+def is_super_admin_authenticated():
+    return session.get('super_admin_authenticated') is True
+
+
+def is_org_admin_authenticated():
+    organization = getattr(g, 'organization', None)
+    return bool(
+        organization
+        and session.get('organization_admin_org_id') == organization['org_id']
+    )
+
+
+def is_current_org_admin():
+    return is_super_admin_authenticated() or is_org_admin_authenticated()
+
+
+def _tenant_index_url():
+    return url_for('tenant.index')
+
+
+def _current_tenant_path():
+    """Store only a local, route-derived tenant URL after login."""
+    return request.full_path.rstrip('?')
+
+
+def require_admin_auth(view):
+    """Require super-admin or administrator for the currently resolved organization."""
+    @wraps(view)
     def decorated_function(*args, **kwargs):
-        # 检查IP白名单
-        if not check_ip_whitelist():
-            flash('访问被拒绝：IP地址不在白名单中', 'error')
-            return redirect(url_for('index'))
-        
-        # 检查管理员认证状态
-        if not session.get('admin_authenticated'):
-            # 存储referrer信息
-            session['pending_admin_operation'] = {
-                'referrer': request.referrer or url_for('index')
-            }
-            # 显示密码输入页面
-            return render_admin_login_form()
-        
-        return f(*args, **kwargs)
-    return decorated_function
-
-
-def require_csrf_protection(f):
-    """装饰器：要求CSRF保护"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if request.method == 'POST':
-            token = request.form.get('csrf_token')
-            if not validate_csrf_token(token):
-                flash('安全验证失败，请重试', 'error')
-                return redirect(request.referrer or url_for('index'))
-        
-        return f(*args, **kwargs)
-    return decorated_function
-
-
-def render_admin_login_form():
-    """渲染管理员登录表单"""
-    form_html = '''
-    <!DOCTYPE html>
-    <html lang="zh">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>管理员验证 - EMS Pool</title>
-        <style>
-            body { 
-                font-family: sans-serif; 
-                max-width: 400px; 
-                margin: 100px auto; 
-                padding: 2em; 
-                background-color: #f0f2f5; 
-            }
-            .auth-card { 
-                background: #ffffff; 
-                border-radius: 10px; 
-                padding: 2em; 
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
-                text-align: center;
-            }
-            .title { 
-                color: #1890ff; 
-                margin-bottom: 1em; 
-                font-size: 1.5em;
-            }
-            .form-group { 
-                margin-bottom: 1em; 
-                text-align: left;
-            }
-            label { 
-                display: block; 
-                margin-bottom: 0.5em; 
-                color: #333; 
-            }
-            input[type="password"] { 
-                width: 100%; 
-                padding: 0.8em; 
-                border: 1px solid #d9d9d9; 
-                border-radius: 5px; 
-                font-size: 1em;
-                box-sizing: border-box;
-            }
-            .btn { 
-                width: 100%;
-                padding: 0.8em; 
-                border: none; 
-                border-radius: 5px; 
-                cursor: pointer; 
-                font-size: 1em; 
-                background: #1890ff; 
-                color: white;
-                margin-top: 1em;
-            }
-            .btn:hover { 
-                background: #40a9ff; 
-            }
-            .warning { 
-                color: #ff4d4f; 
-                font-size: 0.9em; 
-                margin-top: 1em;
-            }
-            .back-link { 
-                margin-top: 2em; 
-            }
-            .back-link a { 
-                color: #1890ff; 
-                text-decoration: none; 
-            }
-            .back-link a:hover { 
-                text-decoration: underline; 
-            }
-        </style>
-    </head>
-    <body>
-        <div class="auth-card">
-            <h2 class="title">🔒 管理员验证</h2>
-            
-            <p>此操作需要管理员权限，请输入管理员密码：</p>
-            
-            <form method="post" action="{{ url_for('admin_login') }}">
-                <div class="form-group">
-                    <label for="password">管理员密码：</label>
-                    <input type="password" id="password" name="password" required autocomplete="current-password">
-                </div>
-                
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                
-                <button type="submit" class="btn">验证身份</button>
-            </form>
-            
-            <div class="warning">
-                ⚠️ 为了防止恶意访问，关键操作需要管理员验证
-            </div>
-            
-            <div class="back-link">
-                <a href="{{ url_for('index') }}">← 取消操作，返回首页</a>
-            </div>
-        </div>
-    </body>
-    </html>
-    '''
-    
-    return render_template_string(form_html, csrf_token=generate_csrf_token)
-
-
-def register_security_routes(app):
-    """注册安全相关路由"""
-
-    @app.route('/admin', methods=['GET'])
-    def admin_login_page():
-        """管理员登录入口：已登录直接回首页；未登录显示密码表单。"""
-        if session.get('admin_authenticated'):
-            flash('已经处于管理员模式', 'success')
-            return redirect(url_for('index'))
         if not check_ip_whitelist():
             flash('访问被拒绝：IP 地址不在白名单中', 'error')
-            return redirect(url_for('index'))
-        # 让登录后回到首页（被动触发时会回到 referrer）
-        session['pending_admin_operation'] = {'referrer': url_for('index')}
-        return render_admin_login_form()
+            return redirect(_tenant_index_url())
+        if not is_current_org_admin():
+            session['pending_admin_continuation'] = _current_tenant_path()
+            return redirect(url_for('tenant.admin_login'))
+        return view(*args, **kwargs)
+    return decorated_function
 
-    @app.route('/admin_login', methods=['POST'])
+
+def require_csrf_protection(view):
+    @wraps(view)
+    def decorated_function(*args, **kwargs):
+        if request.method == 'POST' and not validate_csrf_token(request.form.get('csrf_token')):
+            flash('安全验证失败，请重试', 'error')
+            return redirect(_tenant_index_url())
+        return view(*args, **kwargs)
+    return decorated_function
+
+
+def register_security_routes(bp):
+    """Attach tenant-local admin login/logout routes to the tenant blueprint."""
+
+    @bp.route('/admin', methods=['GET', 'POST'])
     def admin_login():
-        """处理管理员登录"""
-        password = request.form.get('password', '')
-        
-        # 验证CSRF token
+        if not check_ip_whitelist():
+            flash('访问被拒绝：IP 地址不在白名单中', 'error')
+            return redirect(_tenant_index_url())
+
+        if request.method == 'GET':
+            if is_current_org_admin():
+                return redirect(_tenant_index_url())
+            session.setdefault('pending_admin_continuation', _tenant_index_url())
+            return render_template('admin_login.html')
+
         if not validate_csrf_token(request.form.get('csrf_token')):
             flash('安全验证失败，请重试', 'error')
-            return redirect(url_for('index'))
-        
-        # 验证密码
-        if password == ADMIN_PASSWORD:
-            session['admin_authenticated'] = True
-            session.permanent = True  # 使session持久化
-            
-            # 检查是否有待执行的操作
-            operation_info = session.pop('pending_admin_operation', None)  
-            if operation_info:
-                referrer = operation_info.get('referrer', url_for('index'))
-                flash('✅ 管理员身份验证成功！现在可以重新执行操作了。', 'success')
-                return redirect(referrer)
-            else:
-                flash('管理员身份验证成功', 'success')
-                return redirect(url_for('index'))
+            return redirect(_tenant_index_url())
+
+        password = request.form.get('password', '')
+        # The deployment credential is valid everywhere and is deliberately checked first.
+        if hmac.compare_digest(password, ADMIN_PASSWORD):
+            session['super_admin_authenticated'] = True
+            session.pop('organization_admin_org_id', None)
         else:
-            flash('密码错误', 'error')
-            return redirect(url_for('index'))
-    
-    @app.route('/admin_logout')
+            org_hash = g.organization.get('admin_password_hash')
+            # EMS retains its deployment credential only; other organizations use their own hash.
+            if g.organization['org_id'] == EMS_ORG_ID or not org_hash or not check_password_hash(org_hash, password):
+                flash('密码错误', 'error')
+                return redirect(url_for('tenant.admin_login'))
+            session['organization_admin_org_id'] = g.organization['org_id']
+            session.pop('super_admin_authenticated', None)
+
+        session.pop('admin_authenticated', None)  # Legacy claim must never grant authority.
+        session.permanent = True
+        continuation = session.pop('pending_admin_continuation', None)
+        # It was generated by this server. A malformed session value cannot redirect externally.
+        if not continuation or not continuation.startswith(f"/o/{g.organization['slug']}/"):
+            continuation = _tenant_index_url()
+        flash('管理员身份验证成功', 'success')
+        return redirect(continuation)
+
+    @bp.route('/admin/logout', methods=['POST'])
+    @require_csrf_protection
     def admin_logout():
-        """管理员登出"""
+        session.pop('super_admin_authenticated', None)
+        session.pop('organization_admin_org_id', None)
         session.pop('admin_authenticated', None)
         flash('已退出管理员模式', 'success')
-        return redirect(url_for('index'))
-    
-    # 添加模板全局函数
+        return redirect(_tenant_index_url())
+
+
+def register_security_globals(app):
     @app.template_global()
     def csrf_token():
-        """在模板中生成CSRF token"""
         return generate_csrf_token()
-    
+
     @app.template_global()
     def is_admin_authenticated():
-        """检查是否已通过管理员认证"""
-        return session.get('admin_authenticated', False)
+        return is_current_org_admin()
+
+    @app.template_global()
+    def template_is_org_admin_authenticated():
+        return is_org_admin_authenticated()
+
+    @app.template_global()
+    def template_is_super_admin_authenticated():
+        return is_super_admin_authenticated()
+
+    # Existing templates expect these exact global names; avoid shadowing module helpers.
+    app.jinja_env.globals['is_org_admin_authenticated'] = template_is_org_admin_authenticated
+    app.jinja_env.globals['is_super_admin_authenticated'] = template_is_super_admin_authenticated
 
 
 def get_security_status():
-    """获取安全状态信息"""
     return {
-        'admin_authenticated': session.get('admin_authenticated', False),
+        'admin_authenticated': is_current_org_admin(),
+        'super_admin_authenticated': is_super_admin_authenticated(),
         'csrf_enabled': True,
         'ip_whitelist_enabled': bool(ALLOWED_IPS and ALLOWED_IPS[0]),
         'allowed_ips': ALLOWED_IPS if ALLOWED_IPS and ALLOWED_IPS[0] else [],
-        'admin_password_set': ADMIN_PASSWORD != 'admin123'
+        'admin_password_set': ADMIN_PASSWORD != 'admin123',
     }

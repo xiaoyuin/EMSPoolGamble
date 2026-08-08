@@ -4,8 +4,8 @@
 import datetime
 import calendar
 from collections import defaultdict
-from flask import render_template, request, redirect, url_for, flash
-from .models import (sessions, players, save_data,
+from flask import abort, g, render_template, request, redirect, url_for, flash
+from .models import (save_data,
                      get_player_by_name, get_player_name, get_or_create_player,
                      update_player_name, get_player_by_id, get_player_records,
                      get_player_stats, get_player_special_wins, get_players_special_wins_batch,
@@ -43,20 +43,20 @@ def _resolve_player_date_range(selected_month, custom_start_date, custom_end_dat
             f"{selected_month}-{last_day:02d} 23:59:59")
 
 
-def register_player_routes(app):
+def _org_id():
+    return g.organization['org_id']
+
+
+def register_player_routes(bp):
     """注册玩家相关路由"""
 
-    @app.route('/player/<player_id>')
+    @bp.route('/player/<player_id>')
     def player_detail(player_id):
         """玩家详情页面"""
-        if player_id not in players:
-            flash('玩家不存在', 'error')
-            return redirect(url_for('index'))
+        if not get_player_by_id(_org_id(), player_id):
+            abort(404)
 
-        player = get_player_by_id(player_id)
-        if not player:
-            flash('玩家不存在', 'error')
-            return redirect(url_for('index'))
+        player = get_player_by_id(_org_id(), player_id)
 
         # 时间范围筛选参数（与 /history 协议一致）
         # 默认全时段（month=all），用户可切月份/自定义
@@ -65,7 +65,7 @@ def register_player_routes(app):
         custom_end_date = request.args.get('end_date', '').strip()
 
         # 该玩家有对战的月份列表（用于下拉选项）
-        available_months = get_available_months_for_player(player_id)
+        available_months = get_available_months_for_player(_org_id(), player_id)
 
         # 全时段该玩家参与的不同场次数
         # available_months 已按月聚合 distinct session_id，每个 session 只属于一个月，
@@ -93,10 +93,10 @@ def register_player_routes(app):
             selected_month, custom_start_date, custom_end_date)
 
         # 获取（已按时间筛选的）玩家所有对战记录
-        player_records = get_player_records(player_id, start_date, end_date)
+        player_records = get_player_records(_org_id(), player_id, start_date, end_date)
 
         # 顶部姓名高亮使用全时段身份徽章（小金/大金光环）
-        special_wins = get_player_special_wins(player_id)
+        special_wins = get_player_special_wins(_org_id(), player_id)
 
         # 在筛选区间内统计特殊胜利次数
         special_wins_counts = {
@@ -194,7 +194,7 @@ def register_player_routes(app):
             opponent_ids.append(opponent_id)
             opponent_list.append({
                 'id': opponent_id,
-                'name': get_player_name(opponent_id),
+                'name': get_player_name(_org_id(), opponent_id),
                 'wins': stat['wins'],
                 'losses': stat['losses'],
                 'total_games': stat['wins'] + stat['losses'],
@@ -204,7 +204,7 @@ def register_player_routes(app):
 
         # 获取所有对手的特殊胜利记录
         if opponent_ids:
-            opponents_special_wins = get_players_special_wins_batch(opponent_ids)
+            opponents_special_wins = get_players_special_wins_batch(_org_id(), opponent_ids)
             # 将特殊胜利记录添加到对手信息中
             for opponent in opponent_list:
                 if opponent['id'] in opponents_special_wins:
@@ -239,7 +239,7 @@ def register_player_routes(app):
             })
 
         # 杯赛战绩（始终全时段，与时间筛选解耦——杯赛是离散活动）
-        tournament_history = get_player_tournament_history(player_id)
+        tournament_history = get_player_tournament_history(_org_id(), player_id)
 
         return render_template(
             'player_detail.html',
@@ -261,35 +261,35 @@ def register_player_routes(app):
             default_end_date=default_end_date,
             all_sessions_total=all_sessions_total,
             tournament_history=tournament_history,
-            is_retired=is_player_retired(player_id),
-            retired_player_ids=get_retired_player_ids(),
+            is_retired=is_player_retired(_org_id(), player_id),
+            retired_player_ids=get_retired_player_ids(_org_id()),
             app_version=APP_VERSION
         )
 
-    @app.route('/player/<player_id>/rename', methods=['POST'])
+    @bp.route('/player/<player_id>/rename', methods=['POST'])
     @require_admin_auth
     @require_csrf_protection
     def rename_player(player_id):
         """重命名玩家"""
-        if player_id not in players:
+        if not get_player_by_id(_org_id(), player_id):
             flash('玩家不存在', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('tenant.index'))
 
         new_name = request.form.get('new_name', '').strip()
         if not new_name:
             flash('新名字不能为空', 'error')
-            return redirect(url_for('player_detail', player_id=player_id))
+            return redirect(url_for('tenant.player_detail', player_id=player_id))
 
         # 检查新名字是否已被其他玩家使用
-        existing_player_id = get_player_by_name(new_name)
+        existing_player_id = get_player_by_name(_org_id(), new_name)
         if existing_player_id and existing_player_id != player_id:
             flash('该名字已被其他玩家使用', 'error')
-            return redirect(url_for('player_detail', player_id=player_id))
+            return redirect(url_for('tenant.player_detail', player_id=player_id))
 
-        old_name = get_player_name(player_id)
+        old_name = get_player_name(_org_id(), player_id)
 
         # 更新玩家名字
-        success = update_player_name(player_id, new_name)
+        success = update_player_name(_org_id(), player_id, new_name)
         
         if success:
             # 保存数据（数据库自动保存）
@@ -298,32 +298,32 @@ def register_player_routes(app):
         else:
             flash('更新玩家名字失败', 'error')
 
-        return redirect(url_for('player_detail', player_id=player_id))
+        return redirect(url_for('tenant.player_detail', player_id=player_id))
 
-    @app.route('/player/<player_id>/retire', methods=['POST'])
+    @bp.route('/player/<player_id>/retire', methods=['POST'])
     @require_admin_auth
     @require_csrf_protection
     def player_retire(player_id):
         """退役玩家"""
-        if player_id not in players:
+        if not get_player_by_id(_org_id(), player_id):
             flash('玩家不存在', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('tenant.index'))
 
-        name = get_player_name(player_id)
-        retire_player(player_id)
+        name = get_player_name(_org_id(), player_id)
+        retire_player(_org_id(), player_id)
         flash(f'玩家 "{name}" 已退役', 'success')
-        return redirect(url_for('player_detail', player_id=player_id))
+        return redirect(url_for('tenant.player_detail', player_id=player_id))
 
-    @app.route('/player/<player_id>/comeback', methods=['POST'])
+    @bp.route('/player/<player_id>/comeback', methods=['POST'])
     @require_admin_auth
     @require_csrf_protection
     def player_comeback(player_id):
         """复出玩家"""
-        if player_id not in players:
+        if not get_player_by_id(_org_id(), player_id):
             flash('玩家不存在', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('tenant.index'))
 
-        name = get_player_name(player_id)
-        comeback_player(player_id)
+        name = get_player_name(_org_id(), player_id)
+        comeback_player(_org_id(), player_id)
         flash(f'玩家 "{name}" 已复出', 'success')
-        return redirect(url_for('player_detail', player_id=player_id))
+        return redirect(url_for('tenant.player_detail', player_id=player_id))

@@ -1,7 +1,7 @@
 """
 成就系统路由模块 - 处理所有成就相关的路由
 """
-from flask import render_template, request, redirect, url_for, flash
+from flask import g, render_template, request, redirect, url_for, flash
 from .models import (get_achievement_players, get_achievement_records,
                      get_achievement_stats, get_achievement_master_players,
                      get_negative_achievement_players, get_negative_achievement_records,
@@ -10,17 +10,21 @@ from .models import (get_achievement_players, get_achievement_records,
 from . import APP_VERSION
 
 
-def register_achievement_routes(app):
+def _org_id():
+    return g.organization['org_id']
+
+
+def register_achievement_routes(bp):
     """注册成就系统路由"""
 
-    @app.route('/achievements')
+    @bp.route('/achievements')
     def achievements():
         """成就系统主页"""
         # 获取成就统计信息
-        stats = get_achievement_stats()
+        stats = get_achievement_stats(_org_id())
 
         # 获取好兄弟数据（用于计数）
-        buddy_stats = get_best_buddy_stats()
+        buddy_stats = get_best_buddy_stats(_org_id())
 
         # 准备成就列表数据
         achievements_data = [
@@ -110,14 +114,14 @@ def register_achievement_routes(app):
                              achievements=achievements_data,
                              app_version=APP_VERSION)
 
-    @app.route('/achievement/small_gold')
+    @bp.route('/achievement/small_gold')
     def achievement_small_gold():
         """小金玩家成就详情"""
         # 获取小金玩家
-        achievement_players = get_achievement_players('small_gold')
+        achievement_players = get_achievement_players(_org_id(), 'small_gold')
 
         # 获取小金记录（最近50条）
-        achievement_records = get_achievement_records('small_gold')[:50]
+        achievement_records = get_achievement_records(_org_id(), 'small_gold')[:50]
 
         # 成就配置
         achievement_config = {
@@ -136,14 +140,14 @@ def register_achievement_routes(app):
                              achievement_records=achievement_records,
                              app_version=APP_VERSION)
 
-    @app.route('/achievement/big_gold')
+    @bp.route('/achievement/big_gold')
     def achievement_big_gold():
         """大金玩家成就详情"""
         # 获取大金玩家
-        achievement_players = get_achievement_players('big_gold')
+        achievement_players = get_achievement_players(_org_id(), 'big_gold')
 
         # 获取大金记录（最近50条）
-        achievement_records = get_achievement_records('big_gold')[:50]
+        achievement_records = get_achievement_records(_org_id(), 'big_gold')[:50]
 
         # 成就配置
         achievement_config = {
@@ -162,14 +166,14 @@ def register_achievement_routes(app):
                              achievement_records=achievement_records,
                              app_version=APP_VERSION)
 
-    @app.route('/achievement/small_gold_master')
+    @bp.route('/achievement/small_gold_master')
     def achievement_small_gold_master():
         """小金达人成就详情"""
         # 获取小金达人玩家
-        achievement_players = get_achievement_master_players('small_gold_master')
+        achievement_players = get_achievement_master_players(_org_id(), 'small_gold_master')
 
         # 获取小金记录（用于展示总记录）
-        all_small_gold_records = get_achievement_records('small_gold')
+        all_small_gold_records = get_achievement_records(_org_id(), 'small_gold')
 
         # 成就配置
         achievement_config = {
@@ -189,14 +193,14 @@ def register_achievement_routes(app):
                              all_records=all_small_gold_records,
                              app_version=APP_VERSION)
 
-    @app.route('/achievement/big_gold_master')
+    @bp.route('/achievement/big_gold_master')
     def achievement_big_gold_master():
         """大金达人成就详情"""
         # 获取大金达人玩家
-        achievement_players = get_achievement_master_players('big_gold_master')
+        achievement_players = get_achievement_master_players(_org_id(), 'big_gold_master')
 
         # 获取大金记录（用于展示总记录）
-        all_big_gold_records = get_achievement_records('big_gold')
+        all_big_gold_records = get_achievement_records(_org_id(), 'big_gold')
 
         # 成就配置
         achievement_config = {
@@ -216,14 +220,14 @@ def register_achievement_routes(app):
                              all_records=all_big_gold_records,
                              app_version=APP_VERSION)
 
-    @app.route('/achievement/big_gold_legend')
+    @bp.route('/achievement/big_gold_legend')
     def achievement_big_gold_legend():
         """大金传奇成就详情"""
         # 获取大金传奇玩家
-        achievement_players = get_achievement_master_players('big_gold_legend')
+        achievement_players = get_achievement_master_players(_org_id(), 'big_gold_legend')
 
         # 获取大金记录（用于展示总记录）
-        all_big_gold_records = get_achievement_records('big_gold')
+        all_big_gold_records = get_achievement_records(_org_id(), 'big_gold')
 
         # 成就配置
         achievement_config = {
@@ -242,11 +246,11 @@ def register_achievement_routes(app):
                              all_records=all_big_gold_records,
                              app_version=APP_VERSION)
 
-    @app.route('/achievement/small_gold_legend')
+    @bp.route('/achievement/small_gold_legend')
     def achievement_small_gold_legend():
         """小金传奇详情"""
-        achievement_players = get_achievement_master_players('small_gold_legend')
-        all_small_gold_records = get_achievement_records('small_gold')
+        achievement_players = get_achievement_master_players(_org_id(), 'small_gold_legend')
+        all_small_gold_records = get_achievement_records(_org_id(), 'small_gold')
 
         achievement_config = {
             'id': 'small_gold_legend',
@@ -264,14 +268,14 @@ def register_achievement_routes(app):
                              all_records=all_small_gold_records,
                              app_version=APP_VERSION)
 
-    @app.route('/achievement/gold_loser')
+    @bp.route('/achievement/gold_loser')
     def achievement_gold_loser():
         """大吃一金负面成就详情"""
         # 获取大吃一金玩家
-        achievement_players = get_negative_achievement_players('gold_loser')
+        achievement_players = get_negative_achievement_players(_org_id(), 'gold_loser')
 
         # 获取被大小金痛击的记录（最近50条）
-        achievement_records = get_negative_achievement_records('gold_loser')[:50]
+        achievement_records = get_negative_achievement_records(_org_id(), 'gold_loser')[:50]
 
         # 成就配置
         achievement_config = {
@@ -290,10 +294,10 @@ def register_achievement_routes(app):
                              achievement_records=achievement_records,
                              app_version=APP_VERSION)
 
-    @app.route('/achievement/best_buddy')
+    @bp.route('/achievement/best_buddy')
     def achievement_best_buddy():
         """好兄弟详情页"""
-        buddy_stats = get_best_buddy_stats()
+        buddy_stats = get_best_buddy_stats(_org_id())
 
         achievement_config = {
             'id': 'best_buddy',
@@ -310,10 +314,10 @@ def register_achievement_routes(app):
                              buddy_stats=buddy_stats,
                              app_version=APP_VERSION)
 
-    @app.route('/achievement/duo_loser')
+    @bp.route('/achievement/duo_loser')
     def achievement_duo_loser():
         """有难同当详情页"""
-        duo_stats = get_duo_loser_stats()
+        duo_stats = get_duo_loser_stats(_org_id())
 
         achievement_config = {
             'id': 'duo_loser',
@@ -330,10 +334,10 @@ def register_achievement_routes(app):
                              duo_stats=duo_stats,
                              app_version=APP_VERSION)
 
-    @app.route('/achievement/honor_roll')
+    @bp.route('/achievement/honor_roll')
     def achievement_honor_roll():
         """榜上有名详情页：冠军榜 + 必吃榜"""
-        stats = get_honor_roll_stats(top_n=10)
+        stats = get_honor_roll_stats(_org_id(), top_n=10)
 
         achievement_config = {
             'id': 'honor_roll',
@@ -351,8 +355,8 @@ def register_achievement_routes(app):
                              losers=stats['losers'],
                              app_version=APP_VERSION)
 
-    @app.route('/achievement/<achievement_id>')
+    @bp.route('/achievement/<achievement_id>')
     def achievement_fallback(achievement_id):
         """未定义成就的后备路由"""
         flash(f'成就 "{achievement_id}" 不存在或尚未实现', 'error')
-        return redirect(url_for('achievements'))
+        return redirect(url_for('tenant.achievements'))

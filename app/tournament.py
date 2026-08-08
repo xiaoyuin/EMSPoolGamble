@@ -17,6 +17,7 @@ import uuid
 import math
 import random
 import re
+import sqlite3
 from typing import List, Dict, Optional, Tuple
 
 from .database import db
@@ -38,7 +39,7 @@ def games_needed_to_win(best_of: int) -> int:
 
 # ===== 创建 / 查询 tournaments =====
 
-def create_tournament(name: str, rounds_config: List[Dict]) -> str:
+def create_tournament(org_id: str, name: str, rounds_config: List[Dict]) -> str:
     """
     创建一个新赛事。
     rounds_config: 每轮的配置，按从早到晚顺序排列，例如
@@ -56,39 +57,40 @@ def create_tournament(name: str, rounds_config: List[Dict]) -> str:
     with db.get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute('''
-            INSERT INTO tournaments (tournament_id, name, bracket_size, status, created_at, updated_at)
-            VALUES (?, ?, NULL, ?, ?, ?)
-        ''', (tournament_id, name, STATUS_REGISTRATION, now, now))
+            INSERT INTO tournaments (tournament_id, org_id, name, bracket_size, status, created_at, updated_at)
+            VALUES (?, ?, ?, NULL, ?, ?, ?)
+        ''', (tournament_id, org_id, name, STATUS_REGISTRATION, now, now))
 
         for idx, r in enumerate(rounds_config, start=1):
             cursor.execute('''
-                INSERT INTO tournament_rounds (tournament_id, round_index, round_name, best_of)
-                VALUES (?, ?, ?, ?)
-            ''', (tournament_id, idx, r['name'], r['best_of']))
+                INSERT INTO tournament_rounds (org_id, tournament_id, round_index, round_name, best_of)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (org_id, tournament_id, idx, r['name'], r['best_of']))
 
         conn.commit()
     return tournament_id
 
 
-def list_tournaments() -> List[Dict]:
+def list_tournaments(org_id: str) -> List[Dict]:
     """按创建时间倒序列出所有赛事，附带参赛人数。"""
     with db.get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute('''
             SELECT t.*, (
-                SELECT COUNT(*) FROM tournament_participants tp WHERE tp.tournament_id = t.tournament_id
+                SELECT COUNT(*) FROM tournament_participants tp WHERE tp.org_id = t.org_id AND tp.tournament_id = t.tournament_id
             ) AS participant_count
             FROM tournaments t
+            WHERE t.org_id = ?
             ORDER BY t.created_at DESC
-        ''')
+        ''', (org_id,))
         return [dict(row) for row in cursor.fetchall()]
 
 
-def get_tournament(tournament_id: str) -> Optional[Dict]:
+def get_tournament(org_id: str, tournament_id: str) -> Optional[Dict]:
     """获取赛事完整信息：基础字段 + 各轮配置 + 参赛者列表。"""
     with db.get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute('SELECT * FROM tournaments WHERE tournament_id = ?', (tournament_id,))
+        cursor.execute('SELECT * FROM tournaments WHERE org_id = ? AND tournament_id = ?', (org_id, tournament_id))
         row = cursor.fetchone()
         if not row:
             return None
@@ -97,27 +99,27 @@ def get_tournament(tournament_id: str) -> Optional[Dict]:
         cursor.execute('''
             SELECT round_index, round_name, best_of
             FROM tournament_rounds
-            WHERE tournament_id = ?
+            WHERE org_id = ? AND tournament_id = ?
             ORDER BY round_index
-        ''', (tournament_id,))
+        ''', (org_id, tournament_id))
         tournament['rounds'] = [dict(r) for r in cursor.fetchall()]
 
         cursor.execute('''
             SELECT tp.player_id, tp.seed, p.name AS player_name
             FROM tournament_participants tp
-            JOIN players p ON p.player_id = tp.player_id
-            WHERE tp.tournament_id = ?
+            JOIN players p ON p.org_id = tp.org_id AND p.player_id = tp.player_id
+            WHERE tp.org_id = ? AND tp.tournament_id = ?
             ORDER BY
                 CASE WHEN tp.seed IS NULL THEN 1 ELSE 0 END,
                 tp.seed,
                 p.name
-        ''', (tournament_id,))
+        ''', (org_id, tournament_id))
         tournament['participants'] = [dict(r) for r in cursor.fetchall()]
 
         return tournament
 
 
-def update_tournament_status(tournament_id: str, status: str) -> bool:
+def update_tournament_status(org_id: str, tournament_id: str, status: str) -> bool:
     if status not in VALID_STATUSES:
         return False
     now = get_utc_timestamp()
@@ -127,59 +129,74 @@ def update_tournament_status(tournament_id: str, status: str) -> bool:
         if completed_at:
             cursor.execute('''
                 UPDATE tournaments SET status = ?, updated_at = ?, completed_at = ?
-                WHERE tournament_id = ?
-            ''', (status, now, completed_at, tournament_id))
+                WHERE org_id = ? AND tournament_id = ?
+            ''', (status, now, completed_at, org_id, tournament_id))
         else:
             cursor.execute('''
                 UPDATE tournaments SET status = ?, updated_at = ?
-                WHERE tournament_id = ?
-            ''', (status, now, tournament_id))
+                WHERE org_id = ? AND tournament_id = ?
+            ''', (status, now, org_id, tournament_id))
         conn.commit()
         return cursor.rowcount > 0
 
 
-def delete_tournament(tournament_id: str) -> bool:
+def delete_tournament(org_id: str, tournament_id: str) -> bool:
     """硬删除整个赛事（含所有 rounds / participants / matches / match_games）。"""
     with db.get_connection() as conn:
         cursor = conn.cursor()
         # SQLite 默认不开 ON DELETE CASCADE，手动级联删除
-        cursor.execute('DELETE FROM tournament_match_games WHERE match_id IN '
-                       '(SELECT match_id FROM tournament_matches WHERE tournament_id = ?)',
-                       (tournament_id,))
-        cursor.execute('DELETE FROM tournament_matches WHERE tournament_id = ?', (tournament_id,))
-        cursor.execute('DELETE FROM tournament_participants WHERE tournament_id = ?', (tournament_id,))
-        cursor.execute('DELETE FROM tournament_rounds WHERE tournament_id = ?', (tournament_id,))
-        cursor.execute('DELETE FROM tournaments WHERE tournament_id = ?', (tournament_id,))
+        cursor.execute('DELETE FROM tournament_match_games WHERE org_id = ? AND match_id IN '
+                       '(SELECT match_id FROM tournament_matches WHERE org_id = ? AND tournament_id = ?)',
+                       (org_id, org_id, tournament_id))
+        cursor.execute('DELETE FROM tournament_matches WHERE org_id = ? AND tournament_id = ?', (org_id, tournament_id))
+        cursor.execute('DELETE FROM tournament_participants WHERE org_id = ? AND tournament_id = ?', (org_id, tournament_id))
+        cursor.execute('DELETE FROM tournament_rounds WHERE org_id = ? AND tournament_id = ?', (org_id, tournament_id))
+        cursor.execute('DELETE FROM tournaments WHERE org_id = ? AND tournament_id = ?', (org_id, tournament_id))
         conn.commit()
         return cursor.rowcount > 0
 
 
 # ===== 参赛者管理（#3 用） =====
 
-def add_participant(tournament_id: str, player_id: str, seed: Optional[int] = None) -> bool:
-    """添加参赛者；如果已存在则返回 False。"""
+def add_participant(org_id: str, tournament_id: str, player_id: str, seed: Optional[int] = None) -> bool:
+    """添加参赛者；如果已存在或不属于当前组织则返回 False。"""
     with db.get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute('''
-            INSERT OR IGNORE INTO tournament_participants (tournament_id, player_id, seed)
-            VALUES (?, ?, ?)
-        ''', (tournament_id, player_id, seed))
+        cursor.execute(
+            'SELECT 1 FROM tournaments WHERE org_id = ? AND tournament_id = ?',
+            (org_id, tournament_id),
+        )
+        if not cursor.fetchone():
+            return False
+        cursor.execute(
+            'SELECT 1 FROM players WHERE org_id = ? AND player_id = ?',
+            (org_id, player_id),
+        )
+        if not cursor.fetchone():
+            return False
+        try:
+            cursor.execute('''
+                INSERT OR IGNORE INTO tournament_participants (org_id, tournament_id, player_id, seed)
+                VALUES (?, ?, ?, ?)
+            ''', (org_id, tournament_id, player_id, seed))
+        except sqlite3.IntegrityError:
+            return False
         conn.commit()
         return cursor.rowcount > 0
 
 
-def remove_participant(tournament_id: str, player_id: str) -> bool:
+def remove_participant(org_id: str, tournament_id: str, player_id: str) -> bool:
     with db.get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute('''
             DELETE FROM tournament_participants
-            WHERE tournament_id = ? AND player_id = ?
-        ''', (tournament_id, player_id))
+            WHERE org_id = ? AND tournament_id = ? AND player_id = ?
+        ''', (org_id, tournament_id, player_id))
         conn.commit()
         return cursor.rowcount > 0
 
 
-def set_participant_seed(tournament_id: str, player_id: str, seed: Optional[int]) -> bool:
+def set_participant_seed(org_id: str, tournament_id: str, player_id: str, seed: Optional[int]) -> bool:
     """设置或清除参赛者的种子号；seed 应为 1-4 或 None。"""
     if seed is not None and (not isinstance(seed, int) or seed < 1 or seed > 4):
         return False
@@ -187,8 +204,8 @@ def set_participant_seed(tournament_id: str, player_id: str, seed: Optional[int]
         cursor = conn.cursor()
         cursor.execute('''
             UPDATE tournament_participants SET seed = ?
-            WHERE tournament_id = ? AND player_id = ?
-        ''', (seed, tournament_id, player_id))
+            WHERE org_id = ? AND tournament_id = ? AND player_id = ?
+        ''', (seed, org_id, tournament_id, player_id))
         conn.commit()
         return cursor.rowcount > 0
 
@@ -390,13 +407,13 @@ def _build_bracket_layout(participants: List[Dict],
     return slots
 
 
-def preview_bracket_layout(tournament_id: str,
+def preview_bracket_layout(org_id: str, tournament_id: str,
                            manual_slots: Optional[Dict[int, str]] = None
                            ) -> Tuple[Optional[Dict], str]:
     """Dry-run 计算首轮 slot 布局，不写库。返回
     (result_dict, '') 成功，或 (None, error_message) 失败。
     """
-    tournament = get_tournament(tournament_id)
+    tournament = get_tournament(org_id, tournament_id)
     if not tournament:
         return None, '赛事不存在'
     if tournament['status'] not in (STATUS_DRAFT, STATUS_REGISTRATION):
@@ -425,7 +442,7 @@ def preview_bracket_layout(tournament_id: str,
     return {'bracket_size': bracket_size, 'slots': payload_slots}, ''
 
 
-def generate_bracket(tournament_id: str,
+def generate_bracket(org_id: str, tournament_id: str,
                      manual_slots: Optional[Dict[int, str]] = None
                      ) -> Tuple[bool, str]:
     """
@@ -446,7 +463,7 @@ def generate_bracket(tournament_id: str,
     返回：
       (ok, message) — ok=False 时 message 包含具体失败原因
     """
-    tournament = get_tournament(tournament_id)
+    tournament = get_tournament(org_id, tournament_id)
     if not tournament:
         return False, '赛事不存在'
     if tournament['status'] not in (STATUS_DRAFT, STATUS_REGISTRATION):
@@ -476,10 +493,10 @@ def generate_bracket(tournament_id: str,
 
         # 防御性清理
         cursor.execute(
-            'DELETE FROM tournament_match_games WHERE match_id IN '
-            '(SELECT match_id FROM tournament_matches WHERE tournament_id = ?)',
-            (tournament_id,))
-        cursor.execute('DELETE FROM tournament_matches WHERE tournament_id = ?', (tournament_id,))
+            'DELETE FROM tournament_match_games WHERE org_id = ? AND match_id IN '
+            '(SELECT match_id FROM tournament_matches WHERE org_id = ? AND tournament_id = ?)',
+            (org_id, org_id, tournament_id))
+        cursor.execute('DELETE FROM tournament_matches WHERE org_id = ? AND tournament_id = ?', (org_id, tournament_id))
 
         for round_index in range(1, expected_rounds + 1):
             matches_in_round = bracket_size // (2 ** round_index)
@@ -499,45 +516,45 @@ def generate_bracket(tournament_id: str,
                         winner_id = None
                     cursor.execute('''
                         INSERT INTO tournament_matches
-                        (match_id, tournament_id, round_index, slot_index,
+                        (match_id, org_id, tournament_id, round_index, slot_index,
                          player1_id, player2_id, is_bye, winner_id,
                          player1_games_won, player2_games_won,
                          started_at, finished_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)
-                    ''', (match_id, tournament_id, round_index, slot_index,
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)
+                    ''', (match_id, org_id, tournament_id, round_index, slot_index,
                           p1, p2, is_bye, winner_id,
                           now if winner_id else None,
                           now if winner_id else None))
                 else:
                     cursor.execute('''
                         INSERT INTO tournament_matches
-                        (match_id, tournament_id, round_index, slot_index,
+                        (match_id, org_id, tournament_id, round_index, slot_index,
                          player1_id, player2_id, is_bye, winner_id,
                          player1_games_won, player2_games_won)
-                        VALUES (?, ?, ?, ?, NULL, NULL, 0, NULL, 0, 0)
-                    ''', (match_id, tournament_id, round_index, slot_index))
+                        VALUES (?, ?, ?, ?, ?, NULL, NULL, 0, NULL, 0, 0)
+                    ''', (match_id, org_id, tournament_id, round_index, slot_index))
 
         # bye 胜者向上晋级
         cursor.execute('''
             SELECT match_id, round_index, slot_index, winner_id
             FROM tournament_matches
-            WHERE tournament_id = ? AND is_bye = 1 AND winner_id IS NOT NULL
+            WHERE org_id = ? AND tournament_id = ? AND is_bye = 1 AND winner_id IS NOT NULL
             ORDER BY round_index, slot_index
-        ''', (tournament_id,))
+        ''', (org_id, tournament_id))
         for row in cursor.fetchall():
             _propagate_winner_to_next_round(
-                cursor, tournament_id, row['round_index'], row['slot_index'], row['winner_id'])
+                cursor, org_id, tournament_id, row['round_index'], row['slot_index'], row['winner_id'])
 
         cursor.execute('''
             UPDATE tournaments SET bracket_size = ?, status = ?, updated_at = ?
-            WHERE tournament_id = ?
-        ''', (bracket_size, STATUS_IN_PROGRESS, now, tournament_id))
+            WHERE org_id = ? AND tournament_id = ?
+        ''', (bracket_size, STATUS_IN_PROGRESS, now, org_id, tournament_id))
 
         conn.commit()
     return True, ''
 
 
-def _propagate_winner_to_next_round(cursor, tournament_id: str,
+def _propagate_winner_to_next_round(cursor, org_id: str, tournament_id: str,
                                     from_round: int, from_slot: int, winner_id: str) -> None:
     """把某场 match 的胜者填到下一轮对应 slot 的 player1 或 player2。
 
@@ -551,8 +568,8 @@ def _propagate_winner_to_next_round(cursor, tournament_id: str,
     cursor.execute('''
         SELECT match_id, player1_id, player2_id, is_bye
         FROM tournament_matches
-        WHERE tournament_id = ? AND round_index = ? AND slot_index = ?
-    ''', (tournament_id, next_round, next_slot))
+        WHERE org_id = ? AND tournament_id = ? AND round_index = ? AND slot_index = ?
+    ''', (org_id, tournament_id, next_round, next_slot))
     row = cursor.fetchone()
     if not row:
         return  # 已经是最后一轮
@@ -560,18 +577,18 @@ def _propagate_winner_to_next_round(cursor, tournament_id: str,
     if is_player1:
         cursor.execute('''
             UPDATE tournament_matches SET player1_id = ?
-            WHERE match_id = ?
-        ''', (winner_id, row['match_id']))
+            WHERE org_id = ? AND match_id = ?
+        ''', (winner_id, org_id, row['match_id']))
     else:
         cursor.execute('''
             UPDATE tournament_matches SET player2_id = ?
-            WHERE match_id = ?
-        ''', (winner_id, row['match_id']))
+            WHERE org_id = ? AND match_id = ?
+        ''', (winner_id, org_id, row['match_id']))
 
 
 # ===== 查询 bracket（详情页用） =====
 
-def get_bracket(tournament_id: str) -> List[List[Dict]]:
+def get_bracket(org_id: str, tournament_id: str) -> List[List[Dict]]:
     """返回 [[round1_matches], [round2_matches], ...]，每场 match 含玩家名。
 
     在原始字段之外，额外注入：
@@ -591,17 +608,17 @@ def get_bracket(tournament_id: str) -> List[List[Dict]]:
                    tp2.seed AS player2_seed,
                    r.round_name, r.best_of
             FROM tournament_matches m
-            LEFT JOIN players p1 ON p1.player_id = m.player1_id
-            LEFT JOIN players p2 ON p2.player_id = m.player2_id
-            LEFT JOIN players pw ON pw.player_id = m.winner_id
+            LEFT JOIN players p1 ON p1.org_id = m.org_id AND p1.player_id = m.player1_id
+            LEFT JOIN players p2 ON p2.org_id = m.org_id AND p2.player_id = m.player2_id
+            LEFT JOIN players pw ON pw.org_id = m.org_id AND pw.player_id = m.winner_id
             LEFT JOIN tournament_participants tp1
-                ON tp1.tournament_id = m.tournament_id AND tp1.player_id = m.player1_id
+                ON tp1.org_id = m.org_id AND tp1.tournament_id = m.tournament_id AND tp1.player_id = m.player1_id
             LEFT JOIN tournament_participants tp2
-                ON tp2.tournament_id = m.tournament_id AND tp2.player_id = m.player2_id
-            JOIN tournament_rounds r ON r.tournament_id = m.tournament_id AND r.round_index = m.round_index
-            WHERE m.tournament_id = ?
+                ON tp2.org_id = m.org_id AND tp2.tournament_id = m.tournament_id AND tp2.player_id = m.player2_id
+            JOIN tournament_rounds r ON r.org_id = m.org_id AND r.tournament_id = m.tournament_id AND r.round_index = m.round_index
+            WHERE m.org_id = ? AND m.tournament_id = ?
             ORDER BY m.round_index, m.slot_index
-        ''', (tournament_id,))
+        ''', (org_id, tournament_id))
         rows = [dict(r) for r in cursor.fetchall()]
 
     by_round: Dict[int, List[Dict]] = {}
@@ -634,7 +651,7 @@ def get_bracket(tournament_id: str) -> List[List[Dict]]:
     return rounds
 
 
-def get_match(match_id: str) -> Optional[Dict]:
+def get_match(org_id: str, match_id: str) -> Optional[Dict]:
     """获取单场对阵的完整信息（含玩家名、轮信息、逐局历史、全局编号、上一轮对应场次编号）。"""
     with db.get_connection() as conn:
         cursor = conn.cursor()
@@ -648,17 +665,17 @@ def get_match(match_id: str) -> Optional[Dict]:
                    r.round_name, r.best_of,
                    t.name AS tournament_name, t.status AS tournament_status
             FROM tournament_matches m
-            LEFT JOIN players p1 ON p1.player_id = m.player1_id
-            LEFT JOIN players p2 ON p2.player_id = m.player2_id
-            LEFT JOIN players pw ON pw.player_id = m.winner_id
+            LEFT JOIN players p1 ON p1.org_id = m.org_id AND p1.player_id = m.player1_id
+            LEFT JOIN players p2 ON p2.org_id = m.org_id AND p2.player_id = m.player2_id
+            LEFT JOIN players pw ON pw.org_id = m.org_id AND pw.player_id = m.winner_id
             LEFT JOIN tournament_participants tp1
-                ON tp1.tournament_id = m.tournament_id AND tp1.player_id = m.player1_id
+                ON tp1.org_id = m.org_id AND tp1.tournament_id = m.tournament_id AND tp1.player_id = m.player1_id
             LEFT JOIN tournament_participants tp2
-                ON tp2.tournament_id = m.tournament_id AND tp2.player_id = m.player2_id
-            JOIN tournament_rounds r ON r.tournament_id = m.tournament_id AND r.round_index = m.round_index
-            JOIN tournaments t ON t.tournament_id = m.tournament_id
-            WHERE m.match_id = ?
-        ''', (match_id,))
+                ON tp2.org_id = m.org_id AND tp2.tournament_id = m.tournament_id AND tp2.player_id = m.player2_id
+            JOIN tournament_rounds r ON r.org_id = m.org_id AND r.tournament_id = m.tournament_id AND r.round_index = m.round_index
+            JOIN tournaments t ON t.org_id = m.org_id AND t.tournament_id = m.tournament_id
+            WHERE m.org_id = ? AND m.match_id = ?
+        ''', (org_id, match_id))
         row = cursor.fetchone()
         if not row:
             return None
@@ -668,10 +685,10 @@ def get_match(match_id: str) -> Optional[Dict]:
         cursor.execute('''
             SELECT mg.game_index, mg.winner_id, p.name AS winner_name
             FROM tournament_match_games mg
-            LEFT JOIN players p ON p.player_id = mg.winner_id
-            WHERE mg.match_id = ?
+            LEFT JOIN players p ON p.org_id = mg.org_id AND p.player_id = mg.winner_id
+            WHERE mg.org_id = ? AND mg.match_id = ?
             ORDER BY mg.game_index
-        ''', (match_id,))
+        ''', (org_id, match_id))
         match['games'] = [dict(g) for g in cursor.fetchall()]
 
         # 计算全局 match_number（按 round_index, slot_index 排序时的全局序号），
@@ -681,8 +698,8 @@ def get_match(match_id: str) -> Optional[Dict]:
             SELECT match_id, round_index, slot_index,
                    ROW_NUMBER() OVER (ORDER BY round_index, slot_index) AS num
             FROM tournament_matches
-            WHERE tournament_id = ?
-        ''', (match['tournament_id'],))
+            WHERE org_id = ? AND tournament_id = ?
+        ''', (org_id, match['tournament_id']))
         all_rows = cursor.fetchall()
         number_lookup = {(r['round_index'], r['slot_index']): r['num'] for r in all_rows}
         by_id = {r['match_id']: r['num'] for r in all_rows}
@@ -701,7 +718,7 @@ def get_match(match_id: str) -> Optional[Dict]:
 
 # ===== 录入比分 / 撤销（#4） =====
 
-def record_match_game(match_id: str, winner_side: int) -> Tuple[bool, str]:
+def record_match_game(org_id: str, match_id: str, winner_side: int) -> Tuple[bool, str]:
     """记录某场对阵的下一局结果。
 
     winner_side: 1 表示 player1 赢这一局，2 表示 player2 赢。
@@ -712,7 +729,7 @@ def record_match_game(match_id: str, winner_side: int) -> Tuple[bool, str]:
     if winner_side not in (1, 2):
         return False, '非法的 winner_side'
 
-    match = get_match(match_id)
+    match = get_match(org_id, match_id)
     if not match:
         return False, 'match 不存在'
     if match['is_bye']:
@@ -736,9 +753,9 @@ def record_match_game(match_id: str, winner_side: int) -> Tuple[bool, str]:
         next_game_idx = len(match['games']) + 1
         winner_id = match['player1_id'] if winner_side == 1 else match['player2_id']
         cursor.execute('''
-            INSERT INTO tournament_match_games (match_id, game_index, winner_id)
-            VALUES (?, ?, ?)
-        ''', (match_id, next_game_idx, winner_id))
+            INSERT INTO tournament_match_games (org_id, match_id, game_index, winner_id)
+            VALUES (?, ?, ?, ?)
+        ''', (org_id, match_id, next_game_idx, winner_id))
 
         # 更新 match 总比分
         match_winner_id = None
@@ -753,42 +770,42 @@ def record_match_game(match_id: str, winner_side: int) -> Tuple[bool, str]:
                 SET player1_games_won = ?, player2_games_won = ?,
                     winner_id = ?, finished_at = ?,
                     started_at = COALESCE(started_at, ?)
-                WHERE match_id = ?
-            ''', (new_p1, new_p2, match_winner_id, now, now, match_id))
+                WHERE org_id = ? AND match_id = ?
+            ''', (new_p1, new_p2, match_winner_id, now, now, org_id, match_id))
             # 晋级
             _propagate_winner_to_next_round(
-                cursor, match['tournament_id'],
+                cursor, org_id, match['tournament_id'],
                 match['round_index'], match['slot_index'], match_winner_id)
             # 检查是否决赛胜出 → 完成赛事
             cursor.execute('''
                 SELECT MAX(round_index) AS final_round
-                FROM tournament_matches WHERE tournament_id = ?
-            ''', (match['tournament_id'],))
+                FROM tournament_matches WHERE org_id = ? AND tournament_id = ?
+            ''', (org_id, match['tournament_id']))
             final_round = cursor.fetchone()['final_round']
             if match['round_index'] == final_round:
                 cursor.execute('''
                     UPDATE tournaments SET status = ?, completed_at = ?, updated_at = ?
-                    WHERE tournament_id = ?
-                ''', (STATUS_COMPLETED, now, now, match['tournament_id']))
+                    WHERE org_id = ? AND tournament_id = ?
+                ''', (STATUS_COMPLETED, now, now, org_id, match['tournament_id']))
         else:
             cursor.execute('''
                 UPDATE tournament_matches
                 SET player1_games_won = ?, player2_games_won = ?,
                     started_at = COALESCE(started_at, ?)
-                WHERE match_id = ?
-            ''', (new_p1, new_p2, now, match_id))
+                WHERE org_id = ? AND match_id = ?
+            ''', (new_p1, new_p2, now, org_id, match_id))
 
         conn.commit()
     return True, '已记录'
 
 
-def record_match_result(match_id: str, p1_games: int, p2_games: int) -> Tuple[bool, str]:
+def record_match_result(org_id: str, match_id: str, p1_games: int, p2_games: int) -> Tuple[bool, str]:
     """直接录入整场比赛的总比分（覆盖式，用于一次性输入最终结果）。
 
     要求其中一方达到 best-of 胜局数，另一方少于胜局数。
     覆盖时会清掉之前的逐局记录。
     """
-    match = get_match(match_id)
+    match = get_match(org_id, match_id)
     if not match:
         return False, 'match 不存在'
     if match['is_bye']:
@@ -812,37 +829,37 @@ def record_match_result(match_id: str, p1_games: int, p2_games: int) -> Tuple[bo
     with db.get_connection() as conn:
         cursor = conn.cursor()
         # 清掉之前的逐局记录（如果有）
-        cursor.execute('DELETE FROM tournament_match_games WHERE match_id = ?', (match_id,))
+        cursor.execute('DELETE FROM tournament_match_games WHERE org_id = ? AND match_id = ?', (org_id, match_id))
 
         cursor.execute('''
             UPDATE tournament_matches
             SET player1_games_won = ?, player2_games_won = ?,
                 winner_id = ?, finished_at = ?,
                 started_at = COALESCE(started_at, ?)
-            WHERE match_id = ?
-        ''', (p1_games, p2_games, winner_id, now, now, match_id))
+            WHERE org_id = ? AND match_id = ?
+        ''', (p1_games, p2_games, winner_id, now, now, org_id, match_id))
 
         _propagate_winner_to_next_round(
-            cursor, match['tournament_id'],
+            cursor, org_id, match['tournament_id'],
             match['round_index'], match['slot_index'], winner_id)
 
         # 决赛 → 完成赛事
         cursor.execute('''
             SELECT MAX(round_index) AS final_round
-            FROM tournament_matches WHERE tournament_id = ?
-        ''', (match['tournament_id'],))
+            FROM tournament_matches WHERE org_id = ? AND tournament_id = ?
+        ''', (org_id, match['tournament_id']))
         final_round = cursor.fetchone()['final_round']
         if match['round_index'] == final_round:
             cursor.execute('''
                 UPDATE tournaments SET status = ?, completed_at = ?, updated_at = ?
-                WHERE tournament_id = ?
-            ''', (STATUS_COMPLETED, now, now, match['tournament_id']))
+                WHERE org_id = ? AND tournament_id = ?
+            ''', (STATUS_COMPLETED, now, now, org_id, match['tournament_id']))
 
         conn.commit()
     return True, '已记录'
 
 
-def set_match_video_url(match_id: str, video_url: str) -> Tuple[bool, str]:
+def set_match_video_url(org_id: str, match_id: str, video_url: str) -> Tuple[bool, str]:
     """更新某场对阵的视频 iframe src；传空字符串则清除。
     只接受白名单域的 https URL，防止 XSS / 任意嵌套。"""
     url = (video_url or '').strip()
@@ -853,11 +870,11 @@ def set_match_video_url(match_id: str, video_url: str) -> Tuple[bool, str]:
         url = normalized_or_msg
     with db.get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute('SELECT match_id FROM tournament_matches WHERE match_id = ?', (match_id,))
+        cursor.execute('SELECT match_id FROM tournament_matches WHERE org_id = ? AND match_id = ?', (org_id, match_id))
         if not cursor.fetchone():
             return False, 'match 不存在'
-        cursor.execute('UPDATE tournament_matches SET video_url = ? WHERE match_id = ?',
-                       (url or None, match_id))
+        cursor.execute('UPDATE tournament_matches SET video_url = ? WHERE org_id = ? AND match_id = ?',
+                       (url or None, org_id, match_id))
         conn.commit()
     return True, ('视频链接已更新' if url else '视频链接已清除')
 
@@ -900,14 +917,14 @@ def _validate_iframe_src(url: str) -> Tuple[bool, str]:
     return True, url
 
 
-def reset_match(match_id: str) -> Tuple[bool, str]:
+def reset_match(org_id: str, match_id: str) -> Tuple[bool, str]:
     """撤销一场 match 的录入：清空 winner_id / 比分 / 逐局记录，
     并把下一轮对应 slot 的 player1/player2 字段清掉（否则会显示错误的对手）。
 
     拒绝条件：下一轮对应 match 已有 winner_id（已开打），不能撤销，
     需要先撤销下一轮再回来撤这场。
     """
-    match = get_match(match_id)
+    match = get_match(org_id, match_id)
     if not match:
         return False, 'match 不存在'
     if match['is_bye']:
@@ -922,8 +939,8 @@ def reset_match(match_id: str) -> Tuple[bool, str]:
         next_slot = (match['slot_index'] + 1) // 2
         cursor.execute('''
             SELECT match_id, winner_id FROM tournament_matches
-            WHERE tournament_id = ? AND round_index = ? AND slot_index = ?
-        ''', (match['tournament_id'], next_round, next_slot))
+            WHERE org_id = ? AND tournament_id = ? AND round_index = ? AND slot_index = ?
+        ''', (org_id, match['tournament_id'], next_round, next_slot))
         next_match = cursor.fetchone()
         if next_match and next_match['winner_id']:
             return False, '下一轮对应 match 已有结果，请先撤销下一轮'
@@ -934,35 +951,35 @@ def reset_match(match_id: str) -> Tuple[bool, str]:
             field = 'player1_id' if is_player1 else 'player2_id'
             cursor.execute(f'''
                 UPDATE tournament_matches SET {field} = NULL
-                WHERE match_id = ?
-            ''', (next_match['match_id'],))
+                WHERE org_id = ? AND match_id = ?
+            ''', (org_id, next_match['match_id']))
 
         # 清掉本场的结果
-        cursor.execute('DELETE FROM tournament_match_games WHERE match_id = ?', (match_id,))
+        cursor.execute('DELETE FROM tournament_match_games WHERE org_id = ? AND match_id = ?', (org_id, match_id))
         cursor.execute('''
             UPDATE tournament_matches
             SET winner_id = NULL, player1_games_won = 0, player2_games_won = 0,
                 finished_at = NULL
-            WHERE match_id = ?
-        ''', (match_id,))
+            WHERE org_id = ? AND match_id = ?
+        ''', (org_id, match_id))
 
         # 如果该赛事此前是 completed（决赛被撤销），切回 in_progress
         cursor.execute('''
             UPDATE tournaments SET status = ?, completed_at = NULL, updated_at = ?
-            WHERE tournament_id = ? AND status = ?
+            WHERE org_id = ? AND tournament_id = ? AND status = ?
         ''', (STATUS_IN_PROGRESS, get_utc_timestamp(),
-              match['tournament_id'], STATUS_COMPLETED))
+              org_id, match['tournament_id'], STATUS_COMPLETED))
 
         conn.commit()
     return True, '已撤销'
 
 
-def undo_last_game(match_id: str) -> Tuple[bool, str]:
+def undo_last_game(org_id: str, match_id: str) -> Tuple[bool, str]:
     """撤回某场对阵的最后一局。
 
     如果整场比赛已结束（有 winner_id），也一并撤回胜负判定和晋级。
     """
-    match = get_match(match_id)
+    match = get_match(org_id, match_id)
     if not match:
         return False, 'match 不存在'
     if match['is_bye']:
@@ -978,8 +995,8 @@ def undo_last_game(match_id: str) -> Tuple[bool, str]:
             next_slot = (match['slot_index'] + 1) // 2
             cursor.execute('''
                 SELECT match_id, winner_id, started_at FROM tournament_matches
-                WHERE tournament_id = ? AND round_index = ? AND slot_index = ?
-            ''', (match['tournament_id'], next_round, next_slot))
+                WHERE org_id = ? AND tournament_id = ? AND round_index = ? AND slot_index = ?
+            ''', (org_id, match['tournament_id'], next_round, next_slot))
             next_match = cursor.fetchone()
             if next_match and next_match['winner_id']:
                 return False, '下一轮对应 match 已有结果，请先撤销下一轮'
@@ -995,8 +1012,8 @@ def undo_last_game(match_id: str) -> Tuple[bool, str]:
         # 删除最后一局
         cursor.execute('''
             DELETE FROM tournament_match_games
-            WHERE match_id = ? AND game_index = ?
-        ''', (match_id, last_game['game_index']))
+            WHERE org_id = ? AND match_id = ? AND game_index = ?
+        ''', (org_id, match_id, last_game['game_index']))
 
         if match['winner_id']:
             # 撤回整场胜负：清 winner、晋级 slot、可能的赛事完成状态
@@ -1004,70 +1021,46 @@ def undo_last_game(match_id: str) -> Tuple[bool, str]:
             next_slot = (match['slot_index'] + 1) // 2
             cursor.execute('''
                 SELECT match_id FROM tournament_matches
-                WHERE tournament_id = ? AND round_index = ? AND slot_index = ?
-            ''', (match['tournament_id'], next_round, next_slot))
+                WHERE org_id = ? AND tournament_id = ? AND round_index = ? AND slot_index = ?
+            ''', (org_id, match['tournament_id'], next_round, next_slot))
             next_match = cursor.fetchone()
             if next_match:
                 is_player1 = (match['slot_index'] % 2 == 1)
                 field = 'player1_id' if is_player1 else 'player2_id'
                 cursor.execute(f'''
                     UPDATE tournament_matches SET {field} = NULL
-                    WHERE match_id = ?
-                ''', (next_match['match_id'],))
+                    WHERE org_id = ? AND match_id = ?
+                ''', (org_id, next_match['match_id']))
 
             cursor.execute('''
                 UPDATE tournament_matches
                 SET player1_games_won = ?, player2_games_won = ?,
                     winner_id = NULL, finished_at = NULL
-                WHERE match_id = ?
-            ''', (new_p1, new_p2, match_id))
+                WHERE org_id = ? AND match_id = ?
+            ''', (new_p1, new_p2, org_id, match_id))
 
             # 如果赛事已完成（决赛被撤），切回 in_progress
             cursor.execute('''
                 UPDATE tournaments SET status = ?, completed_at = NULL, updated_at = ?
-                WHERE tournament_id = ? AND status = ?
+                WHERE org_id = ? AND tournament_id = ? AND status = ?
             ''', (STATUS_IN_PROGRESS, get_utc_timestamp(),
-                  match['tournament_id'], STATUS_COMPLETED))
+                  org_id, match['tournament_id'], STATUS_COMPLETED))
         else:
             cursor.execute('''
                 UPDATE tournament_matches
                 SET player1_games_won = ?, player2_games_won = ?
-                WHERE match_id = ?
-            ''', (new_p1, new_p2, match_id))
+                WHERE org_id = ? AND match_id = ?
+            ''', (new_p1, new_p2, org_id, match_id))
 
         conn.commit()
 
     p_name = match['player1_name'] if last_winner == match['player1_id'] else match['player2_name']
     return True, f'已撤回第 {last_game["game_index"]} 局（{p_name} 赢）'
-    """返回 [[round1_matches], [round2_matches], ...]，每场 match 含玩家名。"""
-    with db.get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT m.*,
-                   p1.name AS player1_name,
-                   p2.name AS player2_name,
-                   pw.name AS winner_name,
-                   r.round_name, r.best_of
-            FROM tournament_matches m
-            LEFT JOIN players p1 ON p1.player_id = m.player1_id
-            LEFT JOIN players p2 ON p2.player_id = m.player2_id
-            LEFT JOIN players pw ON pw.player_id = m.winner_id
-            JOIN tournament_rounds r ON r.tournament_id = m.tournament_id AND r.round_index = m.round_index
-            WHERE m.tournament_id = ?
-            ORDER BY m.round_index, m.slot_index
-        ''', (tournament_id,))
-        rows = [dict(r) for r in cursor.fetchall()]
-
-    # 按 round_index 分组
-    by_round: Dict[int, List[Dict]] = {}
-    for r in rows:
-        by_round.setdefault(r['round_index'], []).append(r)
-    return [by_round[i] for i in sorted(by_round.keys())]
 
 
 # ===== 玩家联动（#5 用） =====
 
-def get_player_tournament_history(player_id: str) -> List[Dict]:
+def get_player_tournament_history(org_id: str, player_id: str) -> List[Dict]:
     """
     返回该玩家参加过的所有赛事 + 在每个赛事中的最终成绩。
     成绩定义：
@@ -1082,20 +1075,20 @@ def get_player_tournament_history(player_id: str) -> List[Dict]:
             SELECT t.tournament_id, t.name, t.status, t.bracket_size,
                    t.created_at, t.completed_at, tp.seed
             FROM tournament_participants tp
-            JOIN tournaments t ON t.tournament_id = tp.tournament_id
-            WHERE tp.player_id = ?
+            JOIN tournaments t ON t.org_id = tp.org_id AND t.tournament_id = tp.tournament_id
+            WHERE tp.org_id = ? AND tp.player_id = ?
             ORDER BY t.created_at DESC
-        ''', (player_id,))
+        ''', (org_id, player_id))
         results = []
         for row in cursor.fetchall():
             t = dict(row)
-            placement = _compute_placement(t['tournament_id'], player_id, t['bracket_size'], t['status'])
+            placement = _compute_placement(org_id, t['tournament_id'], player_id, t['bracket_size'], t['status'])
             t['placement'] = placement
             results.append(t)
         return results
 
 
-def _compute_placement(tournament_id: str, player_id: str,
+def _compute_placement(org_id: str, tournament_id: str, player_id: str,
                        bracket_size: Optional[int], status: str) -> str:
     """根据 matches 表推算选手在该赛事的当前名次描述。
 
@@ -1119,10 +1112,10 @@ def _compute_placement(tournament_id: str, player_id: str,
         cursor.execute('''
             SELECT round_index, winner_id, player1_id, player2_id, is_bye
             FROM tournament_matches
-            WHERE tournament_id = ?
+            WHERE org_id = ? AND tournament_id = ?
               AND (player1_id = ? OR player2_id = ?)
             ORDER BY round_index DESC
-        ''', (tournament_id, player_id, player_id))
+        ''', (org_id, tournament_id, player_id, player_id))
         matches = cursor.fetchall()
 
         if not matches:

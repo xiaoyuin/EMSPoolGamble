@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}创建赛事 - EMS Pool{% endblock %}
+{% block title %}创建赛事 - {{ g.organization['name'] }}{% endblock %}
 
 {% block extra_styles %}
 <style>
@@ -52,7 +52,7 @@
 <div class="card">
     <h2 style="margin-top: 0;">创建赛事</h2>
 
-    <form method="post" action="{{ url_for('tournament_create') }}">
+    <form method="post" action="{{ url_for('tenant.tournament_create') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         <div class="form-section">
@@ -88,7 +88,7 @@
         </div>
 
         <div class="form-actions">
-            <a href="{{ url_for('tournament_index') }}" class="btn-secondary">取消</a>
+            <a href="{{ url_for('tenant.tournament_index') }}" class="btn-secondary">取消</a>
             <button type="submit" class="btn-primary">创建</button>
         </div>
     </form>

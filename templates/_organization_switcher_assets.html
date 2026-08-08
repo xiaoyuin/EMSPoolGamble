@@ -1,0 +1,74 @@
+<style>
+.organization-switcher { position: relative; max-width: calc(100% - 5rem); margin: 0 auto; }
+.organization-switcher-btn { display: inline-flex; width: auto; max-width: 100%; align-items: center; justify-content: center; gap: .35rem; margin: 0; padding: .2rem .45rem; border: 0; background: transparent; color: #333; font-size: 1.5em; line-height: 1.25; font-weight: 700; }
+.organization-switcher-btn:hover, .organization-switcher-btn[aria-expanded="true"] { background: rgba(0, 0, 0, .05); }
+.organization-switcher-btn > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.organization-switcher-chevron { display: block; flex: 0 0 auto; width: .75em; height: .75em; color: #888; transform-origin: 50% 50%; transition: transform .15s ease; }
+.organization-switcher-btn[aria-expanded="true"] .organization-switcher-chevron { transform: rotate(180deg); }
+.organization-switcher-dropdown { position: absolute; top: calc(100% + .4rem); left: 50%; z-index: 1100; width: min(19rem, calc(100vw - 2rem)); overflow: hidden; transform: translateX(-50%); border: 1px solid #eee; border-radius: 10px; background: #fff; box-shadow: 0 8px 24px rgba(0, 0, 0, .16); text-align: left; }
+.organization-switcher-dropdown[hidden] { display: none; }
+.organization-switcher-label { padding: .65rem .85rem .4rem; color: #888; font-size: .75rem; font-weight: 600; }
+.organization-switcher-item, .organization-switcher-other { display: block; width: 100%; margin: 0; padding: .72rem .85rem; border: 0; border-radius: 0; background: transparent; color: #333; font: inherit; font-size: .95rem; font-weight: 500; text-align: left; text-decoration: none; box-sizing: border-box; }
+.organization-switcher-item:hover, .organization-switcher-other:hover { background: #fafafa; color: #1890ff; }
+.organization-switcher-item.is-current { color: #1890ff; font-weight: 700; }
+.organization-switcher-item.is-current::after { content: "当前"; float: right; color: #888; font-size: .75rem; font-weight: 400; }
+.organization-switcher-empty { padding: .7rem .85rem; color: #888; font-size: .85rem; }
+.organization-switcher-other { border-top: 1px solid #eee; color: #1890ff; }
+</style>
+<script>
+(function () {
+    const storageKey = 'ems-pool.recent-organizations.v1';
+    const current = {{ {'name': g.organization['name'], 'slug': g.organization['slug']}|tojson }};
+
+    function loadRecentOrganizations() {
+        try {
+            const parsed = JSON.parse(localStorage.getItem(storageKey) || '[]');
+            const bySlug = new Map();
+            if (Array.isArray(parsed)) parsed.forEach(function (entry) {
+                if (!entry || typeof entry.name !== 'string' || !entry.name.trim() ||
+                    typeof entry.slug !== 'string' || !/^[a-z0-9][a-z0-9-]{0,79}$/.test(entry.slug) ||
+                    typeof entry.lastVisitedAt !== 'number' || !Number.isFinite(entry.lastVisitedAt)) return;
+                if (!bySlug.has(entry.slug) || bySlug.get(entry.slug).lastVisitedAt < entry.lastVisitedAt) {
+                    bySlug.set(entry.slug, { name: entry.name.trim(), slug: entry.slug, lastVisitedAt: entry.lastVisitedAt });
+                }
+            });
+            return Array.from(bySlug.values()).sort(function (a, b) { return b.lastVisitedAt - a.lastVisitedAt; });
+        } catch (_) { return []; }
+    }
+
+    document.querySelectorAll('[data-organization-switcher-button]').forEach(function (button) {
+        const switcher = button.closest('.organization-switcher');
+        const dropdown = switcher.querySelector('[data-organization-switcher-dropdown]');
+        const list = switcher.querySelector('[data-organization-switcher-list]');
+        const empty = switcher.querySelector('[data-organization-switcher-empty]');
+
+        function renderOrganizations() {
+            const entries = loadRecentOrganizations();
+            list.replaceChildren();
+            entries.forEach(function (entry) {
+                const link = document.createElement('a');
+                link.className = 'organization-switcher-item';
+                if (entry.slug === current.slug) link.classList.add('is-current');
+                link.href = '/o/' + encodeURIComponent(entry.slug) + '/';
+                link.textContent = entry.name;
+                link.setAttribute('role', 'menuitem');
+                list.appendChild(link);
+            });
+            empty.hidden = entries.length > 0;
+        }
+
+        function setOpen(open) {
+            dropdown.hidden = !open;
+            button.setAttribute('aria-expanded', open ? 'true' : 'false');
+            if (open) renderOrganizations();
+        }
+
+        button.addEventListener('click', function (event) { event.stopPropagation(); setOpen(dropdown.hidden); });
+        dropdown.addEventListener('click', function (event) { event.stopPropagation(); });
+        document.addEventListener('click', function () { setOpen(false); });
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') { setOpen(false); button.focus(); }
+        });
+    });
+})();
+</script>
